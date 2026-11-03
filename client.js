@@ -904,14 +904,30 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"]::after {
 }
 
 /* The panel root, reached through any number of anchors. Clearing its fill is what
-   lets the card show; max-width stops it spilling past the rounded corner; z-index
-   lifts it above the card. */
+   lets the card show; max-width stops it spilling past the rounded corner.
+ *
+ * NO position HERE, AND THAT IS LOAD-BEARING.
+ *
+ * The host positions this element position: absolute with top/right/bottom/left: 0
+ * (.P3OORG_panel). Its HEIGHT comes entirely from being anchored to all four edges of
+ * the column. Setting position: relative — as an earlier version of this rule did —
+ * silently overrides that: the element stops being edge-anchored, has no height of its
+ * own, and collapses to its content. Measured: panel 900px -> 288px, and everything
+ * below the fold became unreachable because every wrapper in the pane is
+ * overflow: hidden. The visible symptom was "the right panel does not scroll".
+ *
+ * It was not a scroll bug. It was a collapsed box.
+ *
+ * z-index also had to go. It only applies to positioned elements, so it was doing
+ * nothing here except documenting an intent that position: relative was supposed to
+ * serve. The card is painted on the COLUMN's ::after, which is a pseudo-element of the
+ * column itself — the panel is a later child in paint order and sits above it already.
+ * Verified: with both declarations removed the card is still visible (696px inside a
+ * 720px column, 0 elements spilling) and the panel is 900px. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] [data-slot] > *:not([data-slot]) {
   background: transparent;
   max-width: 100%;
   box-sizing: border-box;
-  position: relative;
-  z-index: 1;
 }
 
 /* The tab host is the element that actually paints the pane's white surface, one

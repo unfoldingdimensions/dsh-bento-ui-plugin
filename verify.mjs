@@ -266,6 +266,77 @@ check('icon: 36x36 package mark, decorative, exportable', () => {
   return '36x36 outline, presentation, gradient';
 });
 
+check('source: no position on a HOST descendant (layout contract)', () => {
+  // The right panel's root is `position: absolute` with all four insets set by the host
+  // (`.P3OORG_panel`). Its HEIGHT comes from being edge-anchored. Declaring
+  // `position: relative` over it silently detaches it: it stops being edge-anchored,
+  // has no height of its own, and collapses to content.
+  //
+  // That shipped. Measured: panel 900px -> 288px, and because every wrapper in the pane
+  // is `overflow: hidden`, everything below the fold became unreachable. The user's
+  // report was "no scrolling in the right panel"; the cause was a collapsed box.
+  //
+  // SCOPE, because the first version of this check flagged 10 legitimate declarations:
+  //
+  //   ours   `[data-dsh-bento-part="x"]`  the column wrappers the kernel stamps, and
+  //          `::after` on them — positioning these is how the card technique works.
+  //   theirs anything reached THROUGH a host anchor: `[data-slot] >`, `> * > *`,
+  //          `[data-shortcut-modal] > div`, or a host class fragment.
+  //
+  // So the rule is: never declare `position` on an element the host owns, because the
+  // host may be deriving its size from that position. Paint is ours; layout is theirs.
+  const offenders = [];
+  // A selector is "host-owned" when it descends through a HOST anchor — a slot anchor, a
+  // settings-modal child, or a host class fragment. Reaching into our own column's
+  // children (`[part="center"] > * > *`) is still ours: the kernel stamped that column,
+  // and its children are the host's CONTENT, which we are allowed to lift.
+  const HOST_OWNED = /\[data-slot\]\s*>|\[data-shortcut-modal[^\]]*\]\s*>\s*(?!nav)|\[class\*="/;
+
+  // VERIFIED SAFE EXEMPTION. The Settings content column is `position: static` in the
+  // host (measured with the theme off), so `position: relative` on it does not detach
+  // anything — it only makes the column the containing block for the card painted on
+  // its ::before. Measured both states: content 612x800, fills the panel, the real
+  // scroller still `overflowY: auto` and scrolls. Declared here rather than special-cased
+  // silently, so the next reader knows it was checked.
+  const SAFE = /\[data-shortcut-modal="settings"\] > div:has\(\[data-slot="settings\.section"\]\)/;
+
+  for (const name of readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort()) {
+    const lines = readFileSync(join(root, 'src', name), 'utf8').split('\n');
+    // Track the rule properly: open on a line ending with `{`, close on a bare `}`.
+    // The first version never reset, so every later declaration inherited the first
+    // selector and six legitimate declarations were flagged on a clean tree.
+    let current = null;
+    let depth = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (depth === 0 && /\{\s*$/.test(line) && !/^[a-z-]+\s*:/.test(trimmed)) {
+        current = trimmed;
+        depth = 1;
+        continue;
+      }
+      if (depth > 0) {
+        if (trimmed === '}') { depth = 0; current = null; continue; }
+        if (!/^position:\s*(relative|absolute|fixed);/.test(trimmed)) continue;
+        if (!current) continue;
+        if (SAFE.test(current)) continue;
+        if (!HOST_OWNED.test(current)) continue;
+        offenders.push(`${name}:${i + 1}: ${trimmed}  [${current.slice(0, 70)}]`);
+      }
+    }
+  }
+
+  if (offenders.length > 0) {
+    throw new Error(
+      'declaring position on a host element can collapse it —\n    ' +
+        offenders.join('\n    ') +
+        '\n    Paint is ours; layout is theirs.',
+    );
+  }
+  return 'no feature repositions a host-owned element';
+});
+
 check('locales: en and zh present with meta', () => {
   const langs = [];
   for (const lang of ['en', 'zh']) {
