@@ -1567,3 +1567,60 @@ pattern and not the numbers.
 (`Tokens.dc.html`, 25 token rows, and its `README.md` which states it is a reference
 mockup and that values should be replicated in the implementation's own styling system —
 which is precisely what D55 does.)
+---
+
+## D57 — The card shadow is opt-in, and derived from the theme's ink
+
+**Decision.** A seventh feature, `card-shadow`, lifts the four card surfaces with the
+reference's two-layer soft shadow. It is **off by default** and appears as a row in the
+plugin's own Bento layout tab.
+
+**The border rules the reference states were already satisfied.** Every card has a 1px
+hairline (`var(--dsh-bento-edge)`) and rounded corners — radius 20 on the three columns,
+radius 16 (the nested tier) on the Settings card. Nothing needed changing there. What was
+missing was the optional lift.
+
+**The token.**
+
+```
+--dsh-bento-shadow:
+  0 1px 2px  color-mix(in srgb, var(--dsw-alias-label-primary) 4%,  transparent),
+  0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 6%,  transparent);
+```
+
+Offsets, blurs and alphas are the spec's, unchanged. The **colour is derived**, and that
+is a correctness requirement rather than a stylistic one:
+
+- The spec's `rgba(15, 23, 42, …)` is a near-black. `--dsw-alias-label-primary` is that
+  same near-black *per theme*: `#0f1115` in light, `#f9fafb` in dark.
+- Resolved, this yields `(15, 17, 21)` at `.04` and `.06` — within a few RGB units of the
+  spec in light, and correctly *light* in dark, where a shadow must be darker than the
+  surface beneath it rather than darker than white.
+- A literal black would be invisible in dark mode. That is why gate 15 forbids the
+  literal, and why the derivation is the right answer rather than a workaround for the
+  gate.
+
+**Off by default.** A shadow is a preference, not a correction: the flat board is a
+complete look. Defaulting it on would change how every existing user's shell reads on
+update, for a choice they did not make.
+
+**Where the shadow is applied, and where it is not.**
+
+- On the **painted pseudo-elements** (`::after` / `::before`), not on the columns. The card
+  surface is the inset rectangle; a shadow on the column would draw around the column's
+  own edges, outside the gutter, and the card would look like it sat on a larger invisible
+  plate.
+- **Withdrawn on the collapsed sidebar rail**, where the card drops to a 10px radius and a
+  shadow drawn for a 20px card reads as a mistake. The rail keeps its hairline, so it does
+  not lose its edge.
+- The Settings card takes it too, under its own rule, because its radius is the nested
+  tier rather than 20.
+
+**Why `box-shadow` needed no geometry measurement.** Unlike every other change in this
+theme, it cannot affect layout — it cannot move a 1px border, reflow a grid, or change a
+card's height. Verified anyway: centre card 1320x900 and Settings card 800px before and
+after, unchanged.
+
+**Gate 19 added.** No `box-shadow` unless it resolves through a token. Proved red by
+planting the literal form; both this gate and gate 15 catch that plant, which is the
+correct amount of overlap for a rule with two ways to break.

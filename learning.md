@@ -1344,3 +1344,36 @@ three separable facts, and answering only one would have been misleading:
 **The lesson.** "Are we using this reference?" is not yes/no. Separate what a reference
 specifies — values, model, and interaction patterns — because one can be wrong for you
 while another is exactly the thing you are missing.
+---
+
+## L65 — The spec's shadow colour was unusable as written, and the reason is dark mode
+
+The reference gives a shadow as `rgba(15, 23, 42, 0.04)` and `rgba(15, 23, 42, 0.06)`.
+Written literally into the stylesheet that is one line of CSS and it looks correct — in
+light mode. In dark mode a near-black shadow falls on a `#2c2c2e` card and does nothing at
+all: the card silently loses its lift and there is no error to notice.
+
+So the shadow is derived from `--dsw-alias-label-primary`, which is `#0f1115` in light and
+`#f9fafb` in dark — the theme's own near-black/near-white. Reading it back: `(15, 17, 21)`
+at the spec's alphas in light, correctly light in dark.
+
+**The lesson.** A colour in a design spec is usually quoted from one theme. Before copying
+it, ask which surface it was measured against — a shadow, an overlay and a focus ring all
+invert meaning when the surface under them inverts, and all three are the kind of detail
+that gets pasted straight from a mockup.
+
+---
+
+## L66 — "Same offsets, same blurs, different colour" is not a compromise
+
+The shadow I shipped matches the reference in offset, blur radius and alpha, and differs
+only in hue, because it takes its colour from the theme instead of the mockup. It would be
+easy to describe that as an approximation. It is not: the hue *is* the same colour in the
+theme whose values the spec was written for, and it is the only version that is still a
+shadow in the other theme.
+
+**The lesson.** When a spec value is theme-dependent, matching every dimension except the
+theme-dependent one is not 95% fidelity — it is 100% fidelity to the spec's intent and zero
+to a copy of its raw output. Worth saying explicitly rather than letting it read as a
+shortfall, because "we matched all of it but the colour" sounds like an excuse when it is
+actually the only correct reading.

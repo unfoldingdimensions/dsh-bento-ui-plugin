@@ -39,7 +39,7 @@ src/50-feature-settings.js feature: the Settings dialog as a bento board
 src/60-settings.js         settings rows, derived from the registry
 src/99-footer.js           translator, apply(), exports
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 18 pre-install checks
+verify.mjs                 19 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`.
@@ -100,6 +100,9 @@ see A12 and Pass 4.
   tokens and matches the host control's geometry and `role="switch"` semantics.
 - Every resource is owned by `ctx.effect`, so unload and HMR remove the style
   tag, the observer, the stamps and the dictionary registrations.
+- A shadow resolves through `--dsh-bento-shadow`, derived from the theme ink rather
+  than a literal — a hardcoded black shadow is invisible in dark mode, where a shadow must
+  be darker than the surface under it (D57, gate 19).
 - Reduced motion is respected through the token layer, and a literal transition
   duration is a gate failure. The token cannot be the only mechanism: the switch in
   this plugin's own Settings tab is rendered when the theme is off and the stylesheet
@@ -142,7 +145,7 @@ See `decision.md` D23–D25 and `flow.md` §7.
 
 ## Status
 
-Six features ship:
+Seven features ship:
 
 | id | title | default | what it does |
 |---|---|---|---|
@@ -152,6 +155,7 @@ Six features ship:
 | `page-rows` | Page rows | on | gives the rows of full pages mounted in that column (Plugins, MCP) the same tile treatment |
 | `rightbar-card` | Right panel card | on | insets the docked right panel onto its own card |
 | `settings-bento` | Settings board | on | lays the Settings dialog out as a bento board: navigation on the canvas, content on one raised card, row rules removed |
+| `card-shadow` | Card shadow | **off** | lifts the four card surfaces with a soft two-layer shadow; off keeps the flat board |
 
 ### Pass 4 (own Settings tab) — shipped
 
@@ -452,7 +456,7 @@ half now imports and exports exactly as the working themes do, and
 
 ### Regression guard
 
-`node verify.mjs` runs 18 checks before any install and exits non-zero on
+`node verify.mjs` runs 19 checks before any install and exits non-zero on
 failure. Both original failure modes were proved by planting them: a missing
 `main` is reported, and a host half that throws on import is reported cleanly
 instead of crashing the checker itself.
