@@ -62,7 +62,7 @@ Worth recording, because these are the things a future session would otherwise
 |---|---|---|
 | No decorative shadows | 2 `box-shadow` declarations, **both `inset` 1px edges** | matches 86/86 reference cards |
 | One gap, one radius per tier | gutter 12, radius 20, inner 14 — all tokenised | holds |
-| No hardcoded colour | one exception: the switch knob shadow | near-holds (see §4.4) |
+| No hardcoded colour | one exception: the switch knob shadow (P2.10) | near-holds |
 | Closed, fixed set of cells | three columns, host-solved | genuinely closed — the bento property that matters most |
 | Anchor dominance | centre card 1296px vs sidebar 256px = **5.1x** | satisfies the ≥1.5x anchor rule comfortably |
 | One surface per region | sidebar / centre / right / settings body = one card each | holds; no boxes-inside-boxes |
@@ -250,6 +250,15 @@ Measured on the Plugins page: accent `rgb(65,118,230)` at 10px on a 10%-accent p
 On white **3.75**, on our canvas **3.25** (AA small text needs 4.5). Pre-existing host
 styling, not ours, but it is text sitting on a surface we paint, so it is ours to
 notice.
+
+**P2.10 One hardcoded colour in the whole plugin.** `60-settings.js` gives the switch
+knob `boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'`. Every other colour in the plugin is a
+`--dsw-*` host alias or a token. The deviation is defensible — a knob needs a shadow and
+the host exposes no shadow token — but it is a literal in a codebase whose stated rule
+is "no hardcoded colours except artwork", and it is the one thing that will not follow a
+registered theme with an unusual palette. Either tokenise it as `--dsh-bento-knob-shadow`
+or record the exception in `decision.md`; leaving it as the only silent exception is the
+option that ages worst.
 
 ---
 
