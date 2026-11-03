@@ -338,21 +338,51 @@ dsh-bento-theme/
   index.js              host half — export default { apply() {} }
   cordis.patch.yml      one insert row
   build.mjs             concatenates src/*.js → client.js
-  verify.mjs            13 pre-install checks, exits non-zero on failure
+  verify.mjs            23 pre-install checks, exits non-zero on failure
   client.js             GENERATED — do not edit
+  assets/
+    inter-latin.woff2           48 KB, OFL 1.1, wght 100-900 variable
+    jetbrains-mono-latin.woff2  40 KB, OFL 1.1, wght 100-800 variable
+    OFL-Inter.txt               licences, shipped with the fonts
+    OFL-JetBrainsMono.txt
+  tools/
+    make-fontdata.mjs   encodes assets/*.woff2 → src/14-fontdata.js
   src/
     00-prelude.js       window loader envelope, constants, shell role names
+    14-fontdata.js      GENERATED base64 of the two faces — do not edit
     15-tokens.js        design tokens (radii, gutter, surfaces, motion)
     20-kernel.js        feature registry, shell stamping, style assembly
     40-feature-sidebar.js   feature: sidebar card
     45-feature-rows.js      feature: session row tiles
+    47-feature-center.js    feature: the conversation card
+    48-feature-pages.js     feature: rows of full pages in that column
+    49-feature-rightbar.js  feature: the right panel card
     50-feature-settings.js  feature: the Settings dialog as a bento board
+    51-feature-shadow.js    feature: opt-in card shadow
+    52-feature-composer.js  feature: composer + stats strip spacing
+    53-feature-corners.js   feature: clip scrolling content to the card radius
+    54-feature-font.js      feature: the two reference typefaces
+    55-feature-composer-chips.js feature: the control row as one toolbar
     60-settings.js      settings rows derived from the registry
     99-footer.js        translator, guarded apply(), module exports
 ```
 
 Fragments share one lexical scope, so a `const` in one is visible in the next.
 Names must be unique across fragments. Files are concatenated in filename order.
+
+### Generated artifacts and their sources
+
+Two files in the repo are generated, and both are checked rather than trusted:
+
+| generated | source | how drift is caught |
+|---|---|---|
+| `client.js` | `src/*.js` | rebuilt before commit; the preamble says so |
+| `src/14-fontdata.js` | `assets/*.woff2` via `tools/make-fontdata.mjs` | gate 20 decodes the base64 and compares it to the asset, and checks the `wOF2` magic |
+
+The font data carries an exclusion from the "no hardcoded colour" gate **by filename**, not
+by directory: 64 KB of base64 contains the letters of words that gate scans for, so the
+exclusion exists because a coincidence would eventually fail the build on a byte that is not
+a colour. What governs that file instead is the equality check above.
 
 ### The feature contract
 
@@ -590,3 +620,34 @@ the tier's job is to agree with them, not to be more correct than the shell it s
 The theme is a three-pane application shell wearing card surfaces. That is a decision
 (D41), not an oversight: the outer margin is owned by the frame, which carries an
 inline `grid-template-columns` and cannot take padding without moving every column.
+
+### 4b. The font layer (D59)
+
+Two typefaces are carried inside `client.js` as base64 and applied by redefining **two**
+host tokens. This is a contract with the host, not a style choice, and it is worth stating
+because the opposite implementation is the obvious one.
+
+**Why embedded.** No static route serves a plugin's non-JS files: every candidate path
+(`/plugins/<pkg>/icon.svg`, `package.json`, `fonts/*.woff2`, with and without the `??`
+concat form) answered 404. A served font requires a route in the plugin's host half, which
+this plugin deliberately does not do.
+
+**Why two tokens and not thirty-one.** The host declares 183 `--dsw-font-*` tokens. Their
+resolved values all read back with a complete family stack, which looks like 31 literals to
+override. They are **derived**: measured, redefining `--dsw-font-family` alone moves 62 of
+them, and the single literal survivor is `--dsw-font-family-brand` (Montserrat, the
+wordmark — correct to leave alone). The override is therefore:
+
+```
+--dsw-font-family:      'Bento Inter' + the host's exact fallback chain, unchanged
+--ds-font-family-code:  'Bento Mono'  + the host's exact fallback chain, unchanged
+```
+
+**The fallback chain is part of the contract.** The subsets are latin-only, so CJK and
+emoji must fall through to the host's own faces. Truncating the chain would send Chinese
+text to an arbitrary font. Gate 22 asserts the code-family token is redirected too, so the
+pair cannot arrive half-applied.
+
+**Cost.** +128 KB on `client.js` (89,627 → 217,694 bytes), of which 118 KB is base64.
+Accepted in D59; it is paid once, on loopback, and buys both faces at every weight from two
+files.

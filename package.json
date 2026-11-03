@@ -17,10 +17,12 @@
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
-    "icon.svg"
+    "icon.svg",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "fonts": "node tools/make-fontdata.mjs"
   },
   "dsh": {
     "bundle": {

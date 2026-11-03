@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Bento Layout",
-    "description": "Turns the three-column shell into a raised card grid, and lays the Settings dialog out as a bento board. Each piece can be switched off separately in Settings > General."
+    "description": "Turns the three-column shell into a raised card grid, lays the Settings dialog out as a bento board, and applies the reference typefaces. Each piece can be switched off separately in Settings > Bento layout."
   },
   "settings": {
     "title": "Bento layout",

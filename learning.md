@@ -1411,3 +1411,84 @@ radius rather than the inner tier, because it reaches the card's edge.
 **The lesson.** When a shape looks wrong, find out what PAINTS it before editing the thing
 that defines it. A card and the content inside it are painted by different elements, and
 only one of them knows about the curve.
+## L69 — One width probe produced two confident false claims about fonts
+
+D58 stated that Inter was "available in the browser". It is not installed. The probe was:
+
+```
+ctx.font = '16px Inter';  const w = ctx.measureText(sample).width;
+// w !== width of '16px sans-serif'  ->  "Inter is present"
+```
+
+That comparison cannot answer the question. `a !== b` establishes only that they differ. A
+CSS font stack that names a missing family falls back to the **browser default**, and the
+browser default is not `sans-serif`, so a missing font *always* differs from `sans-serif`.
+The probe was guaranteed to produce "present" for any name typed into it, including one
+that does not exist.
+
+**The version that works needs two negative controls.** Measure the candidate and *two*
+deliberately-nonexistent families. A family that is genuinely installed differs from both;
+a family that is missing matches both.
+
+```
+Inter              437.88   matches both missing bases  -> not installed
+JetBrains Mono     437.88   matches both               -> not installed
+"Segoe UI"         461.26   differs from both          -> installed
+Consolas           510.22   differs from both          -> installed
+```
+
+The same session, with the same instrument, also gave the right answer for JetBrains Mono —
+which is what makes this worth recording: a broken instrument does not fail every reading.
+It returns plausible numbers, one of which happens to be right, and the mixture is harder to
+distrust than a clean failure.
+
+**The lesson.** A presence probe needs a KNOWN-ABSENT control, for the same reason a gate
+needs a planted violation. "Different from the default" is not evidence of presence; it is
+evidence of difference. L41 records the gate version of this; this is the measurement version.
+
+## L70 — Reading a custom property's value cannot tell you how it was built
+
+Deciding how much CSS the font swap needed, the tokens looked independent: 183 of them,
+each reading back with a complete family stack spelled out.
+
+```
+--dsw-font-markdown-h1:  700 calc(21px + …) / calc(30px + …) -apple-system, BlinkMacSystemFont, …
+--dsw-font-s-14:         14px/22px -apple-system, BlinkMacSystemFont, …
+```
+
+Thirty-one of them even had a `-font-family` sibling, which looked like proof that each owned
+its own literal. The conclusion "override 31 tokens" was one step from being written.
+
+It is wrong, and the read-back is why. Custom properties substitute **when computed**, so
+`14px/22px var(--dsw-font-family)` reads back exactly like a literal. The resolved text is
+identical; only the declaration differs, and `getComputedStyle` shows you the former.
+
+**The test that answers it** is to change one candidate and count followers: redefine
+`--dsw-font-family` alone, force a reflow, re-read all 183 tokens. 62 followed, 1 stayed
+literal. It took one experiment and replaced 31 speculative rules.
+
+**The lesson.** For a custom property, ask what it *derives* from, not what it *reads as*.
+Vary the suspected input and see what moves — the same reasoning as an ablation, and it
+costs one probe instead of a hand-maintained list that silently rots when the host changes.
+
+## L71 — Three failing assertions, and all three were the test
+
+The first verification run for the two new features reported three failures. None was a
+defect in the CSS; all three were defects in the assertions, and each was a different species:
+
+1. **A slice that cut the evidence off.** Tokens were read as `.slice(-40)` to keep the
+   payload small — which removed the *front* of every font stack, and the family under test
+   is always at the front. `"Bento Inter", -apple-system, …` became `…Helvetica, Arial`, so
+   "uses Bento Inter" was false for a value that started with it.
+2. **An assertion that was simply wrong about the design.** "Only ONE text family remains"
+   asserted the *goal* was uniformity. The goal was the *pairing* — Inter for text, Mono for
+   code — so two families is the correct answer and one would mean Mono never shipped.
+3. **A shorthand that overrode the input to the measurement.** The mono token was applied
+   via `font: var(--dsw-font-markdown-code)`, a shorthand that carries its own `12px`, while
+   the comparison probes were fixed at `16px`. The reported mismatch (129.61 vs 172.81) is
+   exactly 12/16 of it. The measurement was comparing two sizes and blaming the font.
+
+**The lesson.** When a new test fails, check the test before the code — and check it by
+predicting the number. The third failure was solvable on sight (`129.61 × 16/12 = 172.81`)
+because a *ratio* appeared where a match was expected. A failure that is a clean ratio is
+almost always a unit or a size, not behaviour.

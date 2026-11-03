@@ -395,8 +395,17 @@ check('source: no hardcoded colour (every shade is a host token)', () => {
   //
   // Artwork is exempt: icon.svg is not read here, and any future generated asset gets
   // its own path exclusion rather than a blanket allow.
+  //
+  // src/14-fontdata.js is generated base64 and is excluded BY NAME rather than by
+  // directory, because it is not artwork and the rule that governs it is different: its
+  // bytes must match assets/*.woff2 exactly, which the fontdata gate below enforces. It
+  // needs the exclusion because base64 uses every letter this scan looks for — the word
+  // "black" can appear in a 64 KB font by chance, so without the exclusion this gate
+  // would one day fail on a byte that is not a colour at all.
+  const GENERATED_FONT_DATA = '14-fontdata.js';
   const offenders = [];
   for (const name of readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort()) {
+    if (name === GENERATED_FONT_DATA) continue;
     const raw = readFileSync(join(root, 'src', name), 'utf8');
     // blank out comments but keep line numbers stable
     const text = raw.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
@@ -443,6 +452,93 @@ check('source: no box-shadow unless it resolves through a token', () => {
     throw new Error('literal shadow, use --dsh-bento-shadow —\n    ' + offenders.join('\n    '));
   }
   return 'every shadow resolves through --dsh-bento-shadow';
+});
+
+check('fonts: embedded bytes match the assets they were generated from', () => {
+  // The font data is generated from assets/*.woff2 by tools/make-fontdata.mjs. Nothing
+  // else in the build notices if the two drift: client.js would keep shipping whichever
+  // font it was last generated with, and a refreshed asset would silently never reach the
+  // page. This is the same hazard as any committed generated file, and the same fix —
+  // compare the artefact to its source, so drift fails loudly here instead of surviving
+  // as a stale glyph shape nobody can attribute to anything.
+  const generated = readFileSync(join(root, 'src', '14-fontdata.js'), 'utf8');
+  const expected = [
+    ['FONT_INTER_WOFF2', 'inter-latin.woff2'],
+    ['FONT_MONO_WOFF2', 'jetbrains-mono-latin.woff2'],
+  ];
+  for (const [name, file] of expected) {
+    const actual = readFileSync(join(root, 'assets', file)).toString('base64');
+    if (!generated.includes(`const ${name} = '${actual}';`)) {
+      throw new Error(`${name} does not match assets/${file} — run node tools/make-fontdata.mjs`);
+    }
+    // A base64 blob can be "present" and still be the wrong font; the magic bytes of a
+    // WOFF2 start with "wOF2", so decode four bytes and check the container is real.
+    const decoded = Buffer.from(actual.slice(0, 8), 'base64').toString('latin1');
+    if (!decoded.startsWith('wOF2')) {
+      throw new Error(`assets/${file} is not a WOFF2 font (starts ${JSON.stringify(decoded.slice(0, 4))})`);
+    }
+  }
+  return 'both embedded faces match their source files and carry the wOF2 header';
+});
+
+check('fonts: the OFL licence travels with the embedded bytes', () => {
+  // OFL 1.1 condition 2: redistributing a font inside another bundle requires that each
+  // copy carry the copyright notice AND the licence. The bytes here live in client.js, so
+  // the package itself is the "copy" — if THIRD_PARTY_NOTICES.md is not in `files`, an
+  // installed plugin ships two fonts and no licence, which is a licence violation that no
+  // other check would notice. Condition 3 is why the runtime family names are ours
+  // ('Bento Inter', not 'Inter'): a modified or renamed build may not use the reserved name.
+  const files = manifest.files ?? [];
+  if (!files.includes('THIRD_PARTY_NOTICES.md')) {
+    throw new Error('THIRD_PARTY_NOTICES.md is not shipped — the OFL requires the licence to travel with the font');
+  }
+  const notices = readFileSync(join(root, 'THIRD_PARTY_NOTICES.md'), 'utf8');
+  for (const [name, marker] of [['Inter', 'The Inter Project Authors'], ['JetBrains Mono', 'The JetBrains Mono Project Authors']]) {
+    if (!notices.includes(marker)) throw new Error(`${name} attribution missing from THIRD_PARTY_NOTICES.md`);
+  }
+  if (!/SIL OPEN FONT LICENSE Version 1\.1/.test(notices)) {
+    throw new Error('the OFL 1.1 text is missing from THIRD_PARTY_NOTICES.md');
+  }
+  return 'both faces attributed, OFL 1.1 text present, notice file shipped';
+});
+
+check('fonts: the embedded faces are actually referenced by the stylesheet', () => {
+  // A @font-face with no consumer is dead weight: 88 KB shipped, nothing rendered. This
+  // caught nothing on the day it was written — the rule is written because the font is
+  // large enough that a future edit which drops the token override would cost 88 KB of
+  // dead payload with no visible symptom except "the font we shipped is not being used".
+  const raw = readFileSync(join(root, 'src', '54-feature-font.js'), 'utf8');
+  // Anchored on a non-hyphen so `--dsw-font-family:` is not counted as a `font-family:`
+  // declaration. The first version of this check lacked the boundary and reported three
+  // faces for two, which is the check being wrong rather than the stylesheet.
+  const declared = [...raw.matchAll(/(?<![\w-])font-family:\s*'([^']+)'/g)].map((m) => m[1]);
+  if (declared.length !== 2) {
+    throw new Error(`expected 2 declared faces (UI + mono), found ${declared.length}`);
+  }
+  // the family names must appear again in the token overrides, not only in the face
+  for (const family of declared) {
+    const uses = raw.split(`'${family}'`).length - 1;
+    if (uses < 2) throw new Error(`'${family}' is declared but never applied to a token`);
+  }
+  return `${declared.join(' + ')} declared and applied`;
+});
+
+check('fonts: the override reaches the token chain, not just one property', () => {
+  // The measured fact this pins: the host's 62 composite font tokens are DERIVED from
+  // --dsw-font-family, so overriding that one token re-fonts markdown, headings, labels
+  // and the rest. If the host ever inlines families into those tokens instead, the font
+  // feature becomes silently partial — body copy changes and prose does not — and the
+  // symptom ("the font did not apply everywhere") looks like a specificity bug rather
+  // than a contract change. So the contract is asserted here.
+  const raw = readFileSync(join(root, 'src', '54-feature-font.js'), 'utf8');
+  if (!/--dsw-font-family:/.test(raw)) {
+    throw new Error('the root UI family token is not overridden');
+  }
+  if (!/--ds-font-family-code:/.test(raw)) {
+    throw new Error('the code family token is not overridden, so the pairing is only half delivered');
+  }
+  // The mono chain hangs off its own token, so assert both were named rather than assumed.
+  return 'UI family and code family are both redirected';
 });
 
 

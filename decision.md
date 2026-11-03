@@ -1630,6 +1630,11 @@ correct amount of overlap for a rule with two ways to break.
 
 **Two decisions from one report.**
 
+> **SUPERSEDED IN PART BY D59.** The font half of this entry is wrong on its facts and
+> wrong on its conclusion, and D59 replaces it. This entry is kept rather than edited
+> because the reasoning is the useful part: it shows how a single width probe produced
+> two confident false claims. Read D59 for what actually shipped.
+
 ### Selection carries weight
 
 The selected Settings destination is now `font-weight: 500` as well as tinted and
@@ -1674,3 +1679,123 @@ What the theme *does* control is type *rhythm* — sizes, weights, spacing — a
 where the reference's typographic influence actually lands (D58 above, and the 4px scale).
 If the owner wants Inter globally, that belongs in the host's theme configuration, and
 this plugin should follow it rather than fight it.
+---
+
+## D59 — Two typefaces ship inside the bundle; the composer row becomes one toolbar
+
+**Two decisions from one report, and a correction to D58.**
+
+### Correction first: two of D58's four measurements were wrong
+
+D58 answered "are we using the reference's UI font?" and concluded no, on four measured
+claims. Two of them do not survive re-measurement with the right instrument:
+
+| D58 claimed | measured now | how the error happened |
+|---|---|---|
+| Inter is **available** in the browser | **not installed** | one canvas width probe, compared against nothing |
+| JetBrains Mono is not available | **not installed** — correct | — |
+| the page loads no webfont | correct | — |
+| `-apple-system` is the host's deliberate face | correct, and still a product decision | — |
+
+The Inter claim was made by measuring a string in `font-family: Inter` and finding it
+*differed from `sans-serif`*. It differs because a CSS font stack that names a missing
+family falls back to the **browser default**, not to whatever the element had. The probe
+compared two different things and reported the difference as evidence of presence.
+
+The test that actually answers the question compares a candidate against **two different
+known-missing families**: a real installed font differs from both, a missing one matches
+both. Inter and JetBrains Mono both matched both, so neither is installed. Windows lists
+262 families and Inter is not among them.
+
+**The lesson, recorded in learning.md L69:** a font-availability probe needs a negative
+control. "Different from A" does not mean "therefore installed" — it means "different
+from A".
+
+### Decision 1: Inter and JetBrains Mono ship as one feature, embedded
+
+The owner asked for the reference's font after being told it could not be delivered as a
+pair. Both halves are now available because both are **bundled**: 48 KB of Inter and 40 KB
+of JetBrains Mono, latin subset, variable weight axis, base64 inside `client.js`.
+
+**Why embedded rather than served.** The host serves a plugin's browser half through one
+concatenating module route (`/plugins/??<pkg>/client.js&rev=…`). Probed directly: every
+other shape for a package file — `icon.svg`, `package.json`, a `fonts/` directory, with and
+without the `??` form — answers **404**. A plugin can only hang a real file on a route it
+registers in its **host half**, which is how `dsh-claude-style` serves its own four faces.
+This plugin's `index.js` documents that its host half is deliberately inert, because work at
+activation turns any mistake into a whole-application boot failure. Adding a font route means
+host code, a route table and a boot-path failure mode, to serve 88 KB on loopback.
+
+**The cost, stated plainly.** `client.js` goes from **89,627 to 217,694 bytes** — +128 KB,
+of which 118 KB is the two base64 blobs. It is paid once at module load, on localhost, and
+it buys both faces at every weight from two files rather than eight. That is a real cost and
+it is accepted, not hidden.
+
+**Why one feature and not two.** Inter and Mono are a pairing: adopting one without the
+other leaves code in a different family from the text, which was exactly D58's second
+objection. One row in Settings means the pair arrives and leaves together.
+
+### Decision 2: the mechanism is two token overrides, not thirty-one
+
+The obvious implementation overrides every `--dsw-font-*` token, because the measured
+values look independent: `--dsw-font-markdown-h1` reads back as a complete shorthand with
+the family spelled out, and so do `--dsw-font-s-14`, `--dsw-font-xs-13` and thirty others.
+
+That reading is wrong. Custom properties are substituted **when computed**, so a token
+declared as `14px/24px var(--dsw-font-family)` reads back with the stack already filled in.
+Reading a token's resolved value does not tell you whether it was literal or derived.
+
+Measured by redefining `--dsw-font-family` alone on `body` and re-reading all 183 font
+tokens: **62 followed**, and exactly **one** stayed literal — `--dsw-font-family-brand`,
+which is Montserrat by design and belongs to the wordmark. So the rule is:
+
+```
+--dsw-font-family:      'Bento Inter', <host stack unchanged>
+--ds-font-family-code:  'Bento Mono',  <host stack unchanged>
+```
+
+Everything else resolves itself. Overriding 31 tokens by hand would be 31 chances to drift
+out of step with the host, to solve a problem that does not exist. A gate now pins this
+contract, so if a future host build inlines families into those tokens instead, the build
+fails rather than silently half-applying the font.
+
+**The fallbacks are load-bearing.** Both subsets are latin-only. The host's own CJK faces
+(`PingFang SC`, `Hiragino Sans GB`, `Microsoft YaHei`) are reproduced unchanged after the
+two new families, so Chinese text keeps its platform face instead of landing in an
+arbitrary fallback.
+
+### Decision 3: the composer's control row becomes one toolbar
+
+Measured with the theme off, the composer's bottom row held four controls that disagreed:
+
+| | size | fill | radius |
+|---|---|---|---|
+| attach | 28×28 | `rgb(245,246,247)` | **999** (a circle) |
+| access selector | 149×28 | transparent | 8 |
+| model selector | 180×28 | transparent | 8 |
+| Send | 34×34 | accent | **999** |
+
+Two circles and two bare-text controls, at two heights, with no fill tying the text controls
+to the button beside them. That is what "cramped" was describing: not tight spacing, but
+three unrelated fragments where one row should be.
+
+`composer-chips` gives both selectors **one fill and one radius** — the fill the attach
+button already resolved to, reached through `--dsw-alias-bg-module-platform` rather than
+copied, and the 12px inner tier stated through its token. Internal gap widens from 4 to 7.
+
+**Send is deliberately left alone.** It is the row's primary action; rounding it to the
+row's radius would flatten the one element carrying emphasis.
+
+**A readability fix rode along.** The model selector's effort suffix ("High") resolved to
+`--dsw-alias-label-caption`, `rgb(173,178,184)`, against the composer canvas: **1.83:1**.
+AA asks 4.5:1 at 13px, so it was unreadable, not merely quiet. Promoted to the secondary
+label — **5.36:1 light, 8.03:1 dark**. Kept visually secondary by weight (400 against the
+label's 500) rather than by washing the ink out.
+
+### Not done, and why
+
+- **The three type-scale findings from the P2 audit stay open.** D35 decided no type scale.
+  The font swap changes the face, not the sizes, and nothing here re-opens that.
+- **No webfont for the host's own UI.** `--dsw-font-family-brand` keeps Montserrat: a theme
+  plugin re-fonting the product wordmark is the scope violation D58 was right about.
+- **No size change to any control.** Touch targets stay exactly as the host set them.

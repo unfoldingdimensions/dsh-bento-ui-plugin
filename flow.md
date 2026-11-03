@@ -13,7 +13,11 @@ failure is named — that is the part worth not rediscovering.
 
 2. node build.mjs            → regenerates client.js from src/
 3. node --check client.js    → syntax gate (caught a template-literal bug twice)
-4. node verify.mjs           → 13 checks, exit non-zero blocks install
+4. node verify.mjs           → 23 checks, exit non-zero blocks install
+
+   If the feature embeds generated data (currently only the fonts):
+     node tools/make-fontdata.mjs   → regenerates src/14-fontdata.js from assets/
+   Run that BEFORE build.mjs. Gates 20–22 compare the two and fail on drift.
 
 5. Test in the ISOLATED profile, not desktop:
    a. junction the package into profiles/web/node_modules
@@ -437,3 +441,40 @@ VERIFY     each fix against its own claim, then one regression sweep across all 
 **The classification is the deliverable.** Ten P2 items produced three commits and six
 written reasons, and the reasons are what let the next session tell a deliberate
 decision from an unconsidered one.
+---
+
+## 12. Swap or add a bundled typeface
+
+The fonts are the only generated asset this plugin carries, and the sequence has a
+different shape from a CSS feature because the bytes must be regenerated.
+
+```
+1. Drop the new file into assets/ and its licence beside it.
+   Variable fonts only: one file should cover the whole weight axis, or every weight
+   becomes a second file and a second @font-face.
+
+2. Update tools/make-fontdata.mjs
+   → the readFileSync paths and the two const names it writes.
+
+3. node tools/make-fontdata.mjs   → rewrites src/14-fontdata.js
+4. node verify.mjs                → gates 20–22 fail if the base64 and the asset differ
+
+5. Confirm the family is ACTUALLY in use, not just declared. Three checks, in order:
+   a. document.fonts.check('16px "Bento Inter"')          → the face loaded
+   b. canvas width of the new family  !==  width of the host stack  → real glyphs
+   c. the resolved --dsw-font-* tokens carry the new name          → it reached the chain
+
+   (b) needs a known-missing control. Comparing a family against `sans-serif` proves
+   nothing — see L69 for a probe that was guaranteed to say "installed" for any name.
+
+6. Type one line of CJK text and look at it. Both subsets are latin-only; if the
+   fallback chain was truncated, Chinese renders in an arbitrary face and nothing
+   in the build notices. This is a pixel check, not a computed-style check.
+```
+
+**Do not override the 31 `--dsw-font-*-font-family` tokens.** They are derived from
+`--dsw-font-family`; overriding them by hand is 31 chances to drift (D59, L70).
+
+**The family name is deliberately not `Inter`.** It is `Bento Inter`, so that a machine
+which happens to have Inter installed renders the bundled copy rather than the local one —
+the same bytes everywhere, instead of whichever version the OS carries.

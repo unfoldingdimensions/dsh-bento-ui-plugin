@@ -31,18 +31,31 @@ confident-looking change silently did nothing.
 
 ```
 src/00-prelude.js          envelope, constants, shell role names
+src/14-fontdata.js         GENERATED base64 of the two bundled faces
 src/15-tokens.js           design tokens (radii, gutter, surfaces, motion)
 src/20-kernel.js           feature registry, shell stamping, style assembly
 src/40-feature-sidebar.js  feature: sidebar card
 src/45-feature-rows.js     feature: session row tiles
+src/47-feature-center.js   feature: the conversation card
+src/48-feature-pages.js    feature: rows of full pages in that column
+src/49-feature-rightbar.js feature: the right panel card
 src/50-feature-settings.js feature: the Settings dialog as a bento board
+src/51-feature-shadow.js   feature: opt-in card shadow
+src/52-feature-composer.js feature: composer + stats strip spacing
+src/53-feature-corners.js  feature: clip scrolling content to the card radius
+src/54-feature-font.js     feature: the two reference typefaces
+src/55-feature-composer-chips.js  feature: the control row as one toolbar
 src/60-settings.js         settings rows, derived from the registry
 src/99-footer.js           translator, apply(), exports
+assets/*.woff2             Inter + JetBrains Mono, latin subset, OFL 1.1
+tools/make-fontdata.mjs    assets/*.woff2 -> src/14-fontdata.js
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 19 pre-install checks
+verify.mjs                 23 pre-install checks
 ```
 
-`client.js` is generated. Edit `src/*.js`, then `npm run build`.
+`client.js` is generated. Edit `src/*.js`, then `npm run build`. If you touched
+`assets/`, run `node tools/make-fontdata.mjs` first — gates 20–22 fail on drift
+between the two.
 
 ## Adding a feature
 
@@ -120,6 +133,13 @@ see A12 and Pass 4.
   (D50).
 - No feature adds an icon to the interface. `icon.svg` is a package icon, not a UI icon,
   and the two must not be reused for each other (D48).
+- A bundled typeface is applied by redirecting **two** host tokens, not by overriding the
+  31 that look like they own a family each. Those 31 are derived; measured, one token
+  moves 62 of them (D59). The host's full fallback chain is reproduced after the new
+  faces, because the subsets are latin-only and CJK must keep its platform face.
+- A generated file is checked against its source, never trusted. `src/14-fontdata.js`
+  must decode to the same bytes as `assets/*.woff2` and carry a `wOF2` header, or the
+  build fails (gate 20).
 
 ## Install
 
@@ -145,7 +165,7 @@ See `decision.md` D23–D25 and `flow.md` §7.
 
 ## Status
 
-Nine features ship:
+Eleven features ship:
 
 | id | title | default | what it does |
 |---|---|---|---|
@@ -158,6 +178,14 @@ Nine features ship:
 | `card-shadow` | Card shadow | **off** | lifts the four card surfaces with a soft two-layer shadow; off keeps the flat board |
 | `card-corners` | Card corners | on | clips scrolling content to the card's rounded corners, so the bottom edge stays curved once a conversation fills it |
 | `composer-spacing` | Composer spacing | on | gives the composer and its statistics strip one spacing scale, so the numbers group instead of crowding |
+| `ui-font` | Reference typeface | on | sets Inter for interface text and JetBrains Mono for code, both bundled — the host loads no webfont of its own |
+| `composer-chips` | Composer controls | on | gives the model and access selectors one shared fill and radius so the row reads as one toolbar, and lifts the reasoning-effort suffix from 1.83:1 to 5.36:1 |
+
+`ui-font` is the one feature that changes the page beyond its own surfaces: a UI
+face governs every text run in the application, including plugins this theme does
+not own. It is a row like the others, so it can be switched off. It adds 128 KB to
+`client.js`, because the two faces travel inside the bundle — there is no route
+that serves a plugin's non-JS files (D59).
 
 ### Pass 4 (own Settings tab) — shipped
 
@@ -458,10 +486,15 @@ half now imports and exports exactly as the working themes do, and
 
 ### Regression guard
 
-`node verify.mjs` runs 19 checks before any install and exits non-zero on
+`node verify.mjs` runs 23 checks before any install and exits non-zero on
 failure. Both original failure modes were proved by planting them: a missing
 `main` is reported, and a host half that throws on import is reported cleanly
 instead of crashing the checker itself.
+
+Three of the twenty-two guard the bundled typefaces, and all three were proved red
+before they were trusted: a corrupted base64 blob (gate 20), a dropped code-family
+token (gate 21, which would otherwise ship the pairing half-applied), and a declared
+face that no token applies (gate 22, 88 KB of payload with nothing rendered).
 
 Two further checks cover the backtick-in-a-CSS-comment hazard. They are proved the
 same way — by planting a violation and watching them name the cause. The second
