@@ -1277,3 +1277,50 @@ theme off — so nothing is detached. Its card is painted on `::before` with `z-
 which costs no layout width. Verified in both states: content 612x800, fills the panel,
 the real scroller still `overflowY: auto`. The exemption is named in the check so the
 next reader knows it was checked, not overlooked.
+---
+
+## D51 — The card is inset; the panel is not. Pad the pane, never the panel.
+
+**Decision.** Where a feature paints a card inset from its column, any host chrome that
+spans the full column must be padded INSIDE, not moved. Padding on the panel root is
+forbidden here because its height is its edge-anchoring (D50).
+
+**Why, from the shipped report.** "The bento curves are making the border text touch the
+border." Measured, nothing was literally touching: every text box cleared the card by
+12px or more. The problem was at the **corners**, where geometry is not a bounding box.
+
+The panel root is host-positioned absolutely and spans the whole column
+(880..1600, 0..900). The card is painted inset by the gutter (892..1588, 12..888). So the
+card sits *inside* the panel and the panel's own chrome overhangs it on all four sides:
+
+| | measured | card edge | overhang |
+|---|---|---|---|
+| right-hand buttons | end x 1594 | 1588 | **6px outside** |
+| header buttons | y 10 | 12 | **2px above** |
+
+Near the rounded corners the chrome and the stroke overlap — which is what the report
+described in words and what a bounding-box check could never have found.
+
+**Why padding inside and not on the panel.** Padding the panel would move its box, and
+its height comes from being edge-anchored. Measured: `margin` on the panel dropped it
+from 900px to 876px — reintroducing exactly the D50 failure. Padding the tab host keeps
+the panel where the host put it and insets only the contents. `+ 1px` because the card's
+1px border is drawn outside its own radius, so clearing the gutter alone still grazes the
+stroke.
+
+**The measurement method matters as much as the fix.** Three attempts were made before
+the right test existed:
+
+1. A bounding-box comparison against the card edge said everything was fine — because a
+   12px inset is fine on a straight edge and fails at a 20px arc.
+2. A rounded-rect containment test on *text boxes only* also passed, because the clipped
+   elements were **icon buttons**, not text.
+3. The test that found it checked every text box AND every control against the actual
+   arc, corner by corner, and reported which corner failed. That is what showed the
+   buttons failing at `y=10` against a card top of `12` — a vertical overhang hiding
+   behind a horizontal-sounding report.
+
+**Verified.** Both themes: 12/12 text boxes and 14/14 controls inside the rounded
+boundary, 0 outside (was 3 clipped header buttons), panel height still 900px. The D50
+scroll fix still passes, the full feature regression sweep is green, and the sidebar and
+centre columns were re-checked with the same test (0 violations).

@@ -1140,3 +1140,46 @@ with `> * > *`. Ten false positives on a clean tree before it was right.
 against a clean tree. I have now shipped two gates whose first version failed one of
 those two directions, and both would have been caught by running them on the tree they
 were written for before trusting the green.
+---
+
+## L55 — Three measurements said "fine" and the bug was real
+
+The report was "the bento curves make the border text touch the border". I built three
+tests before one found it:
+
+1. **Text-to-edge distance.** Measured every text box against the card's edge. Minimum
+   gap 12px. Verdict: nothing touching. Wrong test — a 12px inset is clear on a straight
+   edge and fails at a 20px corner arc.
+2. **Rounded-rect containment, text only.** Tested green too. Wrong scope — the clipped
+   elements were **icon buttons**, not text.
+3. **Rounded-rect containment, text AND controls, corner by corner.** Found it
+   immediately: three header buttons failing at `y=10` against a card top of `12`.
+
+The failing axis was vertical, while the report said "border text" — horizontal-sounding.
+Had I trusted either green test I would have told the user their eyes were wrong.
+
+**The lesson.** "Nothing is overlapping" is a claim about geometry, and geometry near a
+corner is not a bounding box. Two specific traps worth naming: a card's rounded corner
+excludes more area than its edge does, and a report that names a *horizontal* symptom can
+be describing a *vertical* overhang. Test the actual shape, and test every element class
+that can be clipped, not just the one the words named.
+
+---
+
+## L56 — The fix that works and the fix that also works are not equally safe
+
+Three candidate fixes all produced zero violations and all kept the panel at 900px:
+padding the tab host, padding the header, and margin on the header.
+
+The safe one is **padding the tab host**: it insets the whole pane's contents, so every
+future child inherits the correction. The others fix the header specifically and would
+have to be reasoned about again the moment something else is added above the fold.
+
+And the option that looked most obvious — margin on the panel — was measured to drop its
+height from 900px to 876px, i.e. it reintroduced the bug fixed one commit earlier (D50).
+I checked it anyway rather than assuming, and the check is what ruled it out.
+
+**The lesson.** When several fixes pass the same test, pick the one whose correctness
+does not depend on today's DOM. And re-run the *previous* bug's test against any change
+to the same element — the two bugs here were one commit apart and shared a root cause
+element.
