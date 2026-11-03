@@ -77,7 +77,11 @@
             height: 20,
             padding: 2,
             boxSizing: 'border-box',
-            borderRadius: 10,
+            /* A pill, matching the host's own switch. Measured: the host control is
+               36x20 at radius 999px; this was 10px, which reads as a rounded
+               rectangle rather than a switch and is visibly a different control
+               from the one on the General tab two clicks away. */
+            borderRadius: 999,
             border: 0,
             cursor: 'pointer',
             background: checked ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-border-l2)',
@@ -91,8 +95,19 @@
             width: 16,
             height: 16,
             borderRadius: '50%',
-            background: 'var(--dsw-alias-bg-overlay)',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+            /* The host's own knob tone. Identified by resolving every candidate token
+               against the colour the host's switch actually paints, in both themes and
+               both states: --dsw-alias-label-primary-foreground is the only one that
+               matches all four combinations (white on the checked light track,
+               near-black on the checked dark track). --dsw-alias-switch-thumb looks
+               like the obvious choice and is WRONG: it resolves to #adb2b8 in dark,
+               not the #0f1115 the host paints. */
+            background: 'var(--dsw-alias-label-primary-foreground)',
+            /* No shadow, because the host's knob has none. Measured on the host's
+               own switch in both themes: box-shadow: none. This control carried
+               rgba(0, 0, 0, 0.3) 0 1px 2px — the plugin's only hardcoded colour, and
+               an invention rather than a match. Removing it also removes the need
+               for a token, so no literal remains (gate check 15). */
             translate: checked ? '16px 0' : '0 0',
             transition: `translate ${motion} ${ease}`,
           },

@@ -158,6 +158,44 @@ check('source: no backtick inside a CSS comment', () => {
   return 'none';
 });
 
+check('source: every fragment compiles on its own', () => {
+  // The strongest available check on the backtick hazard, and the one the earlier
+  // checks could not give: parse each fragment AS SOURCE instead of reasoning about
+  // its characters.
+  //
+  // A fragment is not a module (it relies on the envelope in 00-prelude and on
+  // identifiers declared by its siblings), so it cannot be imported or evaluated.
+  // It can still be *parsed*, which is exactly the failure mode that keeps recurring:
+  // a backtick inside a CSS comment closes the template literal early, and the result
+  // is usually still valid JavaScript — the remainder parses as an identifier
+  // expression — so `node --check` on the built bundle and a brace-balance heuristic
+  // both pass while the stylesheet is silently truncated.
+  //
+  // This has now happened five times (15-tokens twice, 40-feature-sidebar,
+  // 47-feature-center, 60-settings, and again in 15-tokens while adding the
+  // forced-colors block). Each was caught, but each cost a build cycle. Parsing the
+  // source catches it at the declaration, with the fragment named.
+  // Two fragments are delimiters and CANNOT parse alone by construction: 00-prelude
+  // opens the `__ModuleLoader__.load({...})` call and 99-footer closes it. Everything
+  // between them is a statement list and must parse.
+  const DELIMITERS = new Set(['00-prelude.js', '99-footer.js']);
+  const offenders = [];
+  const files = readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort();
+  for (const name of files) {
+    if (DELIMITERS.has(name)) continue;
+    const text = readFileSync(join(root, 'src', name), 'utf8');
+    // A fragment is a statement list inside a larger function body; wrapping it in a
+    // no-op function gives a valid parse target without executing anything.
+    try {
+      new Function('require', text);
+    } catch (error) {
+      offenders.push(`${name}: ${error.message}`);
+    }
+  }
+  if (offenders.length > 0) throw new Error('fragment does not parse —\n    ' + offenders.join('\n    '));
+  return files.length - DELIMITERS.size + ' fragments parse (2 delimiters excluded)';
+});
+
 check('fragments: no MODULE-scope identifier read before its declaring fragment', () => {
   // Fragments are concatenated in filename order and share one scope, so a const is
   // only initialised once its own fragment runs. A feature builds its CSS string at
@@ -236,6 +274,40 @@ check('source: no transition hardcodes a duration (reduced motion)', () => {
     throw new Error('literal duration ignores the motion token —\n    ' + offenders.join('\n    '));
   }
   return 'every duration resolves through --dsh-bento-motion';
+});
+
+check('source: no hardcoded colour (every shade is a host token)', () => {
+  // The plugin's stated rule is "only --dsw-alias-* host tokens for colour, so light,
+  // dark and any registered theme follow automatically". It had exactly one exception:
+  // the Settings switch knob carried `box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3)`, and
+  // the host's own knob has no shadow at all — so the literal was inventing depth the
+  // design does not have. Found by the P2 audit, removed.
+  //
+  // Comments are stripped before scanning, because the token layer documents the
+  // resolved values of host aliases (#ebeef2, #fff, ...) and those are documentation,
+  // not declarations. Only declarations count.
+  //
+  // Artwork is exempt: icon.svg is not read here, and any future generated asset gets
+  // its own path exclusion rather than a blanket allow.
+  const offenders = [];
+  for (const name of readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort()) {
+    const raw = readFileSync(join(root, 'src', name), 'utf8');
+    // blank out comments but keep line numbers stable
+    const text = raw.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+    text.split('\n').forEach((line, index) => {
+      const code = line.replace(/\/\/.*$/, '');
+      const hex = code.match(/#[0-9a-fA-F]{3,8}\b/);
+      const rgb = code.match(/\brgba?\(/);
+      const named = code.match(/(?<![\w-])(white|black|red|blue|green|gray|grey)(?![\w-])/);
+      if (hex || rgb || named) {
+        offenders.push(`${name}:${index + 1}: ${(hex || rgb || named)[0]}`);
+      }
+    });
+  }
+  if (offenders.length > 0) {
+    throw new Error('literal colour, use a --dsw-* token —\n    ' + offenders.join('\n    '));
+  }
+  return 'every colour resolves through a host token';
 });
 
 const results = await runAll();

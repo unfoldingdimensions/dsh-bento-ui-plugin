@@ -77,10 +77,32 @@ html[${ROOT_ATTR}] {
   --dsh-bento-gutter: 12px;
   --dsh-bento-gap: 8px;
 
-  /* Radii: card, inner, rail. 20/14 is the dashboard proportion, scaled down from
-     the reference's 24/18 because a column here is narrower than a 660px card. */
+  /* Radii: card, inner, rail.
+   *
+   * The card is 20px, the host's own --dsw-radius-xl, so a card matches the shells
+   * around it. The inner tier is 12px, the host's --dsw-radius-md, for three reasons
+   * that all point the same way:
+   *
+   *   1. The host uses 12px on every row in this column. Measured with the whole
+   *      plugin switched off: New Session 12, nav destinations 12, workspace headings
+   *      12, session rows 12.
+   *   2. 12px is on the host's own radius scale (8 / 12 / 16 / 20). The previous
+   *      value, 14px, was the only radius in the theme not on it.
+   *   3. It closes the gap the old value opened. With row-tiles on, four rows sat at
+   *      two different radii in the same card — New Session 12 beside a nav row at 14,
+   *      workspace headings 12 above session rows at 14 — because the theme overrode
+   *      only some of them.
+   *
+   * A correction is recorded in decision.md (D45): an earlier entry claimed the host's
+   * nav cell measured 14px. It does not. That measurement was taken with row-tiles
+   * active and read this theme's own declaration back.
+   *
+   * Concentric maths would ask for 6-8px at a 12-14px inset under a 20px card, which
+   * would be tighter still. It is not followed here because the host's own rows are at
+   * 12 and the point of this tier is to agree with them, not to out-derive the shell
+   * the theme is drawing on. */
   --dsh-bento-radius: 20px;
-  --dsh-bento-radius-inner: 14px;
+  --dsh-bento-radius-inner: 12px;
   --dsh-bento-radius-rail: 10px;
 
   /* Motion: one duration, one curve, shared by every feature. */
@@ -135,6 +157,67 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"][data-sidebar-collapsed] {
 @media (prefers-reduced-motion: reduce) {
   html[${ROOT_ATTR}] {
     --dsh-bento-motion: 0ms;
+  }
+}
+
+/* WINDOWS HIGH CONTRAST.
+ *
+ * Under forced-colors every background the theme paints is replaced by a system
+ * colour, so the canvas, the card and the page all resolve to the same white: the
+ * composition collapses to one plane and every feature that works by fill becomes a
+ * no-op. That part is unavoidable and is the correct behaviour — a user who asks for
+ * high contrast is asking for exactly this.
+ *
+ * What is NOT correct is the second effect. Several rules in this theme declare a
+ * TRANSPARENT border as a layout spacer: the session and nav rows reserve 1px above
+ * and below so the edge can appear on hover without moving the row (45-feature-rows,
+ * D-session-tiles). Forced-colors replaces a transparent border with the system text
+ * because it cannot know the author's transparent border was meant to be invisible.
+ * Measured: 0 of 8 rows show a visible border normally, 8 of 8 under forced-colors —
+ * every row grows a hard black box it was never meant to have.
+ *
+ * So the spacer borders are withdrawn in this mode and their 2px replaced by 2px of
+ * padding, which forced-colors does not touch. The row keeps its exact 34px box
+ * (32px content + 2px padding instead of 32px + 2x1px border). The property
+ * forced-color-adjust is NOT used — it inherits, and would switch high contrast off
+ * for the row's text and its switch, which is precisely what the user asked for.
+ *
+ * The card edges are left alone: they are real edges, drawn on purpose, and forcing
+ * them to CanvasText is the desired result — it is what keeps the three-surface
+ * composition legible once every fill has been flattened.
+ *
+ * WHY THE SELECTOR IS DOUBLED. This block lives in BASE_CSS, which the kernel PREPENDS
+ * to the feature stylesheets, and the feature rule that declares the spacer border has
+ * identical specificity. Same specificity, earlier source order: the feature wins and
+ * the border comes back. Measured — the first version of this block was a no-op and 8
+ * of 8 rows still showed a box.
+ *
+ * Repeating the subject selector raises specificity above the feature rule without
+ * !important, and without moving this block after the features. The token layer stays
+ * first because everything else reads from it.
+ *
+ * The two controls need DIFFERENT compensation, because their vertical padding
+ * differs, and padding-block replaces rather than adds:
+ *
+ *   session row   padding 0        + 1px border each side => 34px
+ *                 becomes padding 1px block              => 34px, unchanged
+ *   nav button    padding 7px block + 1px border each side => 38px
+ *                 becomes padding 8px block              => 38px, unchanged
+ *
+ * Writing a single padding-block: 1px for both (the first attempt) fixed the session
+ * rows and silently shrank every nav button by 2px, because it REPLACED the 7px that
+ * was already there. Measured: nav row 38px -> 36px. */
+@media (forced-colors: active) {
+  html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"][data-row-key^="session:"] {
+    /* Had no vertical padding: the border's 2px becomes padding's 2px. */
+    border-width: 0;
+    padding-block: 1px;
+  }
+
+  html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"][class*="panelList"] > button {
+    /* Had 7px: the border's 1px each side is added to it, not substituted for it. */
+    border-width: 0;
+    padding-block: 8px;
   }
 }
 `;
@@ -1089,7 +1172,11 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:has(:focus-vis
             height: 20,
             padding: 2,
             boxSizing: 'border-box',
-            borderRadius: 10,
+            /* A pill, matching the host's own switch. Measured: the host control is
+               36x20 at radius 999px; this was 10px, which reads as a rounded
+               rectangle rather than a switch and is visibly a different control
+               from the one on the General tab two clicks away. */
+            borderRadius: 999,
             border: 0,
             cursor: 'pointer',
             background: checked ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-border-l2)',
@@ -1103,8 +1190,19 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:has(:focus-vis
             width: 16,
             height: 16,
             borderRadius: '50%',
-            background: 'var(--dsw-alias-bg-overlay)',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+            /* The host's own knob tone. Identified by resolving every candidate token
+               against the colour the host's switch actually paints, in both themes and
+               both states: --dsw-alias-label-primary-foreground is the only one that
+               matches all four combinations (white on the checked light track,
+               near-black on the checked dark track). --dsw-alias-switch-thumb looks
+               like the obvious choice and is WRONG: it resolves to #adb2b8 in dark,
+               not the #0f1115 the host paints. */
+            background: 'var(--dsw-alias-label-primary-foreground)',
+            /* No shadow, because the host's knob has none. Measured on the host's
+               own switch in both themes: box-shadow: none. This control carried
+               rgba(0, 0, 0, 0.3) 0 1px 2px — the plugin's only hardcoded colour, and
+               an invention rather than a match. Removing it also removes the need
+               for a token, so no literal remains (gate check 15). */
             translate: checked ? '16px 0' : '0 0',
             transition: `translate ${motion} ${ease}`,
           },
