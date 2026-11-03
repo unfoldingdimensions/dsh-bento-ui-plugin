@@ -77,7 +77,7 @@ html[${ROOT_ATTR}] {
   --dsh-bento-gutter: 12px;
   --dsh-bento-gap: 8px;
 
-  /* Radii: card, inner, rail.
+  /* Radii: card, inner, rail, and the derived tiers.
    *
    * The card is 20px, the host's own --dsw-radius-xl, so a card matches the shells
    * around it. The inner tier is 12px, the host's --dsw-radius-md, for three reasons
@@ -97,13 +97,29 @@ html[${ROOT_ATTR}] {
    * nav cell measured 14px. It does not. That measurement was taken with row-tiles
    * active and read this theme's own declaration back.
    *
-   * Concentric maths would ask for 6-8px at a 12-14px inset under a 20px card, which
-   * would be tighter still. It is not followed here because the host's own rows are at
-   * 12 and the point of this tier is to agree with them, not to out-derive the shell
-   * the theme is drawing on. */
+   * CONCENTRIC TIERS, AND THE ONE CASE THAT OVERRIDES THE SCALE (D54).
+   *
+   * Where a rounded box sits inside another rounded box, the pair only reads as nested
+   * if their curves are parallel: r_inner = r_outer - gap. When r_inner is smaller than
+   * that, the inner corner is "pinched" — the gap is 12px along the straight edges and
+   * visibly tighter at the 45-degree point, which reads as a mistake rather than as a
+   * design.
+   *
+   * --dsh-bento-radius-nested is that derivation, applied to the Settings dialog:
+   * the host's panel is 28px in both themes (measured; it is NOT on its own 8/12/16/20
+   * scale, which tops out at 20), our content card sits 12px inside it, so the card and
+   * anything flush with it must be 28 - 12 = 16px. Measured before: card 12px, which put
+   * the two arc centres 4px out of alignment in both axes.
+   *
+   * Note this contradicts the earlier reasoning above, deliberately: the host's rows are
+   * 12px because the host never nests them under a 28px panel. Our card does, so it
+   * follows the outer curve instead of the row scale. The 12px inner tier still owns
+   * every control INSIDE a card, where the outer curve is the card's own 20px. */
   --dsh-bento-radius: 20px;
   --dsh-bento-radius-inner: 12px;
   --dsh-bento-radius-rail: 10px;
+  /* 28px host panel - 12px gutter. Used where a surface is flush inside a panel. */
+  --dsh-bento-radius-nested: 16px;
 
   /* Motion: one duration, one curve, shared by every feature. */
   --dsh-bento-motion: 160ms;
@@ -1048,7 +1064,7 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav {
 }
 
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button {
-  border-radius: var(--dsh-bento-radius-inner);
+  border-radius: var(--dsh-bento-radius-nested);
 }
 
 /* The selected destination becomes a tile on the canvas. The edge is an inset
@@ -1074,7 +1090,7 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settin
   position: absolute;
   z-index: -1;
   inset: var(--dsh-bento-gutter);
-  border-radius: var(--dsh-bento-radius-inner);
+  border-radius: var(--dsh-bento-radius-nested);
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
   pointer-events: none;
@@ -1093,7 +1109,7 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settin
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*),
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
   border-bottom: 0;
-  border-radius: var(--dsh-bento-radius-inner);
+  border-radius: var(--dsh-bento-radius-nested);
   margin-inline: calc(-1 * var(--dsh-bento-gutter));
   padding-inline: var(--dsh-bento-gutter);
   transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
@@ -1169,7 +1185,7 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:has(:focus-vis
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li {
   border: 0;
   background: transparent;
-  border-radius: var(--dsh-bento-radius-inner);
+  border-radius: var(--dsh-bento-radius-nested);
   transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
 }
 
@@ -1199,6 +1215,46 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li:has(> *) {
   padding-inline: var(--dsh-bento-gutter);
   margin-inline: calc(-1 * var(--dsh-bento-gutter));
+}
+
+/* HOST CONTROLS INSIDE A ROW MUST NOT BE ROUNDER THAN THE ROW.
+ *
+ * The Appearance control is three 183x84 tiles with a 20px radius, sitting inside one of
+ * our 16px rows. Measured: 20px inside 16px, a 4px overshoot on the largest, most
+ * visible control in the tab - the exact defect this turn set out to remove, one level
+ * down from the panel boundary.
+ *
+ * These are host-owned surfaces, so the fix is deliberately narrow: cap the radius at
+ * the row's own curve with min(), rather than restyling a control the host designed.
+ * min() keeps the host's 20px wherever the row is wider or absent, and only intervenes
+ * where our own 16px row would otherwise be out-curved by its contents. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*) [class*="themeCube"],
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] [class*="themeCube"] {
+  border-radius: min(20px, var(--dsh-bento-radius-nested));
+}
+
+/* THE CLICKABLE SURFACE INSIDE A TILE MATCHES THE TILE'S OWN CURVE.
+ *
+ * A curve rounder than its container does not read as nested; it reads as a bubble
+ * trying to escape. Measured: Agent preset tiles are 16px and the clickable surface
+ * filling each one was 20px - rounder than the tile holding it, the two corners crossing
+ * at every edge. Same class of defect at the panel boundary, one level down.
+ *
+ * SCOPE, and this is the part the first attempt got wrong. This rule must reach ONLY
+ * the surface that FILLS the tile, never every child. ul > li > * looks equivalent and
+ * is not: it also hit elements inset 12px inside the tile, where inheriting the tile's
+ * 16px makes them rounder than a 4px budget allows. Measured on General: 12 false
+ * corrections, including 12px hit-area wrappers and 20px theme precondition cubes.
+ *
+ * So it is scoped to what a preset/plugin row actually fills with: the block-level
+ * clickable child. Everything inset keeps the smaller 12px inner tier it already has,
+ * because a control 12px inside a 16px tile should be about 4px, not 16.
+ *
+ * inherit rather than a literal: the value has one owner (the tile), so the two cannot
+ * drift. D45 had to be corrected by hand precisely because a radius was written twice. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li > button,
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li > a {
+  border-radius: inherit;
 }
 
 /* SELECTION MUST SURVIVE THE FLATTENING.

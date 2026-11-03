@@ -22,7 +22,7 @@ html[${ROOT_ATTR}] {
   --dsh-bento-gutter: 12px;
   --dsh-bento-gap: 8px;
 
-  /* Radii: card, inner, rail.
+  /* Radii: card, inner, rail, and the derived tiers.
    *
    * The card is 20px, the host's own --dsw-radius-xl, so a card matches the shells
    * around it. The inner tier is 12px, the host's --dsw-radius-md, for three reasons
@@ -42,13 +42,29 @@ html[${ROOT_ATTR}] {
    * nav cell measured 14px. It does not. That measurement was taken with row-tiles
    * active and read this theme's own declaration back.
    *
-   * Concentric maths would ask for 6-8px at a 12-14px inset under a 20px card, which
-   * would be tighter still. It is not followed here because the host's own rows are at
-   * 12 and the point of this tier is to agree with them, not to out-derive the shell
-   * the theme is drawing on. */
+   * CONCENTRIC TIERS, AND THE ONE CASE THAT OVERRIDES THE SCALE (D54).
+   *
+   * Where a rounded box sits inside another rounded box, the pair only reads as nested
+   * if their curves are parallel: r_inner = r_outer - gap. When r_inner is smaller than
+   * that, the inner corner is "pinched" — the gap is 12px along the straight edges and
+   * visibly tighter at the 45-degree point, which reads as a mistake rather than as a
+   * design.
+   *
+   * --dsh-bento-radius-nested is that derivation, applied to the Settings dialog:
+   * the host's panel is 28px in both themes (measured; it is NOT on its own 8/12/16/20
+   * scale, which tops out at 20), our content card sits 12px inside it, so the card and
+   * anything flush with it must be 28 - 12 = 16px. Measured before: card 12px, which put
+   * the two arc centres 4px out of alignment in both axes.
+   *
+   * Note this contradicts the earlier reasoning above, deliberately: the host's rows are
+   * 12px because the host never nests them under a 28px panel. Our card does, so it
+   * follows the outer curve instead of the row scale. The 12px inner tier still owns
+   * every control INSIDE a card, where the outer curve is the card's own 20px. */
   --dsh-bento-radius: 20px;
   --dsh-bento-radius-inner: 12px;
   --dsh-bento-radius-rail: 10px;
+  /* 28px host panel - 12px gutter. Used where a surface is flush inside a panel. */
+  --dsh-bento-radius-nested: 16px;
 
   /* Motion: one duration, one curve, shared by every feature. */
   --dsh-bento-motion: 160ms;

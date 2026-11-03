@@ -45,7 +45,7 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav {
 }
 
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button {
-  border-radius: var(--dsh-bento-radius-inner);
+  border-radius: var(--dsh-bento-radius-nested);
 }
 
 /* The selected destination becomes a tile on the canvas. The edge is an inset
@@ -71,7 +71,7 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settin
   position: absolute;
   z-index: -1;
   inset: var(--dsh-bento-gutter);
-  border-radius: var(--dsh-bento-radius-inner);
+  border-radius: var(--dsh-bento-radius-nested);
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
   pointer-events: none;
@@ -90,7 +90,7 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settin
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*),
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
   border-bottom: 0;
-  border-radius: var(--dsh-bento-radius-inner);
+  border-radius: var(--dsh-bento-radius-nested);
   margin-inline: calc(-1 * var(--dsh-bento-gutter));
   padding-inline: var(--dsh-bento-gutter);
   transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
@@ -166,7 +166,7 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:has(:focus-vis
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li {
   border: 0;
   background: transparent;
-  border-radius: var(--dsh-bento-radius-inner);
+  border-radius: var(--dsh-bento-radius-nested);
   transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
 }
 
@@ -196,6 +196,46 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li:has(> *) {
   padding-inline: var(--dsh-bento-gutter);
   margin-inline: calc(-1 * var(--dsh-bento-gutter));
+}
+
+/* HOST CONTROLS INSIDE A ROW MUST NOT BE ROUNDER THAN THE ROW.
+ *
+ * The Appearance control is three 183x84 tiles with a 20px radius, sitting inside one of
+ * our 16px rows. Measured: 20px inside 16px, a 4px overshoot on the largest, most
+ * visible control in the tab - the exact defect this turn set out to remove, one level
+ * down from the panel boundary.
+ *
+ * These are host-owned surfaces, so the fix is deliberately narrow: cap the radius at
+ * the row's own curve with min(), rather than restyling a control the host designed.
+ * min() keeps the host's 20px wherever the row is wider or absent, and only intervenes
+ * where our own 16px row would otherwise be out-curved by its contents. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*) [class*="themeCube"],
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] [class*="themeCube"] {
+  border-radius: min(20px, var(--dsh-bento-radius-nested));
+}
+
+/* THE CLICKABLE SURFACE INSIDE A TILE MATCHES THE TILE'S OWN CURVE.
+ *
+ * A curve rounder than its container does not read as nested; it reads as a bubble
+ * trying to escape. Measured: Agent preset tiles are 16px and the clickable surface
+ * filling each one was 20px - rounder than the tile holding it, the two corners crossing
+ * at every edge. Same class of defect at the panel boundary, one level down.
+ *
+ * SCOPE, and this is the part the first attempt got wrong. This rule must reach ONLY
+ * the surface that FILLS the tile, never every child. ul > li > * looks equivalent and
+ * is not: it also hit elements inset 12px inside the tile, where inheriting the tile's
+ * 16px makes them rounder than a 4px budget allows. Measured on General: 12 false
+ * corrections, including 12px hit-area wrappers and 20px theme precondition cubes.
+ *
+ * So it is scoped to what a preset/plugin row actually fills with: the block-level
+ * clickable child. Everything inset keeps the smaller 12px inner tier it already has,
+ * because a control 12px inside a 16px tile should be about 4px, not 16.
+ *
+ * inherit rather than a literal: the value has one owner (the tile), so the two cannot
+ * drift. D45 had to be corrected by hand precisely because a radius was written twice. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li > button,
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li > a {
+  border-radius: inherit;
 }
 
 /* SELECTION MUST SURVIVE THE FLATTENING.
