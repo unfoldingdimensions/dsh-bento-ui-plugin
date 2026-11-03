@@ -1259,3 +1259,48 @@ direction of X. The useful question is which property is wrong, not which direct
 right. And the two small traps here — a selected state that lived in the border, and
 padding that outlived its box — were both invisible in a screenshot and only appeared
 when I measured what the flattening would remove.
+---
+
+## L61 — The CSS was wrong and the test was wrong, and only one of them was the bug
+
+Chasing the settings radius, two defects were live at once:
+
+1. The card was 12px inside a 28px panel, so the pair was not concentric. A real product
+   bug, visible at 6× as a corner that pinches.
+2. My concentric test asserted `dx == edgeGap`. For a uniformly-gapped nested pair the
+   arc centres **coincide**, so the correct assertion is `dx == dy == 0`. The test
+   reported `CONCENTRIC=false` on CSS that was already correct after the fix.
+
+I nearly re-edited correct CSS to satisfy a wrong test. What caught it: the fix produced
+`DRIFT=0` and `dx=0 dy=0` while the boolean still said false — the two numbers disagreed
+with the verdict, and the numbers were the trustworthy half.
+
+**The lesson.** When a check and a measurement disagree, suspect the check. A test is
+part of the change and needs the same scrutiny as the code, but it *feels* authoritative
+because it prints PASS/FAIL — which is exactly why a wrong one is expensive. The tell is
+a boolean that contradicts the values printed beside it.
+
+---
+
+## L62 — "Apply the same rule everywhere" needed a boundary before it could be applied
+
+The request was to match inner curvature to outer and apply that everywhere. Stated as a
+rule it sounds general; applied literally it breaks things. Three false readings appeared
+immediately:
+
+- A 28px close button 2px inside the card would need a 14px radius — a circle, not a
+  match.
+- A switch thumb (r=50) and a status pill (r=999) are "rounder than their parent" by
+  design.
+- The three Appearance tiles are 183×84 surfaces with their own 20px radius; matching
+  them to a row's 16px would make large tiles look nearly square.
+
+The boundary that worked: the law binds **containers** — surfaces that fill their parent,
+so the two curves share a corner. The discriminator is coverage, set at 50% of area. That
+is a real distinction, not a fudge: it separates "the card fills the panel" from "a button
+sits on the card".
+
+**The lesson.** "Everywhere" is only actionable once the rule has a domain. Answering it
+by applying the rule to everything would have produced a dozen visibly wrong corrections
+in a change that tested green — because the false cases were small enough to pass
+inspection and numerous enough to hide among the real ones.

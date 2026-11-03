@@ -1420,3 +1420,49 @@ while the hover fill still reaches the card edge.
 **Not a defect, checked and dismissed.** Eight description spans report
 `scrollHeight > clientHeight`. That is the host's own `-webkit-line-clamp: 2`, measured
 identical with the theme disabled. The "clipped text" reading was wrong.
+---
+
+## D54 — Inner radius is derived from the outer, not chosen from a scale
+
+**Decision.** Where a rounded surface sits flush inside another rounded surface, its
+radius is `r_outer - gap`. The Settings card and everything flush with it are therefore
+**16px**, derived as the host panel's 28px minus our 12px gutter. The value is a named
+token, `--dsh-bento-radius-nested`, because it exists to express that derivation.
+
+**This supersedes the reasoning in D45 / the token comment.** The earlier argument for a
+12px inner tier was sound for its own case — the host uses 12px on every row in the
+sidebar column — but incomplete. It was measured on rows the host never nests under a
+28px panel. Our Settings card *is* nested under one, so it has to follow that outer curve
+instead. The 12px tier still owns controls inside a card, which is most of the interface.
+
+**What was wrong, measured.** Cropped at 6×, the panel's top-right showed three unrelated
+curves: the 28px panel, a 12px content card, and a 12px button. The frame between panel
+and card was 12px along the straight edges and roughly 5px at the 45° point — the card's
+corner visibly pulling away from the panel's arc.
+
+| | before | after |
+|---|---|---|
+| panel radius | 28px | 28px |
+| gap | 12px | 12px |
+| ideal card radius | 16px | 16px |
+| actual card radius | 12px | **16px** |
+| arc-centre delta | (4, −4) | **(0, 0)** |
+| gap at 45° | ≠ edge gap | **12px, equal** |
+
+**Why the panel's 28px is a literal.** It is not on the host's radius scale, which tops
+out at 20px (`--dsw-radius-xl`). Measured 28px in both light and dark, so it is a fixed
+host value, and 16 is derived from it rather than hardcoded from one observation.
+
+**The rule's boundary, which cost the most to get right.** "Inner matches outer" binds
+containers — surfaces that FILL their parent, so the two curves run side by side around
+the same corner. It does not bind controls placed inside a container. A 28px close button
+2px from a card edge is not a nested container; matching it to the card's curve would
+give it a 14px radius, i.e. a circle. The discriminator used in testing is **coverage**:
+a nested surface covers ≥50% of its container's area. Switch thumbs (r=50), status pills
+(r=999) and small icon buttons all fall below it and are correctly exempt.
+
+**Applied consistently, not just at the panel.** Three places had the same defect one
+level down: the nav pill and the General rows (both flush inside the panel, both were
+12), and the clickable surface filling each tile (20 inside a 16px tile — a child rounder
+than its parent). The last one inherits from the tile rather than restating a number, so
+the two cannot drift apart the way D45's literal did.
