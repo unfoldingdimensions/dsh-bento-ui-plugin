@@ -1377,3 +1377,37 @@ theme-dependent one is not 95% fidelity — it is 100% fidelity to the spec's in
 to a copy of its raw output. Worth saying explicitly rather than letting it read as a
 shortfall, because "we matched all of it but the colour" sounds like an excuse when it is
 actually the only correct reading.
+---
+
+## L67 — Two of my own rules fought each other, and neither looked wrong
+
+The stats strip's gap would not change. First cause: my single attribute selector lost to
+the host's class selector, so the rule was in the stylesheet and inert — the computed gap
+stayed at our own token's fallback. Fixed by doubling the attribute.
+
+That was not the whole story. The gap then resolved to 8px, still not the 12 I asked for.
+The reason was a *second rule of my own*: a broad `[class*="root"]` under the composer bar
+that also matched the stats element and set `gap: var(--dsh-bento-gap)` = 8.
+
+**The lesson.** "My selector does not match" and "my selector matches but something else
+wins" are different bugs with different fixes, and the second one is invisible if I only
+check whether my rule is present. Reading every rule that sets the property — with its
+origin — is what separated them. And the tie-breaker was a selector I wrote on a guess
+rather than a measurement; guesses about structure are exactly what produce this.
+
+---
+
+## L68 — A rectangle cannot honour a rounded corner, no matter how the corner is painted
+
+The conversation card had a square bottom corner whenever content filled it. The card was
+not at fault: it is painted perfectly, as an inset rounded rect on a pseudo-element. What
+painted over it was the host's scroll container — a plain rectangle reaching the card's
+exact edges, with no idea that a curve existed beneath it.
+
+Two conditions had to be right, and the first attempt satisfied neither: the element must
+**scroll** (a radius on `overflow: visible` clips nothing), and it must carry the **card's**
+radius rather than the inner tier, because it reaches the card's edge.
+
+**The lesson.** When a shape looks wrong, find out what PAINTS it before editing the thing
+that defines it. A card and the content inside it are painted by different elements, and
+only one of them knows about the curve.

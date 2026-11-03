@@ -145,7 +145,7 @@ See `decision.md` D23–D25 and `flow.md` §7.
 
 ## Status
 
-Seven features ship:
+Nine features ship:
 
 | id | title | default | what it does |
 |---|---|---|---|
@@ -156,6 +156,8 @@ Seven features ship:
 | `rightbar-card` | Right panel card | on | insets the docked right panel onto its own card |
 | `settings-bento` | Settings board | on | lays the Settings dialog out as a bento board: navigation on the canvas, content on one raised card, row rules removed |
 | `card-shadow` | Card shadow | **off** | lifts the four card surfaces with a soft two-layer shadow; off keeps the flat board |
+| `card-corners` | Card corners | on | clips scrolling content to the card's rounded corners, so the bottom edge stays curved once a conversation fills it |
+| `composer-spacing` | Composer spacing | on | gives the composer and its statistics strip one spacing scale, so the numbers group instead of crowding |
 
 ### Pass 4 (own Settings tab) — shipped
 

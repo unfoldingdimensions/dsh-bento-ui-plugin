@@ -1624,3 +1624,53 @@ after, unchanged.
 **Gate 19 added.** No `box-shadow` unless it resolves through a token. Proved red by
 planting the literal form; both this gate and gate 15 catch that plant, which is the
 correct amount of overlap for a rule with two ways to break.
+---
+
+## D58 — Selected rows carry weight as well as colour; the host font is not replaced
+
+**Two decisions from one report.**
+
+### Selection carries weight
+
+The selected Settings destination is now `font-weight: 500` as well as tinted and
+accent-inked. Colour alone marks a chosen row only if the tint separates from the canvas
+at a glance; a heavier label says it in a second channel that survives a grey-scale
+screenshot, a dim display and a colour-vision difference. The reference does the same —
+its active nav item is both tinted and stronger.
+
+**500, not 700.** Measured before choosing: the label resolves at 400, and applying 600
+changed the cell's box not at all (164×40 before and after), so weight costs no geometry.
+500 is the lightest step that still reads as deliberately heavier beside a 400 sibling;
+700 would make a nav row compete with the dialog's own heading.
+
+**On the label, not the button.** The icon beside it is a stroked SVG that `font-weight`
+cannot affect. Naming the text keeps the rule honest about what it does.
+
+### The host font is kept
+
+Asked whether we use the reference's UI font. The reference specifies **Inter** plus
+**JetBrains Mono**. Measured here:
+
+| | result |
+|---|---|
+| host body font | `-apple-system, BlinkMacSystemFont, "Segoe UI", …` |
+| Inter available in the browser | **yes** (width probe differs from the system stack) |
+| JetBrains Mono available | **no** |
+| faces loaded by the page | none — the host loads no webfont at all |
+
+**Decision: the font is not replaced.** Three reasons, in order of weight:
+
+1. **It is the host's, not the theme's.** A UI font governs every surface in the
+   application, including plugins this theme knows nothing about. Overriding it from a
+   layout plugin is a scope violation with visible consequences for things we do not own.
+2. **Half the pairing does not exist here.** Adopting Inter without JetBrains Mono would
+   leave code and inline tokens in a different family from the reference's own intent —
+   the pairing is the design, and only half of it can be delivered.
+3. **`-apple-system` is not a fallback to be fixed.** It is the platform UI face, chosen
+   by the host so the app matches the OS. Replacing it is a product decision about the
+   whole application, not a theme feature.
+
+What the theme *does* control is type *rhythm* — sizes, weights, spacing — and that is
+where the reference's typographic influence actually lands (D58 above, and the 4px scale).
+If the owner wants Inter globally, that belongs in the host's theme configuration, and
+this plugin should follow it rather than fight it.
