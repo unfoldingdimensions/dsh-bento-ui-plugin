@@ -672,3 +672,55 @@ as conservative and was in fact the destructive change.
 **The lesson.** In CSS, a narrower selector is not a safer selector. Match the rule's
 scope to the *set of elements that need it*, which is not always the set of
 elements you were thinking about when you wrote it.
+
+---
+
+## L34 — "Written but unverified" was a lie I had been telling
+
+For several sessions I carried the right-panel card as "CSS is written, the column
+defaults to 0px wide so it has never rendered." That sounded careful. It was false:
+there was no right-panel CSS. The `rightbar` part name existed and was stamped, and
+I had inferred a feature from a constant.
+
+The difference matters because the two claims have different next actions. "Written
+but unrendered" invites a test. "Not written" invites writing it. One of them was
+true and I had the other.
+
+**The lesson.** Before reporting the state of any artefact, check the artefact.
+`Select-String -Path src\*.js -Pattern 'RIGHTBAR'` would have shown the constant and
+nothing else in one second. I was reporting from memory of my own plan, not from the
+files.
+
+---
+
+## L35 — Two claims corrected mid-survey, both before they became code
+
+Item 5 produced two wrong statements and no wrong commits:
+
+1. **"Menus are unreachable."** Wrong. They are portaled to `body`, and the root
+   attribute is on `html`, so a theme rule reaches them fine. I made this claim
+   from the menu's parent being `BODY` and did not test a selector for a full step.
+2. **"The nav tile should be 10px, not 14px."** I had the message written and was
+   about to commit it. Measuring the host's own nav cell first returned **14px** —
+   identical to our token. The change would have introduced the inconsistency it
+   claimed to fix.
+
+**The lesson.** A survey that produces a decision is worth one more measurement than
+a survey that only produces a description. Both errors were caught by the same
+move: test the specific claim in the browser before writing it down.
+
+---
+
+## L36 — The correct output of item 5 was "no change"
+
+Menus were the last unpainted layer, and the honest finding is that they should stay
+unpainted: 16px outer, 12px cells, a material layer, shadow, host tokens — already
+composed on the same principles as the theme.
+
+There is a pressure at the end of a list to produce a change for every item.
+Fabricating one here would have meant a body-level selector with no scoping,
+restyling a working surface, to satisfy a checklist.
+
+**The lesson.** "Surveyed, and the correct action is none" is a complete result. It
+needs the same evidence as a change — the measurements above — and it belongs in the
+decision record precisely because the absence of a commit looks like an omission.

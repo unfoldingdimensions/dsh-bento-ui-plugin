@@ -120,14 +120,15 @@ See `decision.md` D23–D25 and `flow.md` §7.
 
 ## Status
 
-Five features ship:
+Six features ship:
 
 | id | title | default | what it does |
 |---|---|---|---|
 | `sidebar-card` | Sidebar card | on | insets the sidebar column onto its own rounded card |
-| `row-tiles` | Session tiles | on | rounds each session row, adds spacing, an edge on hover and the accent edge on keyboard focus |
+| `row-tiles` | Sidebar tiles | on | rounds sidebar rows (sessions and nav destinations), adds spacing, a hover edge and the accent edge on keyboard focus |
 | `center-card` | Conversation card | on | insets the conversation column onto its own card and recesses the composer into it |
 | `page-rows` | Page rows | on | gives the rows of full pages mounted in that column (Plugins, MCP) the same tile treatment |
+| `rightbar-card` | Right panel card | on | insets the docked right panel onto its own card |
 | `settings-bento` | Settings board | on | lays the Settings dialog out as a bento board: navigation on the canvas, content on one raised card, row rules removed |
 
 ### Pass 4 (own Settings tab) — shipped

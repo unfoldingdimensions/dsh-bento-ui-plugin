@@ -786,3 +786,90 @@ never its opinions about content it did not design.**
 **Verified:** 13 rows at 14px radius, hover fills exactly one
 (`rgba(38,49,72,0.06)`), 1517 characters of text intact, 9 switches untouched,
 zero console errors.
+
+---
+
+## D36 — The sidebar has one row style, not two
+
+**Decision.** `row-tiles` styles the sidebar's top-level destinations
+(Plugins, MCP connectors) with the same radius and hover edge as the session tiles.
+
+**Why.** The column stacked two row treatments: destinations at the host's 12px
+with no edge, sessions at 14px with one. Measured before:
+
+| Row | Radius | Border | Height |
+|---|---|---|---|
+| nav row | 12px | none | 36px |
+| session row | 14px | 1px | 34px |
+
+Addressed as `[class*="panelList"] > button` — proven to match **exactly 2**
+elements and nothing else in the sidebar. A plain
+`[data-dsh-bento-part="sidebar"] button` would have matched **36**, hitting the
+brand, the collapse toggle, the New Session button and the Settings trigger.
+
+The border is declared transparent rather than added on hover: a 1px addition
+would change the button's box and shift every row below it.
+
+---
+
+## D37 — The right panel needed four anchors and two clears
+
+**Decision.** `rightbar-card` clears the panel root through
+`[data-slot] > *:not([data-slot])` and additionally clears the `_tabHost` pane.
+
+**Why.** Two separate obstacles, both measured:
+
+1. **Four nested `display: contents` anchors**, one per slot level, put the panel
+   root at depth 5 — so a depth-based rule could never reach it. Anchors carry
+   `data-slot` and the root does not, which makes the attribute the discriminator
+   rather than a count.
+2. **The root is not the last thing painting.** A `_tabHost` element inside it
+   paints opaque white across the whole pane. Clearing only the root left the card
+   visible as a thin edge: card at x 892..1588, pane painting white over all of it.
+
+**Also recorded:** an earlier statement in this project that the right panel's card
+CSS was "written but never rendered" was **wrong**. There was no such CSS — the
+`rightbar` part name existed and was stamped, but no feature addressed it. The
+column measured 0px wide because it is collapsed by default, and that was read as
+"written but unverified" when the truthful status was "not written".
+
+**Verified open, both themes:** card 696px in a 720px column, 0 elements spilling,
+8 entries / 6 buttons / 137 text characters intact. Collapsed: the grid track stays
+0px and the column sits off-screen at x=1600, so the centre keeps its full 1320px.
+
+---
+
+## D38 — Menus are reachable and deliberately left alone
+
+**Decision.** No feature styles menus, popovers, model/workspace pickers or the
+command palette.
+
+**Why.** They are already composed on the same principles this theme uses, measured:
+
+| Property | Value |
+|---|---|
+| portal | `body`, outside the shell |
+| outer | 16px radius, 4px padding, shadow |
+| cells | 12px radius, `0 8px` padding, 34px tall, 13px/20px |
+| surface | a `_material` layer painting the tone |
+
+Restyling a surface that already works, to make it look touched, is change for its
+own sake — and this is the one layer where a broad body-level selector would have no
+scoping and no ownership.
+
+**Two corrections, both stated wrong during the survey:**
+
+1. I first reported menus as **unreachable**. They are not: they sit on `body` and
+   the root attribute is on `html`, so `html[data-dsh-bento] [role="menu"]`
+   matches. The accurate statement is "reachable, and deliberately not touched".
+2. I nearly changed the Settings nav tile from 14px to 10px on a rationalisation
+   about "rail geometry". The host's own nav cell measures **exactly 14px**, which
+   our `--dsh-bento-radius-inner` already is. The change would have made it worse.
+
+**Recorded scale**, ours against the host's:
+
+| Surface | Outer | Cell |
+|---|---|---|
+| menus | 16px | 12px |
+| settings panel | 28px | 14px (matches host exactly) |
+| bento cards | 20px | 14px |
