@@ -86,6 +86,35 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] [class*="tabHost"] {
   border-radius: var(--dsh-bento-radius-inner);
   overflow: hidden;
 }
+
+/* KEEP THE PANEL'S OWN CHROME INSIDE THE CARD.
+ *
+ * The panel root is host-positioned absolutely and spans the WHOLE column (measured
+ * x 880..1600, y 0..900), while this feature's card is painted INSET by the gutter
+ * (892..1588, 12..888). The card therefore sits inside the panel, not the other way
+ * round - so the panel's own chrome overhangs it on all four sides and the card's
+ * rounded corners clip through it.
+ *
+ * Measured before this rule:
+ *   right-hand buttons ended at x 1594 against a card edge of 1588  -> 6px outside
+ *   header buttons sat at y 10 against a card top of 12            -> 2px above
+ * and the corner arcs cut through them. That is the "text touches the border" report:
+ * near the corners the chrome and the stroke overlap.
+ *
+ * THE FIX IS PADDING ON THE PANE, NOT ON THE PANEL.
+ * Padding the panel would move its box, and its height depends on being edge-anchored
+ * (D50) - measured: margin on the panel dropped it from 900px to 876px. Padding inside
+ * the tab host keeps the panel exactly where the host put it and only insets the
+ * contents, so the header, the tab strip and everything below clear the card.
+ *
+ * + 1px because the card's 1px border is drawn OUTSIDE its own radius: the stroke's
+ * inner edge sits at gutter + 1, so clearing the gutter alone still grazes it.
+ *
+ * Verified in both themes: panel still 900px, 0 text boxes and 0 buttons outside the
+ * rounded boundary, down from 3 clipped header buttons. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] [class*="tabHost"] {
+  padding: calc(var(--dsh-bento-gutter) + 1px);
+}
 `;
 
     FEATURES.push({
