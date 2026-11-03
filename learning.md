@@ -750,8 +750,8 @@ declaration-before-use. **A linter proves the file parses. Only a rendered page 
 the rule landed.** The check that would have caught #1 and #2 is cheap: after
 injecting, assert that every declared custom property is referenced, and that no rule
 declares a value equal to the element's inherited default. That is a gate I did not
-write and should have.
-
+write and should have. (#2 has since been fixed: `--dsh-bento-gap` is gone and
+`verify.mjs` has 14 checks.)
 ---
 
 ## L38 — Reading a rule's source is not the same as measuring its effect
@@ -804,3 +804,50 @@ grouping query over it rather than trusting the impression the screenshots give.
 **The lesson.** A style's reputation is not its implementation. When a reference
 corpus is already extracted, aggregate it before designing from memory of how it
 looked.
+
+---
+
+## L41 — The audit's proposed fix for P1.1 was wrong, and the code disagreed with itself
+
+The audit's P1.1 said: move the switch's transitions out of inline style and onto the
+stylesheet, where `@media (prefers-reduced-motion)` can reach them. It reads as the
+obvious fix and it does not work.
+
+**This switch is the control that turns the theme on.** With every feature off —
+which is a state a user can be in, and the exact state where they open Settings to
+turn one on — the stylesheet is never injected at all. A transition declared only
+there would leave the control with no motion, in the one place the user is looking at
+it. The suggested fix would have traded a real accessibility bug for a dead control in
+the theme-off state, and the four-state table is what caught it: `reduce/theme-off`
+is a state the original verification would never have tested.
+
+What shipped instead resolves the duration in three steps: the token when the theme is
+on (which is what the media query reaches), a `matchMedia` read at render as the
+fallback (which is what makes the theme-off case correct), then the design value.
+
+**The lesson.** "Move it to the stylesheet" is a fix-shaped sentence that can be wrong.
+The question to ask first is *what state is this component in when the thing I want to
+depend on is absent* — and for a settings control, the answer is often "the state it
+exists to create".
+
+---
+
+## L42 — A gate that cannot fail is theatre; three plants made this one real
+
+The new check (`no transition hardcodes a duration`) went green immediately. A green
+run on a clean tree proves nothing, so it was proved red three times:
+
+1. the original shipped literal, `transition: 'background-color 160ms …'`
+2. a `0.16s` variant, to confirm the regex is not matching the string `160ms`
+3. a literal inside a CSS template literal in a *different* fragment — the case a
+   check scoped to `60-settings.js` alone would have missed entirely
+
+All three failed with the file and line. Restoring then exposed a second thing worth
+knowing: `git checkout -- src/` reverted the fix along with the plants, because the fix
+was not yet committed. The gate caught it (`60-settings.js:61: translate 160ms`), which
+is the system working — but the sequence to follow is **commit the fix, then plant**,
+not plant against uncommitted work.
+
+**The lesson.** Prove the failure mode you can reach, mentally, *and* the one you
+cannot: use a second plant in a different file or a different syntax, because the
+narrowest check passes on the example you had in mind while missing its neighbour.

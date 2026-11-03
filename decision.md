@@ -958,3 +958,39 @@ adapts.
 The one convention this leaves unowned is "reflow, do not shrink". The theme neither
 implements it nor claims to. That is defensible — a radius and a gutter are a token
 system, breakpoints belong to whoever owns the grid — but it is a gap, not a design.
+
+---
+
+## D43 — Motion resolves through the token first, then the OS preference, then the value
+
+**Decision.** Every animated property in this plugin takes its duration from
+`var(--dsh-bento-motion, <fallback>)`, where the fallback is computed at render from
+`prefers-reduced-motion`. A literal duration in a transition is a gate failure
+(check 14). The easing follows the same rule through `--dsh-bento-ease`.
+
+**Why, and why the simpler fix was wrong.** The audit's P1.1 reported that the plugin's
+own Settings switch ignored reduced motion, because its transitions were inline and no
+media query can reach an inline style. The obvious fix — move them onto the
+stylesheet — does not work here:
+
+**That switch is what turns the theme on.** With every feature off, the stylesheet is
+never injected. A transition declared only there would leave the control dead in exactly
+the state where the user opens Settings to turn something on. The suggested fix would
+have traded an accessibility bug for a broken control.
+
+The three-step resolution fixes both: the token when the theme is on (which is what the
+media query reaches, and what keeps motion retunable in one place), the `matchMedia` read
+when it is off (which is what makes the control independent of the theme), then 160ms.
+Verified in all four combinations of preference and theme state; the two theme-off cases
+are the ones that prove the control does not depend on the stylesheet it configures.
+
+**Accepted limitation.** The query is read at render, not subscribed. A preference
+changed while the Settings panel is already open is picked up on the next render, not
+instantly. Recorded rather than fixed: the alternative is a second subscription
+mechanism in a component that otherwise holds no state, for a setting that changes
+approximately never.
+
+**What the gate can and cannot see.** It is a source scan, so a duration assembled from
+two variables at runtime would pass it. It is a floor, not a proof — and it was proved
+red against three plants (a `160ms` literal, a `0.16s` literal, and a literal inside a
+CSS template literal in a different fragment) before it was trusted.

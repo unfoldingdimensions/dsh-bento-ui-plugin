@@ -20,6 +20,8 @@ does not have a type scale, a spacing ratio, a corner geometry, a focus story, o
 high-contrast mode. Three of its declarations are inert and it does not know that,
 because the build gate checks structure and never checks application.
 
+**P1.1 is fixed** (2026-11-03). The rest of the list stands as written.
+
 ---
 
 ## 1. What the reference actually is
@@ -87,18 +89,49 @@ exactly the reference's model, and it survives the dark inversion.
 
 ### P1 — wrong or risky, fix soon
 
-**P1.1 The plugin's own switch ignores reduced motion.** Under
-`prefers-reduced-motion: reduce` the token resolves to `0ms` and every stylesheet
-rule honours it (session rows measured `transition: 0s`), but the switch rendered by
-`60-settings.js` keeps `transition: background-color 160ms …` and the knob keeps
-`translate 160ms` — **both inline styles**, which no media query can reach. The
-comment at the top of `15-tokens.js` states the rule this breaks:
+**P1.1 The plugin's own switch ignores reduced motion. — FIXED** (`feat: honour
+reduced motion in the plugin's own switch`)
+
+Reported: under `prefers-reduced-motion: reduce` the token resolved to `0ms` and every
+stylesheet rule honoured it (session rows measured `transition: 0s`), but the switch
+rendered by `60-settings.js` kept `transition: background-color 160ms …` and the knob
+kept `translate 160ms` — **both inline styles**, which no media query can reach. The
+comment at the top of `15-tokens.js` states the rule this broke:
 
 > A theme must not be the reason a user's setting is ignored.
 
-Fix: read the media query in the component and pass `0ms`, or move both transitions
-out of inline style and onto `[data-dsh-bento-row] [role="switch"]` in the sheet.
-One file.
+Measured before the fix, on a fresh instance: token `0ms`, row transition `0s`, switch
+`0.16s`, and the knob visibly animating mid-flight `16px → 9.378px → 0px`.
+
+Why the reported fix was wrong. The audit suggested moving both transitions out of
+inline style onto the stylesheet. That cannot work: **this switch is what turns the
+theme on.** With every feature off the stylesheet is never injected, so a transition
+declared only there would leave the control with no motion in exactly the state where
+the user is trying to use it.
+
+What shipped instead: the duration resolves in three steps —
+`var(--dsh-bento-motion)` (the theme's single motion source, and what the media query
+reaches) with a fallback computed at render from `matchMedia` (so it still respects the
+preference when the theme is off), then `160ms` (the design value). `--dsh-bento-ease`
+is used the same way.
+
+Verified in all four states:
+
+| state | token | switch | knob | animated? |
+|---|---|---|---|---|
+| reduce, theme on | 0ms | 0s | 0s | **no** |
+| no-preference, theme on | 160ms | 0.16s | 0.16s | yes |
+| reduce, theme off | (unset) | 0s | 0s | **no** |
+| no-preference, theme off | (unset) | 0.16s | 0.16s | yes |
+
+Regression: 6 rows, 6 switches, first row still y=124, switch 36x20 r10, knob 16x16 r50%,
+2px inset from the right, colours unchanged in both themes, `aria-checked` and
+`translate` still track together, **0 console errors**.
+
+A gate now prevents the class, not just this instance — see L37 and `verify.mjs` check
+14 (`source: no transition hardcodes a duration`). It was proved red against three
+plants: the original `160ms` literal, a `0.16s` variant, and a literal inside a CSS
+template literal in a feature fragment.
 
 **P1.2 Keyboard users get no row highlight on the Plugins page.** The `page-rows`
 feature gave `section ul > li` a hover fill. Measured on that page: the row's own
@@ -290,7 +323,7 @@ Six working features, zero defects, three inert declarations, no type scale, no
 responsive rules, no focus parity, no forced-colors story, and a spacing ratio that is
 the inverse of the idiom it borrows — with the single highest-value change being the
 reduced-motion bug in our own switch, because it breaks a rule the code states out
-loud.
+loud. **That one is now fixed; the rest is unchanged.**
 
 ## 6. Corrections made during this audit
 

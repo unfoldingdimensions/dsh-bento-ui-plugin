@@ -38,7 +38,7 @@ src/50-feature-settings.js feature: the Settings dialog as a bento board
 src/60-settings.js         settings rows, derived from the registry
 src/99-footer.js           translator, apply(), exports
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 13 pre-install checks
+verify.mjs                 14 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`.
@@ -95,7 +95,10 @@ see A12 and Pass 4.
   tokens and matches the host control's geometry and `role="switch"` semantics.
 - Every resource is owned by `ctx.effect`, so unload and HMR remove the style
   tag, the observer, the stamps and the dictionary registrations.
-- Reduced motion is respected through the token layer.
+- Reduced motion is respected through the token layer, and a literal transition
+  duration is a gate failure. The token cannot be the only mechanism: the switch in
+  this plugin's own Settings tab is rendered when the theme is off and the stylesheet
+  does not exist, so its duration falls back to the OS preference read at render.
 
 ## Install
 
@@ -431,7 +434,7 @@ half now imports and exports exactly as the working themes do, and
 
 ### Regression guard
 
-`node verify.mjs` runs 13 checks before any install and exits non-zero on
+`node verify.mjs` runs 14 checks before any install and exits non-zero on
 failure. Both original failure modes were proved by planting them: a missing
 `main` is reported, and a host half that throws on import is reported cleanly
 instead of crashing the checker itself.
@@ -441,6 +444,12 @@ same way — by planting a violation and watching them name the cause. The secon
 of them reads the *built* `client.js` and asserts every `*_CSS` literal has
 balanced braces, because a stray backtick often leaves the bundle as valid
 JavaScript while silently truncating the stylesheet. See D16 and L14.
+
+Check 14 (`source: no transition hardcodes a duration`) prevents the reduced-motion
+defect from returning. It was proved red against three plants — the original `160ms`
+literal, a `0.16s` variant, and a literal inside a CSS template literal in a different
+fragment — because a check seen only green is indistinguishable from one that cannot
+go red. See D43 and L42.
 
 ## Verifying a UI change
 

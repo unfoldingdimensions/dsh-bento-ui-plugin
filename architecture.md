@@ -487,6 +487,17 @@ The fill step is the card. The edge is decorative. **Elevation is always zero** 
 86 of 86 reference cards have `box-shadow: none`, and the theme's only two shadows are
 `inset 0 0 0 1px` hairline replacements that cost no layout (D14).
 
+### 9.1a Motion
+
+One duration, one curve, both tokenised: `--dsh-bento-motion` (160ms, `0ms` under
+`prefers-reduced-motion`) and `--dsh-bento-ease` (`cubic-bezier(0.2, 0, 0, 1)`).
+
+The token is the *first* of three resolutions, not the only one, because the switch in
+the plugin's own Settings tab has to work when the theme is off and the stylesheet is
+therefore absent. Its duration is
+`var(--dsh-bento-motion, <preference read at render>)`. Nothing in this plugin may
+declare a transition duration as a literal (D43, gate check 14).
+
 ### 9.2 Radius vocabulary
 
 | Tier | Value | Used by |
@@ -521,10 +532,14 @@ buttons in the same container already use 8. Recorded as a known inconsistency
    descendants.** The host never moves focus into the tree, so a
    `:focus-visible` rule on a row is correct and unreachable. Do not write one and
    claim a keyboard affordance.
-3. **Our own switch's transitions are inline**, so `prefers-reduced-motion` in the
-   stylesheet cannot reach them (audit P1.1).
-4. **The composer is 214–331px from the card's edges.** Its 28px radius is
-   independent by the >24px rule, not a concentric-radius defect.
+3. **Motion never resolves to a literal.** Every duration comes from
+   `var(--dsh-bento-motion, <fallback>)`; the fallback is read from
+   `prefers-reduced-motion` at render. This is what makes the reduced-motion rule
+   reach the plugin's own switch, which cannot depend on the stylesheet because it is
+   the control that turns the theme on (D43). Gate check 14 enforces it.
+4. **The composer is 214px inside the card's left edge and 331px above its bottom
+   edge.** Its 28px radius is independent by the >24px rule, not a concentric-radius
+   defect.
 
 ### 9.5 Spacing, and where it breaks the idiom
 

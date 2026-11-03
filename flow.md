@@ -296,3 +296,52 @@ RECORD     docs/research/<topic>.md holds the findings and the sources
 **What an audit must not do.** It must not fix what it finds in the same change. The
 list has to be free to be wrong — three findings here were, and correcting them cost
 nothing because no code depended on them.
+
+---
+
+## 9. Fix one audit finding
+
+The counterpart to §8. An audit produces a list; this turns one item into a verified
+change, and the two must not be the same session step (D39).
+
+```
+PICK       one finding, by tier. P0 first, then P1.
+           └─ a finding is not a bug report: it says what convention is unmet, so the
+              fix has to be checked against the convention, not just the symptom
+
+REPRODUCE  prove the defect on a fresh instance BEFORE editing
+           └─ p11-baseline.cjs: token 0ms, row 0s, switch 0.16s, knob animating
+              16px -> 9.378px -> 0px. A fix for a defect you did not watch happen is
+              a guess with a commit message.
+
+CHALLENGE  does the finding's own suggested fix actually hold? (L41)
+           └─ "move it to the stylesheet" failed: this control is rendered when the
+              stylesheet does not exist. What state is the component in when the thing
+              it would depend on is absent?
+
+FIX        one mechanism, and state the resolution order in a comment
+           └─ token, then preference, then value — with WHY the token cannot be first
+              and only
+
+GATE       add the check that makes this class of defect impossible, and PROVE IT RED
+           └─ plant the original, plant a variant, plant it in another file.
+              `git checkout` to restore will revert an uncommitted fix: commit first.
+
+VERIFY     every combination, including the ones the report did not mention
+           └─ reduce/theme-on · no-pref/theme-on · reduce/theme-off · no-pref/theme-off
+              the theme-OFF cases are what prove the control does not depend on the
+              theme, and they are the cases a symptom-only test never runs
+
+REGRESS    the change must move nothing but its own property
+           └─ counts, y positions, geometry, colours, aria/translate coupling,
+              console errors — in BOTH themes
+
+RECORD     audit doc: mark the item FIXED with the before/after numbers
+           decision.md: the ruling and the accepted limitation
+           learning.md: only what cost time or was nearly got wrong
+```
+
+**The ordering rule inside GATE.** Commit the fix, then plant the violation, then
+restore with `git checkout`. Planting against uncommitted work means the restore
+command deletes the fix along with the plant — which happened here, and was caught only
+because the gate ran afterwards.
