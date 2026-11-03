@@ -159,6 +159,67 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"][data-sidebar-collapsed] {
     --dsh-bento-motion: 0ms;
   }
 }
+
+/* WINDOWS HIGH CONTRAST.
+ *
+ * Under forced-colors every background the theme paints is replaced by a system
+ * colour, so the canvas, the card and the page all resolve to the same white: the
+ * composition collapses to one plane and every feature that works by fill becomes a
+ * no-op. That part is unavoidable and is the correct behaviour — a user who asks for
+ * high contrast is asking for exactly this.
+ *
+ * What is NOT correct is the second effect. Several rules in this theme declare a
+ * TRANSPARENT border as a layout spacer: the session and nav rows reserve 1px above
+ * and below so the edge can appear on hover without moving the row (45-feature-rows,
+ * D-session-tiles). Forced-colors replaces a transparent border with the system text
+ * because it cannot know the author's transparent border was meant to be invisible.
+ * Measured: 0 of 8 rows show a visible border normally, 8 of 8 under forced-colors —
+ * every row grows a hard black box it was never meant to have.
+ *
+ * So the spacer borders are withdrawn in this mode and their 2px replaced by 2px of
+ * padding, which forced-colors does not touch. The row keeps its exact 34px box
+ * (32px content + 2px padding instead of 32px + 2x1px border). The property
+ * forced-color-adjust is NOT used — it inherits, and would switch high contrast off
+ * for the row's text and its switch, which is precisely what the user asked for.
+ *
+ * The card edges are left alone: they are real edges, drawn on purpose, and forcing
+ * them to CanvasText is the desired result — it is what keeps the three-surface
+ * composition legible once every fill has been flattened.
+ *
+ * WHY THE SELECTOR IS DOUBLED. This block lives in BASE_CSS, which the kernel PREPENDS
+ * to the feature stylesheets, and the feature rule that declares the spacer border has
+ * identical specificity. Same specificity, earlier source order: the feature wins and
+ * the border comes back. Measured — the first version of this block was a no-op and 8
+ * of 8 rows still showed a box.
+ *
+ * Repeating the subject selector raises specificity above the feature rule without
+ * !important, and without moving this block after the features. The token layer stays
+ * first because everything else reads from it.
+ *
+ * The two controls need DIFFERENT compensation, because their vertical padding
+ * differs, and padding-block replaces rather than adds:
+ *
+ *   session row   padding 0        + 1px border each side => 34px
+ *                 becomes padding 1px block              => 34px, unchanged
+ *   nav button    padding 7px block + 1px border each side => 38px
+ *                 becomes padding 8px block              => 38px, unchanged
+ *
+ * Writing a single padding-block: 1px for both (the first attempt) fixed the session
+ * rows and silently shrank every nav button by 2px, because it REPLACED the 7px that
+ * was already there. Measured: nav row 38px -> 36px. */
+@media (forced-colors: active) {
+  html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"][data-row-key^="session:"] {
+    /* Had no vertical padding: the border's 2px becomes padding's 2px. */
+    border-width: 0;
+    padding-block: 1px;
+  }
+
+  html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"][class*="panelList"] > button {
+    /* Had 7px: the border's 1px each side is added to it, not substituted for it. */
+    border-width: 0;
+    padding-block: 8px;
+  }
+}
 `;
 //#endregion
 
