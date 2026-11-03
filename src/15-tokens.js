@@ -22,10 +22,32 @@ html[${ROOT_ATTR}] {
   --dsh-bento-gutter: 12px;
   --dsh-bento-gap: 8px;
 
-  /* Radii: card, inner, rail. 20/14 is the dashboard proportion, scaled down from
-     the reference's 24/18 because a column here is narrower than a 660px card. */
+  /* Radii: card, inner, rail.
+   *
+   * The card is 20px, the host's own --dsw-radius-xl, so a card matches the shells
+   * around it. The inner tier is 12px, the host's --dsw-radius-md, for three reasons
+   * that all point the same way:
+   *
+   *   1. The host uses 12px on every row in this column. Measured with the whole
+   *      plugin switched off: New Session 12, nav destinations 12, workspace headings
+   *      12, session rows 12.
+   *   2. 12px is on the host's own radius scale (8 / 12 / 16 / 20). The previous
+   *      value, 14px, was the only radius in the theme not on it.
+   *   3. It closes the gap the old value opened. With row-tiles on, four rows sat at
+   *      two different radii in the same card — New Session 12 beside a nav row at 14,
+   *      workspace headings 12 above session rows at 14 — because the theme overrode
+   *      only some of them.
+   *
+   * A correction is recorded in decision.md (D45): an earlier entry claimed the host's
+   * nav cell measured 14px. It does not. That measurement was taken with row-tiles
+   * active and read this theme's own declaration back.
+   *
+   * Concentric maths would ask for 6-8px at a 12-14px inset under a 20px card, which
+   * would be tighter still. It is not followed here because the host's own rows are at
+   * 12 and the point of this tier is to agree with them, not to out-derive the shell
+   * the theme is drawing on. */
   --dsh-bento-radius: 20px;
-  --dsh-bento-radius-inner: 14px;
+  --dsh-bento-radius-inner: 12px;
   --dsh-bento-radius-rail: 10px;
 
   /* Motion: one duration, one curve, shared by every feature. */
