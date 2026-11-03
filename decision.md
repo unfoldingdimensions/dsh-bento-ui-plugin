@@ -1324,3 +1324,47 @@ the right test existed:
 boundary, 0 outside (was 3 clipped header buttons), panel height still 900px. The D50
 scroll fix still passes, the full feature regression sweep is green, and the sidebar and
 centre columns were re-checked with the same test (0 violations).
+---
+
+## D52 — Popups and panels are left on the host's own material, and that is confirmed, not assumed
+
+**Decision.** The three floating surfaces — the attachment/command menu, the model
+selector and the permission/access-mode menu — stay untouched. D38 said menus were
+deliberately left alone; this entry records the measurement that says the decision is
+still right now that the shell around them has changed.
+
+**What they are, measured:**
+
+| surface | size | paint | radius | cells |
+|---|---|---|---|---|
+| attachment / command menu | 853x347 | `rgba(38,49,72,0.06)` | 12px | 12px cells, 34px rows |
+| model selector | 248x76 | `rgba(248,249,250,0.58)` | **16px** | 12px cells, 34px rows |
+| permission menu | 161x110 | `rgba(248,249,250,0.58)` | **16px** | 12px cells, 34px rows |
+
+The two small menus carry `backdrop-filter: blur(40px) saturate(1.5)` — frosted glass
+over whatever is behind them. The attachment menu is a flat translucent tint instead.
+
+**Why they are not adapted.** They are not chrome, they are *overlays*: they sit above
+the composition rather than inside it, and their job is to be legible against anything
+they happen to cover. A frosted translucent layer does that; an opaque card on our canvas
+token would not, because it would have to pick a side of the light/dark boundary and then
+fight whatever it floats over.
+
+And the numbers already line up with the rest of the theme: **12px cells** is exactly
+`--dsh-bento-radius-inner`, and **34px rows** is exactly the session-row height. The
+16px outer radius is a step between our 20px card and our 12px cell — appropriate for
+something floating above the grid rather than being one of its cells.
+
+**The measurement that matters:** queried the theme's own stylesheet against all three
+popups. `themeMatched: null` for every one — the theme does not touch them at all. So
+"do they adapt" has a precise answer: no, and they were never meant to.
+
+**What this would cost if reversed.** Styling them would mean a body-level selector with
+no ownership boundary (they portal out of the shell), an opaque surface that breaks the
+frosted-glass affordance, and a fight with whatever the host already gets right. Recorded
+so the next session does not rediscover the temptation without the reason.
+
+**One real consequence, stated plainly.** Because the popups are translucent, they show
+the canvas colour through them. That is correct behaviour and is visible in the crops:
+the menus pick up a faint blue-grey cast in light mode. That is the theme being seen
+through the glass, not the theme failing to apply.

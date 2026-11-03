@@ -1183,3 +1183,42 @@ I checked it anyway rather than assuming, and the check is what ruled it out.
 does not depend on today's DOM. And re-run the *previous* bug's test against any change
 to the same element — the two bugs here were one commit apart and shared a root cause
 element.
+---
+
+## L57 — `border: 0` lost, and the computed style was the only thing that said so
+
+Removing the divider looked like a one-line change. I added `border: 0` to the tab host
+rule, rebuilt, and the verification reported the border still there — `1px solid
+rgba(0, 0, 0, 0.16)` — in both themes.
+
+The cause: the host declares that border with **five compound selectors**:
+
+```
+._tabCell[data-dockkit-host="dock"][data-dockkit-column="0"] > ._tabHost_x
+```
+
+against our three. Specificity decides before source order, so our rule lost regardless
+of where it sat. Repeating the part attribute in our selector (`[part="rightbar"][part]`)
+raised it above without `!important`.
+
+**The lesson.** "I set it to zero" is not "it is zero". Reading the computed value after
+the change is the only evidence, and it is one line. This is the third time in this
+project a declaration has been present, correct, and inert — the other two were a
+`letter-spacing: 0` that equalled the default and a `-gap` token nobody referenced.
+
+---
+
+## L58 — Three surfaces the user expected to be themed, and none of them were
+
+Asked whether the permission popups, model selector and attachment pane adapt to the
+bento UI. Measured all three: **the theme does not touch any of them** — queried our own
+stylesheet against each popup and got no matches at all.
+
+They are not neglected; they are overlays, deliberately left on the host's material
+(D38, re-confirmed as D52). And the numbers happen to agree with the theme anyway:
+12px cells is our inner radius token, 34px rows is our session-row height. The only
+outlier is the 16px outer radius, which is right for something floating above the grid.
+
+**The lesson.** "Does X adapt?" has two very different answers — "we styled it" and "it
+already matches" — and only measurement separates them. A report that says "no" without
+saying which kind of no is useless: it reads as a gap when it may be a finished decision.
