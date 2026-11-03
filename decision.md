@@ -1368,3 +1368,55 @@ so the next session does not rediscover the temptation without the reason.
 the canvas colour through them. That is correct behaviour and is visible in the crops:
 the menus pick up a faint blue-grey cast in light mode. That is the theme being seen
 through the glass, not the theme failing to apply.
+---
+
+## D53 — Settings is one board across every tab, not one tab
+
+**Decision.** Every tab in Settings is themed, and the host's own inner cards become
+tiles on the board. The anchor is structural — a list item inside a settings section —
+never a class name.
+
+**What was wrong.** The settings feature keyed its row rules on
+`[data-slot="settings.general.item"]`, which only the General renderer writes. Measured
+across all six tabs: **one was themed, three still drew bordered white cards inside the
+content card,** two are this plugin's own.
+
+| tab | renderer | cards before | after |
+|---|---|---|---|
+| General | `settings.general.item` slots | 0 | unchanged |
+| Models | `zGbnIq_` | 2 x 564x54 | tiles |
+| Built-in plugins | `qSYn7G_` | 29 x 277x84 | tiles, grid kept |
+| Agent presets | `rtSEdW_` | 4 x 276x191 | tiles, selection kept |
+
+Three separate bundles, three separate CSS-module hash prefixes, all changing when a
+section is added — which is why the class names could not be the anchor even if they
+were readable. All 35 cards share one shape, and that shape is stable.
+
+**Flatten the paint, keep the layout.** Border and fill go; the box does not move.
+Nothing sets `display`, `grid` or width. Two reasons, both measured:
+
+- The 2-up grids are right. Collapsing 29 plugins into one column would be a worse
+  answer than a box, not a more bento one.
+- `box-sizing: border-box` means removing a border grows the content and never the
+  cell, so the grid cannot reflow. Cell heights drop by exactly the border: 84→82,
+  191→189.
+
+**Two regressions caught by measuring rather than by looking.**
+
+*Selection.* Agent presets marks the chosen mode with a border and a tinted fill —
+precisely the two properties the flattening removes. Losing it would leave "which mode
+is the default" unanswerable. Re-expressed in the board's own vocabulary: canvas fill
+plus inset edge, the same pair the selected Settings destination already uses, keyed on
+`aria-pressed` because that is the state and it is stable across renderers. The `:hover`
+rule excludes the selected tile, or hovering the default would make it look unselected.
+
+*Padding with no box.* Removing a card leaves its padding behind. Padding with nothing
+around it does not read as breathing room — it reads as misalignment. Models rows kept
+`padding: 12px 14px`, putting every label 14px right of the section heading and leaving a
+54px empty band. Trimmed with the negative-margin-plus-matching-padding trick the General
+rows already use, so the label returns to the heading's x (measured drift 14px → 0px)
+while the hover fill still reaches the card edge.
+
+**Not a defect, checked and dismissed.** Eight description spans report
+`scrollHeight > clientHeight`. That is the host's own `-webkit-line-clamp: 2`, measured
+identical with the theme disabled. The "clipped text" reading was wrong.

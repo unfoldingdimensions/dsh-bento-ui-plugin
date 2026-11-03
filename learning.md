@@ -1222,3 +1222,40 @@ outlier is the 16px outer radius, which is right for something floating above th
 **The lesson.** "Does X adapt?" has two very different answers — "we styled it" and "it
 already matches" — and only measurement separates them. A report that says "no" without
 saying which kind of no is useless: it reads as a gap when it may be a finished decision.
+---
+
+## L59 — A feature that looked shipped because I only ever tested one of its tabs
+
+The work that themed Settings shipped, verified, and was reported as done. It themed
+**one tab out of six.** The other five were never measured — I built the rules from the
+first tab I opened, saw them work there, and stopped.
+
+The user found it, not me: a screenshot of Models, with "this is not bento ui".
+
+The cause was an anchor: `[data-slot="settings.general.item"]`, which only General
+writes. Three other tabs are separate bundles with their own card renderers. Nothing in
+the code was *wrong* — it did exactly what it said. The claim attached to it was wrong.
+
+**The lesson.** "I verified the feature" means nothing until I can name the surface
+inventory. For anything with tabs, sections, states or pages, the unit of verification is
+every one of them, and the way to know I have them all is to enumerate them from the DOM
+first and then check each by name. A verification against the one surface that happened
+to be open is a spot check wearing a completion claim's clothes.
+
+---
+
+## L60 — "This is not bento" was true, and the fix was not "make it more bento"
+
+The obvious reading of the report was: remove the boxes, flatten everything to rows. That
+would have been wrong. Three of the tabs are 2-up grids holding 29 plugins and 4 rich
+presets; a single column of 29 rows is not more bento, it is just longer.
+
+The answer was to flatten the *paint* and keep the *layout*: border and fill go, the grid
+stays. That is the same distinction as D50 and D51 — paint is ours, layout is the host's —
+applied to a case where the correct answer was "less, but not everything".
+
+**The lesson.** A report of "this does not look like X" invites a maximal response in the
+direction of X. The useful question is which property is wrong, not which direction is
+right. And the two small traps here — a selected state that lived in the border, and
+padding that outlived its box — were both invisible in a screenshot and only appeared
+when I measured what the flattening would remove.
