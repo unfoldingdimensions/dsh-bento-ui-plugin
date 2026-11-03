@@ -1,6 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Bento layout">
-  <rect x="2" y="2" width="12" height="12" rx="3" fill="#4C7DF0"/>
-  <rect x="18" y="2" width="12" height="7" rx="3" fill="#4C7DF0" opacity="0.55"/>
-  <rect x="2" y="18" width="7" height="12" rx="3" fill="#4C7DF0" opacity="0.55"/>
-  <rect x="13" y="13" width="17" height="17" rx="3" fill="#4C7DF0" opacity="0.8"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36" role="presentation" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="bento" x1="9" y1="9" x2="27" y2="27" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#54ECE7"/>
+      <stop offset="1" stop-color="#658EFF"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#bento)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8.75" y="8.75" width="18.5" height="18.5" rx="3.6"/>
+    <path d="M17.4 9.6v16.8"/>
+    <path d="M18.4 18.2h8.2"/>
+  </g>
 </svg>

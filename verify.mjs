@@ -231,6 +231,41 @@ check('fragments: no MODULE-scope identifier read before its declaring fragment'
   return files.length + ' fragments, ' + declaredIn.size + ' module-scope declarations';
 });
 
+check('icon: 36x36 package mark, decorative, exportable', () => {
+  // The icon is the one UI artefact this theme owns, and it is a PACKAGE icon — a
+  // different artefact from the 16px in-UI glyph grid (D49). The convention is not
+  // invented: every package icon on the host's Plugins page is
+  //   width=36 height=36 viewBox="0 0 36 36" fill=none
+  // with an outline glyph in a cyan->blue gradient. A previous version was a 32px
+  // solid four-shape mark in a flat literal colour, which matched nothing.
+  const iconPath = resolve(root, manifest.exports?.['./icon'] ?? 'icon.svg');
+  if (!existsSync(iconPath)) throw new Error(`icon missing at ${iconPath}`);
+  const svg = readFileSync(iconPath, 'utf8');
+
+  const problems = [];
+  if (!/viewBox="0 0 36 36"/.test(svg)) problems.push('viewBox is not "0 0 36 36"');
+  if (!/width="36"/.test(svg) || !/height="36"/.test(svg)) problems.push('not declared 36x36');
+  if (!/fill="none"/.test(svg)) problems.push('root is not fill="none" (outline icon)');
+  // Decorative: the host wraps every package icon in aria-hidden, so the row title is
+  // the accessible name. Claiming role="img" would assert semantics it never carries.
+  if (!/role="presentation"/.test(svg)) problems.push('not role="presentation"');
+  if (!/aria-hidden="true"/.test(svg)) problems.push('not aria-hidden');
+  if (/aria-label=/.test(svg)) problems.push('has an aria-label, which cannot be localised in a static file');
+  // Artwork may use a gradient — the host's own package icons do, identically in both
+  // themes — but it must actually use one, not merely declare one.
+  //
+  // Comments are stripped first. A naive string test passed a planted violation whose
+  // gradient was inside an HTML comment: the text was still there, the paint was gone.
+  const uncommented = svg.replace(/<!--[\s\S]*?-->/g, '');
+  if (!/<linearGradient/.test(uncommented)) problems.push('no gradient (the package set uses one)');
+  if (!/(stroke|fill)="url\(#/.test(uncommented)) problems.push('gradient declared but not used by any shape');
+  // Must be well-formed enough to be an image.
+  if (!/<\/svg>\s*$/.test(svg.trim())) problems.push('does not close');
+
+  if (problems.length > 0) throw new Error(problems.join('; '));
+  return '36x36 outline, presentation, gradient';
+});
+
 check('locales: en and zh present with meta', () => {
   const langs = [];
   for (const lang of ['en', 'zh']) {
