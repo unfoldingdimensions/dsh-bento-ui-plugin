@@ -1029,3 +1029,69 @@ only thing that contradicted it was reading the values by hand.
 if it passes it through. The general form: *silently ignored arguments produce silently
 wrong data*, and the fix is to make the helper's result impossible to misread — here, by
 checking the numbers by eye once before trusting the boolean derived from them.
+---
+
+## L50 — The reference contradicted the brief, and that was the finding
+
+The request was "icon philosophy for bento design", which presupposes that bento is an
+icon-led style. Before writing anything I counted `<svg>` elements in the 14-page
+reference corpus:
+
+- **7 pages: zero icons**
+- 6 pages: one or two (a logo, a chevron)
+- 1 page: thirteen — and it is a different product embedded with its own system
+
+**1.5 icons per page across 470 KB pages.** The pages that actually carry bento cards
+are the icon-free ones. The bento look is carried by density, weight and alignment.
+
+So the honest answer to "what is the icon philosophy for bento" is largely *"there is
+none, and that is the philosophy"* — icons are punctuation in a composition whose content
+is numbers. Writing a design-system essay about grid sizes and stroke weights would have
+answered a question the reference says does not arise.
+
+**The lesson.** When a request presupposes a premise, measure the premise before
+designing to it. The measurement is cheap — one regex over files already on disk — and it
+either confirms the brief or replaces it with a better question.
+
+---
+
+## L51 — Three of my own numbers were wrong, and the doc shipped neither time
+
+Writing the icon philosophy, I asserted counts from a first scan and checked them only
+after drafting:
+
+| Claimed | Actual |
+|---|---|
+| 27 icons at 16×16, 19 at 14×14 | **24 and 14** |
+| 8 / 4 / 1 pages by icon count (sums to 13) | **7 / 6 / 1** |
+| "39 at 1px and 11 at 1.3px" | two different populations mixed; both screens are **30 and 12** |
+
+All three are the same mistake: a histogram from one screen, reported as if it covered
+every screen, or a bucket count that does not sum to the population. A count that does
+not add up is the cheapest possible self-check and I did not run it until a table looked
+wrong.
+
+**The lesson.** Arithmetic on counts has a free correctness check — do the parts sum to
+the whole? Pages: 7+6+1 must equal 14. It did not, and that is what caught it. Run that
+check as the numbers are written, not after.
+
+---
+
+## L52 — I explained a measurement I had not measured
+
+The measured fact was: the Settings dialog uses 1.3px for 9 of its 17 icons, while the
+centre column uses it once. The sentence I first wrote was "because it renders at the
+same 16px box but reads at a shorter viewing distance inside a modal."
+
+That is a plausible cause and it is not in the data. Nothing I measured distinguishes
+viewing distance from any other reason the two regions might differ.
+
+It is now written as: what is measured is the split; the reason is an inference and is
+labelled one. The rule it supports is narrowed to what the split can actually justify —
+1px default, 1.3px permitted only inside that dialog — which is safe whether or not the
+inference is right.
+
+**The lesson.** A causal "because" promoted from a correlation is the most persuasive
+kind of wrong sentence, because it makes the finding feel explained. The test: could I
+design an experiment that would show this cause and not another? If not, it is an
+inference, and the document says so.

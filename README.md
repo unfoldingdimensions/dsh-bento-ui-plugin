@@ -22,6 +22,7 @@ restyles what the host already renders.
 | [flow.md](flow.md) | Runnable sequences: add a feature, the Chrome-before-the-app loop, diagnose "loaded but nothing happened", recover from a boot failure, the isolated-profile test loop, audit a convention (§8) |
 | [learning.md](learning.md) | What cost time and why (L1–L40), including the mistakes |
 | [docs/research/bento-language-audit.md](docs/research/bento-language-audit.md) | What the theme implements against what the bento idiom requires, measured, tiered P0/P1/P2, with sources |
+| [docs/research/icon-philosophy.md](docs/research/icon-philosophy.md) | What icons do in a bento composition, the host's measured icon system, and the rule that this theme draws none in the UI (D48) |
 
 Read `learning.md` before changing anything here — most of it exists because a
 confident-looking change silently did nothing.
@@ -107,6 +108,8 @@ see A12 and Pass 4.
 - Under Windows High Contrast the theme withdraws its spacer borders rather than let
   forced-colors paint them, but keeps the card edges, which are what make the
   composition legible once the fills flatten (D46).
+- No feature adds an icon to the interface. `icon.svg` is a package icon, not a UI icon,
+  and the two must not be reused for each other (D48).
 
 ## Install
 

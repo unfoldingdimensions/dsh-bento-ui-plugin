@@ -1138,3 +1138,50 @@ painted colour rather than by choosing on the name.
 comments are stripped first because the token layer documents host values (`#ebeef2`)
 as prose. It is a floor, proved red against three plants — the removed shadow, a hex in
 a CSS template literal, and a named colour.
+---
+
+## D48 — Icons are punctuation, and the theme draws none in the UI
+
+**Decision.** No feature adds an icon to the interface. The package's `icon.svg` is a
+**package icon** and must never be rendered inside the UI. If a UI mark is ever genuinely
+needed, it is a separate 16×16 outline asset — not that file.
+
+**Why.** Measured, not preferred:
+
+1. **The reference is icon-sparse.** Across 14 bento pages there are 21 `<svg>` elements
+   total; **7 pages have none**, 6 have one or two, and the single page with 13 is a
+   different product embedded with a different system (18px box, 24 viewBox, 2px stroke).
+   The pages carrying real bento cards are the icon-free ones. Density, weight and
+   alignment carry the look.
+
+2. **The host already draws every chrome icon, and draws it well.** Measured across 49
+   icons in both themes: one 16×16 grid, `currentColor` on **all** of them, outline-first,
+   `butt` caps and `miter` joins. Because they are `currentColor` they already follow the
+   theme's surfaces. Restyling them would mean overriding host ink, which is the same
+   class of mistake as restyling host typography (D35).
+
+3. **A theme that adds glyphs is adding content it does not own.** The one legitimate
+   icon a theme owns is the one that identifies the theme itself.
+
+**The discriminator test.** Before any icon: name the other icon in the interface it
+could be confused with. If the answer is "nothing", it is a discriminator and earns its
+place. If the answer is "anything", it is decoration — the "icon soup" failure.
+
+**Known limitation, and it is visible.** The Settings tab that configures this theme is
+drawn with the **same gear** as General and Remote Access: 4 distinct glyphs across 6
+tabs, confirmed by byte-identical path data and 4× pixel crops. The nav glyph comes from a
+host-side map keyed by section id, and an unknown id falls back to the gear. Not fixable
+in CSS. Recorded as the one real icon defect in the theme, and as the icon worth drawing
+if the host ever exposes a glyph hook.
+
+**The package icon is not a UI icon.** `icon.svg` is `0 0 32 32`, solid, four shapes at
+three opacities, filled with the literal `#4C7DF0`. In an app-icon slot that is correct.
+Rendered inside the UI it would be a 32px filled blue mark among 16px outline
+`currentColor` glyphs. Its blue also scores **3.28** on the light canvas — it clears the
+3:1 floor for a graphical object and nothing more, and being fixed it will not follow a
+registered theme.
+
+**If an in-UI icon is ever added**, it matches the measured system, not the published
+one: `0 0 16 16`, 16px, 1px stroke (1.3 permissible only inside the Settings dialog),
+`butt`/`miter`, outline, `currentColor` (which gate 15 already enforces), sized ~1.1× the
+adjacent text size and centred on the text box.
