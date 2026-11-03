@@ -975,7 +975,43 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:hover {
     /** Marks a row this plugin renders, so its stylesheet can address it without
      * depending on a hashed class name or on which section it landed in.
      * Declared in 00-prelude.js: 50-feature-settings.js reads it at module scope. */
+
+    /**
+     * The duration to use when the theme's own motion token is not available.
+     *
+     * THIS CONTROL CANNOT DEPEND ON THE THEME. It is rendered whether or not any
+     * feature is on — it is the switch that turns them on — and with every feature
+     * off the stylesheet is never injected and `--dsh-bento-motion` does not exist.
+     * So a transition declared only in that stylesheet would leave the control with
+     * no motion in exactly the state where the user needs it to respond.
+     *
+     * The duration therefore resolves in three steps, in this order:
+     *
+     *   1. `var(--dsh-bento-motion)` — the theme's single motion source, when the
+     *      theme is active. This is what makes it follow the token if it is retuned,
+     *      and what makes the reduced-motion media query reach it, because the token
+     *      is set to 0ms there.
+     *   2. this function's answer — the OS preference, read at render, so the control
+     *      still ignores motion when the theme is off.
+     *   3. 160ms — the design value.
+     *
+     * Reading the query at render rather than subscribing means a preference changed
+     * while the panel is already open is picked up on the next render, not at once.
+     * That is deliberate: the alternative is a second subscription mechanism in a
+     * component that otherwise has no state of its own.
+     */
+    function motionFallback(ms) {
+      try {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? '0ms' : ms + 'ms';
+      } catch {
+        /* No matchMedia: assume motion is allowed. */
+        return ms + 'ms';
+      }
+    }
+
     function Switch({ checked, onChange, label }) {
+      const motion = `var(--dsh-bento-motion, ${motionFallback(160)})`;
+      const ease = `var(--dsh-bento-ease, cubic-bezier(0.2, 0, 0, 1))`;
       return h(
         'button',
         {
@@ -995,7 +1031,7 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:hover {
             border: 0,
             cursor: 'pointer',
             background: checked ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-border-l2)',
-            transition: 'background-color 160ms cubic-bezier(0.2, 0, 0, 1)',
+            transition: `background-color ${motion} ${ease}`,
           },
         },
         h('span', {
@@ -1008,7 +1044,7 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:hover {
             background: 'var(--dsw-alias-bg-overlay)',
             boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
             translate: checked ? '16px 0' : '0 0',
-            transition: 'translate 160ms cubic-bezier(0.2, 0, 0, 1)',
+            transition: `translate ${motion} ${ease}`,
           },
         }),
       );

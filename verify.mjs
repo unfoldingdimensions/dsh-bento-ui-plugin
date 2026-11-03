@@ -205,6 +205,39 @@ check('locales: en and zh present with meta', () => {
   return langs.join(', ');
 });
 
+check('source: no transition hardcodes a duration (reduced motion)', () => {
+  // A transition written as a literal duration is invisible to
+  // `prefers-reduced-motion`: a media query in the stylesheet cannot reach an inline
+  // style, and a literal in a style object is inline by definition.
+  //
+  // That is not hypothetical. The plugin's own Settings switch shipped with
+  // `transition: 'background-color 160ms ...'` while the token layer set
+  // --dsh-bento-motion to 0ms, so every stylesheet rule honoured the preference and
+  // the one control the rule was written for kept animating (measured 16px -> 9.378px
+  // -> 0px under `reduce`). The audit found it; this check stops it coming back.
+  //
+  // The rule: every transition duration must come from the motion token
+  // (`var(--dsh-bento-motion, ...)`) or from a value that already resolved the
+  // preference. `transition: none` is fine — it declares no duration.
+  const offenders = [];
+  for (const name of readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort()) {
+    const text = readFileSync(join(root, 'src', name), 'utf8');
+    const lines = text.split('\n');
+    lines.forEach((line, index) => {
+      const at = line.indexOf('transition');
+      if (at === -1) return;
+      // A duration literal: 160ms, 0.16s, 1s. Not a var() reference.
+      if (!/\b\d+(?:\.\d+)?m?s\b/.test(line)) return;
+      if (line.includes('var(--dsh-bento-motion')) return;
+      offenders.push(`${name}:${index + 1}: ${line.trim().slice(0, 70)}`);
+    });
+  }
+  if (offenders.length > 0) {
+    throw new Error('literal duration ignores the motion token —\n    ' + offenders.join('\n    '));
+  }
+  return 'every duration resolves through --dsh-bento-motion';
+});
+
 const results = await runAll();
 
 for (const entry of results) {
