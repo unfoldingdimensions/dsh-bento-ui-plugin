@@ -841,6 +841,13 @@ column measured 0px wide because it is collapsed by default, and that was read a
 
 ## D38 — Menus are reachable and deliberately left alone
 
+> **Partially superseded by D45.** The menu decision stands. The measurement in
+> correction 2 below — "the host's own nav cell measures exactly 14px" — was taken
+> with the theme active and read this theme's own declaration back. The host draws
+> that cell at **12px**. The conclusion drawn from it ("14px is already right, keep
+> it") was therefore backwards, and the inner tier is now 12px. Kept as written
+> because the record of how the error was made is the useful part.
+
 **Decision.** No feature styles menus, popovers, model/workspace pickers or the
 command palette.
 
@@ -1035,3 +1042,99 @@ host build that changes what `::after` paints on a page control would be affecte
 row's own radius would then disagree in a different way. The rule is deliberately
 narrow (focus-visible, inside a page row, inside the centre column) so the blast radius
 is one property on one pseudo in one context.
+---
+
+## D45 — The inner radius tier is the host's own 12px, not 14px (supersedes D38's measurement)
+
+**Decision.** `--dsh-bento-radius-inner` is **12px**, the host's `--dsw-radius-md`.
+D38 recorded "the host's own nav cell measures exactly 14px, which our
+`--dsh-bento-radius-inner` already is" and used that to keep 14px. **That measurement
+was wrong** and this entry supersedes it.
+
+**What the measurement actually is.** With the whole plugin disabled — every feature
+off, no stylesheet injected — the host draws all four row types in the sidebar at
+**12px**: New Session, nav destinations, workspace headings, session rows. With
+row-tiles on, two of those become 14px, and they are the two this theme overrides. So
+D38 compared the theme against itself.
+
+**Why 12px and not the concentric answer of 6–8px.** Concentric maths (inner = outer
+minus padding, floored at 4) would give 6–8px at this inset under a 20px card. It is
+deliberately not followed: the purpose of this tier is to agree with the rows the host
+already draws in this column. Out-deriving the host would leave every row this theme
+does not touch at 12 while the ones it does touch sit at 6 — tidier arithmetic,
+visibly worse result.
+
+**Why 14px was the worse choice independently.** The host's radius scale is
+8 / 12 / 16 / 20 (`--dsw-radius-sm` through `-xl`). 14px was the only radius in this
+theme not on it. It also ran the column at two radii simultaneously, because the theme
+overrode two rows and left two alone.
+
+**What changed.** One token, eight call sites, no per-feature edits. Verified: all four
+sidebar rows compute 12px in both themes; card stays 20; page rows and Settings rows
+follow the same token and are consistent.
+
+**The recurring lesson, now three times in this project** (D38, L35, and here): a
+measurement of "what the host does" taken with the theme active is not a measurement of
+the host. Disable the theme first. `p2-host-radii.cjs` is the harness that does it.
+
+---
+
+## D46 — High contrast: withdraw the theme's spacer borders, keep the host's real ones
+
+**Decision.** Under `@media (forced-colors: active)` the transparent spacer borders on
+sidebar rows are removed and their width moved into padding. The card's borders are
+left alone.
+
+**Why the distinction.** Two different kinds of border exist in this theme:
+
+- **Real edges** — the 1px card outline. Forced-colors turning these into CanvasText is
+  the desired outcome: it is what keeps the three-surface composition readable once all
+  fills are flattened.
+- **Layout spacers** — the transparent 1px on session and nav rows, declared so the
+  hover edge can appear without moving the row. Forced-colors cannot know they were
+  meant to be invisible and paints them as CanvasText. Measured: 0 of 8 rows bordered
+  normally, **8 of 8** under forced-colors. Every row grew a box it was never given.
+
+**Why not `forced-color-adjust: none`.** It is the obvious tool and it is wrong here:
+it inherits, so it would switch high contrast off for the row's text and its switch —
+the content the user asked to have at high contrast.
+
+**Why the two controls need different compensation.** `padding-block` replaces rather
+than adds. Session rows had 0 vertical padding (becomes 1px); nav buttons had 7px
+(becomes 8px). A single value made the nav buttons 2px shorter. Measured: 38px → 36px.
+
+**Why the selector is doubled.** The block lives in `BASE_CSS`, which the kernel
+prepends, and the feature rule declaring the spacer border has identical specificity.
+Same specificity, earlier source order: the feature wins and the block is a no-op —
+which is what the first attempt was. Repeating the subject attribute raises specificity
+without `!important` and without moving the token layer after the features.
+
+---
+
+## D47 — The switch matches the host switch, and the plugin declares no literal colour
+
+**Decision.** The Settings switch uses a 999px track radius, `#dsw-alias-label-primary-foreground`
+for the knob, and no shadow — because the host's own switch does. A source scan for
+literal colours is a gate failure (check 15).
+
+**Why the control had to change at all.** It was written "from tokens, matching the host
+control's geometry", and compared against the host's actual switch it matched on box
+size and knob size and disagreed on three other things: the track was a rounded
+rectangle where the host draws a pill, the knob carried a shadow the host does not have,
+and the knob used `--dsw-alias-bg-overlay`, which resolves to `#e9ecf2` in light and
+`#61666b` in dark rather than the host's `#fff` / `#0f1115`.
+
+**Why the shadow was deleted rather than tokenised.** The audit suggested
+`--dsh-bento-knob-shadow`. That would have preserved an invention. The host's knob has
+`box-shadow: none` in both themes.
+
+**Why the knob token is not the obvious one.** `--dsw-alias-switch-thumb` resolves to
+`#adb2b8` in dark, which is not the `#0f1115` the host paints.
+`--dsw-alias-label-primary-foreground` was the only candidate matching all four
+theme/state combinations, and it was found by resolving every candidate against the
+painted colour rather than by choosing on the name.
+
+**Cost.** The gate is a source scan: it cannot see a colour assembled at runtime, and
+comments are stripped first because the token layer documents host values (`#ebeef2`)
+as prose. It is a floor, proved red against three plants — the removed shadow, a hex in
+a CSS template literal, and a named colour.

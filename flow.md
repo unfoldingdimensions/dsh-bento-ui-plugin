@@ -367,3 +367,73 @@ RELATION   once an indicator is found, check what it ASSUMES about the box it is
            under a ring still drawn at the host's own radius — visible only in a 3x
            corner crop, invisible to every computed-style check.
 ```
+
+---
+
+## 10. Measure what the host does (not what the theme does)
+
+Three findings in this project were wrong for the same reason: a measurement of the
+host's own styling was taken while the theme was active, so it read the theme back.
+
+- D38: "the host's nav cell is 14px" — it is 12px; 14px was this theme's own value.
+- P2.2: "our rows are over-rounded against the host's 12px baseline" — half right. The
+  host is 12 everywhere; the theme had changed two of four rows to 14.
+- L47: the same measurement error twice, six months of decisions apart.
+
+```
+DISABLE    switch every feature off, reload, and confirm
+           └─ localStorage.setItem('dsh-bento-theme:enabled:<id>', '0') for each id
+              assert document.documentElement.hasAttribute('data-dsh-bento') === false
+              AND document.getElementById('dsh-bento-theme-css') === null
+           both must be false/absent. One is not enough: the attribute is driven by
+           "any feature on", and the sheet by "any active feature with css".
+
+MEASURE    now read the property. This is the host's value.
+
+RESTORE    re-enable, reload, and measure again to get the theme's value.
+
+COMPARE    state both numbers side by side, with the owner of each.
+```
+
+`research_tmp/p2-host-radii.cjs` is the working version of this. It measures three
+states in one run — plugin active, one feature off, all features off — so the
+attribution is in a single output rather than across three sessions.
+
+**Why it matters beyond radii.** Every claim of the form "the host already does X" or
+"we changed X from the host's value" is only meaningful with the theme off. This is the
+same class of error as testing a selector that matches zero elements and concluding the
+element is absent: the instrument was reading itself.
+
+---
+
+## 11. Close an audit tier (P0 / P1 / P2 in one sweep)
+
+A whole tier can be worked in one session, but only if the items are separated by what
+they actually are before any code is written:
+
+```
+CLASSIFY   for each item, decide: code change · no action · defer
+           └─ write the classification down FIRST. An item with no classification
+              gets "fixed" because it is on the list.
+
+FIX        one mechanism per commit, the loop in section 9 for each
+           └─ and expect a "single" finding to be several. P2.10 was one hardcoded
+              colour; comparing to the host's control found three disagreements.
+
+NO ACTION  needs a measurement that rules the action out, not an opinion
+           └─ "not fixable without padding the frame, which moves every drag handle"
+              is a reason. "Low priority" is not.
+
+DEFER      needs a reason you could not demonstrate it, stated as such
+           └─ P2.5 looked better in theory and was indistinguishable in a 3x crop.
+              Shipping it anyway would be the audited failure mode, committed by the
+              person who wrote the audit.
+
+VERIFY     each fix against its own claim, then one regression sweep across all of them
+           └─ the sweep asserts the tokens and colours the audit measured, so a fix
+              that quietly changed a neighbouring surface fails
+```
+
+**The classification is the deliverable.** Ten P2 items produced three commits and six
+written reasons, and the reasons are what let the next session tell a deliberate
+decision from an unconsidered one.

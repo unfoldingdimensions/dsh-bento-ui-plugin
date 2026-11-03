@@ -916,3 +916,116 @@ too. Two of this theme's fixes (P1.1 and P1.2) came with a suggested approach th
 wrong for a reason specific to this codebase — a control that must work when the
 stylesheet is absent, and a selector that cannot tell keyboard from mouse. The
 suggestion is the finding's weakest part; treat it that way.
+
+---
+
+## L46 — Six backticks, and the gate that finally named them
+
+Adding the forced-colors block, I put a backtick in a CSS comment **four times in one
+sitting**. Each time the build failed, each time the cause was the same, and each time
+the only reason it was caught was that `node --check` ran before install.
+
+The existing gate for this hazard scanned comments for backtick characters — and it
+worked, but it reported a line number without saying why the line mattered, and it only
+looked at comments. The failure mode is broader: a stray backtick closes the template
+literal, and what remains is usually **valid JavaScript**, so the bundle parses, the
+brace-balance heuristic passes, and the stylesheet is silently truncated.
+
+The fix was a check that parses each fragment as source:
+
+```js
+new Function('require', text)   // parse, do not execute
+```
+
+It names the fragment and the parser's own message. Proved red on the exact bug in two
+different files before being trusted. Two fragments (`00-prelude`, `99-footer`) are
+delimiters and cannot parse alone by construction — excluded explicitly rather than
+loosened for everything.
+
+**The lesson.** When the same mistake recurs, the answer is not more care. I was being
+careful; that is what produced six occurrences. The answer is a check that fails faster
+than a human reads, and then to keep the check honest by planting the bug in it.
+
+---
+
+## L47 — Three P2 "findings" were wrong, and two were wrong the same way
+
+Working the P2 list:
+
+1. **P2.2** said the rows were "over-rounded against concentric maths". The real defect
+   was different: the host draws all four sidebar rows at **12px**, and this theme
+   overrode two of them to 14px — a value not on the host's radius scale at all. The
+   audit had the right observation (14px is too round) and the wrong explanation, which
+   would have led to 6–8px and made the column less consistent, not more.
+
+2. **P2.9** said our canvas made the host's AA-failing badge worse, 3.75 → 3.25. It
+   costs **0.00**; the badge sits on its own translucent pill and our canvas never
+   reaches the text.
+
+3. **D38** (from an earlier session) claimed the host's nav cell was 14px. It is 12px,
+   and the 14px was read off our own stylesheet with the theme active.
+
+**Three measurements of "what the host does" were taken while the theme was on the
+page.** That is the single error behind two of the three. The cure is mechanical:
+disable the plugin first (`p2-host-radii.cjs`), then measure.
+
+**The lesson.** A comparison against the host is only a comparison if the host is the
+only thing running. And a finding's *explanation* needs the same evidence as its
+*observation* — the observation that 14px looked wrong was correct; the arithmetic I
+attached to it was not, and it pointed at the wrong fix.
+
+---
+
+## L48 — "No action" is a result only when it carries a number
+
+Six of ten P2 items ended with no code change. Writing them up was most of the work,
+because "we decided not to" is indistinguishable from "we did not look" unless each one
+states what was measured and why the measurement removes the option.
+
+Two of those six are worth the space they take:
+
+- **P2.5** (squircle corners) was tried live at three radii and **deferred because I
+  could not show it matters** — the 3× crops were near-identical and my pixel-diff
+  tooling failed. Shipping a visual change on "it is supposed to look better" is the
+  thing this project's rules exist to prevent. It stays a candidate.
+- **P2.1** (the inverted spacing ratio) cannot be fixed without padding the frame,
+  which carries an inline `grid-template-columns`; padding it compresses every column
+  and moves every drag handle. Measured, recorded, and left.
+
+**The lesson.** A no-action item earns its place by naming the measurement that rules
+out the action. Without that it is a shrug with a heading.
+---
+
+## L49 — My test harness failed the code, and the code was right
+
+The final verification run on the committed P2 build reported three failures:
+
+```
+FAIL [light] P2.2 card still 20px = false
+FAIL [dark]  P2.2 card still 20px = false
+FAIL [forced] P2.4 card edge still drawn = false
+```
+
+All three were bugs in the test, not the theme. Every helper was written as
+
+```js
+const cs = (e) => getComputedStyle(e);
+```
+
+and called as `cs(el, '::after')`. JavaScript ignores the extra argument, so every
+pseudo-element read silently returned the ELEMENT's computed style instead. The card is
+painted on `::after` and the column itself has radius 0 and no border, so the harness
+reported "card is 0px" and "no edge" about a build where both were correct.
+
+Measured directly afterwards: cards 20px, forced-colors card edge
+`1px solid rgb(0,0,0)`.
+
+**Why this is the same class of error as everything else in this file.** A wrong
+measurement that is *silently* wrong is worse than a crash, because it is
+indistinguishable from a real finding. The harness said "the code is broken" and the
+only thing that contradicted it was reading the values by hand.
+
+**The lesson.** A test helper that takes a pseudo-element argument is only a test helper
+if it passes it through. The general form: *silently ignored arguments produce silently
+wrong data*, and the fix is to make the helper's result impossible to misread — here, by
+checking the numbers by eye once before trusting the boolean derived from them.

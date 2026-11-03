@@ -304,19 +304,27 @@ Values the theme ships after pass 1, read from a rendered page in both themes.
 | `--dsh-bento-card` | `#ffffff` | `#2c2c2e` | `bg-layer-2` |
 | `--dsh-bento-edge` | `rgba(0,0,0,0.1)` | `rgba(255,255,255,0.12)` | `border-l2` |
 | `--dsh-bento-gutter` | 12px | 12px | 14px breaks all 13 rows (D18) |
-| `--dsh-bento-radius` | 20px | 20px | was 14px |
-| `--dsh-bento-radius-inner` | 14px | 14px | was 10px |
+| `--dsh-bento-radius` | 20px | 20px | host `--dsw-radius-xl` (D9) |
+| `--dsh-bento-radius-inner` | 12px | 12px | host `--dsw-radius-md`; was 14px until D45 |
 | `--dsh-bento-radius-rail` | 10px | 10px | collapsed rail keeps a 4px gutter |
 
 Canvas-to-card contrast: **1.164 light**, **1.235 dark** (was 1.045 light).
 
-Row radii observed in the sidebar after pass 1 — only one of the three is ours:
+Every value above is on the host's own radius scale (`--dsw-radius-sm` 8, `-md` 12,
+`-lg` 16, `-xl` 20) except the rail's 10px, which exists for the 56px collapsed sprite.
 
-| Row | Radius | Owner |
+Row radii in the sidebar, host against theme — measured with the plugin **disabled**,
+which is the only way to see what the host does (D45):
+
+| Row | Host draws | Theme draws |
 |---|---|---|
-| `session:*` (`YDXeBa_sessionRow`) | 14px | **this theme** |
-| `workspace:*` (`YDXeBa_projectRow`) | 12px | host |
-| `overflow:*` (`bhn1Oq_sessionOverflowButton`) | 8px | host |
+| `session:*` (`YDXeBa_sessionRow`) | 12px | 12px |
+| nav destination (`panelList > button`) | 12px | 12px |
+| `workspace:*` (`YDXeBa_projectRow`) | 12px | 12px (untouched) |
+| `overflow:*` (`bhn1Oq_sessionOverflowButton`) | 8px | 8px (untouched) |
+
+Before D45 the theme drew 14px on the first two, which ran the column at two radii and
+was the only value in the theme off the host's scale.
 
 
 
@@ -503,15 +511,18 @@ declare a transition duration as a literal (D43, gate check 14).
 | Tier | Value | Used by |
 |---|---|---|
 | card | 20px | sidebar, centre, right panel |
-| inner | 14px | rows, tiles, nav buttons, settings rows |
+| inner | 12px | rows, tiles, nav buttons, settings rows |
 | rail | 10px | the card when the sidebar is collapsed to 56px |
-| pill | host | not ours |
+| pill | host | the Settings switch, at 999px |
 
-The reference runs 24 / 18 / 12; ours is scaled down one step because a column here
-is narrower than a 660px reference card. `14px` inner is **not** the concentric result
-for a 12px inset under a 20px card — the maths gives 8px — and the host's own icon
-buttons in the same container already use 8. Recorded as a known inconsistency
-(audit P2.2), not a bug.
+The card and inner tiers are host tokens: `--dsw-radius-xl` and `--dsw-radius-md`. That
+is not a coincidence to preserve — it is the rule. A card that adopted the host's own
+radius for its outer edge and a different one for its contents would be inventing a
+scale next to the one already in use.
+
+Concentric maths (inner = outer − padding) would give 6–8px at this inset, and it is
+**deliberately not followed** (D45): the host draws every row in this column at 12px, so
+the tier's job is to agree with them, not to be more correct than the shell it sits in.
 
 ### 9.3 What a feature may and may not touch
 
@@ -554,6 +565,17 @@ buttons in the same container already use 8. Recorded as a known inconsistency
    button`, and there are 22 of them across 13 rows on the Plugins page. The MCP page
    renders **zero** `section ul > li`, so `page-rows` does not apply there at all
    despite the feature's description.
+8. **Forced-colors replaces a transparent border with CanvasText.** The sidebar's
+   session and nav rows declare `border: 1px solid transparent` purely as a layout
+   spacer; under `forced-colors: active` that becomes a visible black box on every row.
+   Measured: 0 of 8 bordered normally, **8 of 8** forced. The theme withdraws those
+   borders in that mode and moves their width into padding, which forced-colors leaves
+   alone (D46). Rows whose borders are *real* — the cards — must keep them: forcing
+   those to CanvasText is what keeps the composition legible when every fill flattens.
+9. **`padding-block` replaces, it does not add.** Compensating for a withdrawn 2px
+   border with one shared `padding-block` value fixed the session rows (padding 0 → 1px)
+   and silently shortened every nav button by 2px (padding 7px → 1px, wanted 8px).
+   Different starting paddings need different values (D46, L46).
 
 ### 9.5 Spacing, and where it breaks the idiom
 

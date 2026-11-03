@@ -20,9 +20,10 @@ does not have a type scale, a spacing ratio, a corner geometry, a focus story, o
 high-contrast mode. Three of its declarations are inert and it does not know that,
 because the build gate checks structure and never checks application.
 
-**P1.1 and P1.2 are fixed** (2026-11-03). P1.2's premise turned out to be partly
-wrong — the host does draw a focus ring — so read that entry for what was actually
-broken. The rest of the list stands as written.
+**P1.1, P1.2 and the whole P2 tier are now worked through** (2026-11-03). P1.2 and
+two P2 items had premises that turned out to be wrong — read those entries for what was
+actually broken. Three P2 items were fixed with code, one was deferred, and six are
+recorded as no-action with a reason each.
 
 ---
 
@@ -207,6 +208,23 @@ CSS is *well-formed*, not that it *applies*.
 
 ### P2 — worth fixing when nearby
 
+**Worked through in full, 2026-11-03.** Ten items: **three fixed** with code, **seven
+recorded with no action** and a reason each. Two of the seven turned out to be
+misdescribed by this audit and are corrected below.
+
+| Item | Outcome |
+|---|---|
+| P2.2 sidebar child radii | **fixed** — inner tier 14px → 12px, on the host's scale |
+| P2.4 forced-colors | **fixed** — spacer borders withdrawn, per-control padding |
+| P2.10 hardcoded knob colour | **fixed** — and it was three defects, not one |
+| P2.1 spacing ratio | no action, not actionable (D41) |
+| P2.3 composer radius | no action, was never a defect |
+| P2.5 corner-shape | deferred, not a fix |
+| P2.6 responsive rules | no action (D42) |
+| P2.7 type scale | no action (D35) |
+| P2.8 contrast tooling | no action, documentation |
+| P2.9 host AA badge | no action, and **this audit's claim was wrong** |
+
 **P2.1 The spacing ratio is inverted relative to the tray reading.** Bento guidance
 puts the outer margin above the inner gap: inner padding ≈ 2x the gutter, and the
 section's surrounding margin ≥ 1.5x the gutter
@@ -232,10 +250,12 @@ Not fixable by widening the frame's padding: the frame carries an inline
 `grid-template-columns` the host solves, and padding on it would compress the columns
 and move every drag handle. Recorded, not actioned.
 
-**P2.2 The sidebar card's children are over-rounded against concentric maths, and ours
-are the roundest.** Measured inside the sidebar card (outer radius 20px, card left edge
-at x=12). For an element inset `d` from its parent's edge, the concentric inner radius
-is `max(4, R − d)` — outer = inner + padding, floored at 4
+**P2.2 The sidebar's children used three radii where the host uses one — FIXED**
+(`fix(radii): put the inner tier on the host's own radius scale`)
+
+Measured inside the sidebar card (outer radius 20px, card left edge at x=12). For an
+element inset `d` from its parent's edge, the concentric inner radius is
+`max(4, R − d)`
 ([surfaces.md](https://github.com/boraoztunc/skills/blob/main/make-interfaces-feel-better/surfaces.md)):
 
 | element | radius | inset | concentric answer | over-round by | source |
@@ -245,25 +265,30 @@ is `max(4, R − d)` — outer = inner + padding, floored at 4
 | workspace heading | 12px | 12px | 8px | +4 | host |
 | session row | **14px** | 12px | 8px | **+6** | **ours** |
 
-Every child is rounder than the maths asks; ours are the two roundest. The host's
-baseline is 12px, we introduced 14px, and the same card now shows both values: the
-host's New Session button and workspace headings at 12px, our nav rows and session rows
-at 14px, at the same 12–14px inset.
+The real defect was not the concentric gap — it was that the column ran **two**
+radii, and ours was not on the host's scale. A fresh measurement with the whole plugin
+switched off settled what the host actually does:
 
-The 24px escape hatch — "if the padding exceeds 24px, treat the layers as independent"
-— does not apply: the insets are 12–14px.
+| | bare host (all features off) | row-tiles ON |
+|---|---|---|
+| New Session | 12px | 12px |
+| nav destination | 12px | **14px** |
+| workspace heading | 12px | 12px |
+| session row | 12px | **14px** |
 
-**What is right, and was nearly reported wrong.** Two of these numbers were wrong in my
-first pass, both caught by re-measuring:
+The host uses **12px on all four**. This theme overrode two of them to 14px, which is
+not on the host's radius scale (`--dsw-radius-sm 8`, `-md 12`, `-lg 16`, `-xl 20`) —
+it was the only radius in the theme that was off it.
 
-1. I claimed the host's icon buttons were "already the correct 8px", reading a 216px
-   inset as if it were the container inset. It is the button's x-offset inside a header
-   row, not its inset from the card. Dropped from the claim.
-2. The **Settings rows are concentric-correct** and I had not looked: row inset from
-   the content card is **0**, the row radius is **14**, the card radius is **14**. Equal
-   radii at zero padding is `outer = inner + 0` — exactly right. The negative inline
-   margin plus matching padding is what produces it, which means the mechanism that
-   looked like a hack is what makes the geometry correct.
+**Fixed by moving the token, not the call sites:** `--dsh-bento-radius-inner` is now
+12px. One token, eight usages, all four rows agree, and the value is the host's own
+`--dsw-radius-md`.
+
+Concentric maths would ask for 6–8px at this inset. That is **not** followed, and the
+reason is worth stating: the point of this tier is to agree with the rows the host
+already draws in this column. Out-deriving the host produces a number that is
+geometrically tidier and visually wrong — every row this theme does not touch would
+remain at 12. Recorded in D45.
 
 **P2.3 The composer's 28px radius inside the 20px card is *not* a defect.** I flagged
 this mid-audit and then disproved it: the composer sits 214px inside the card's left
@@ -271,27 +296,63 @@ edge and 331px above its bottom edge, far beyond the 24px threshold where concen
 maths is required. Independent radii are correct at that distance. Recorded because the
 number looks wrong and is not.
 
-**P2.4 The whole design disappears under Windows High Contrast.** Emulated
-`forced-colors: active`: frame and card both compute `rgb(255,255,255)`, so every
-surface the theme creates collapses into one plane. Only the card's 1px border
-survives (as black). Nothing breaks — it fails safe — but every one of the 6 features
-is background-or-border based, so all of them become no-ops at once.
+**P2.4 Windows High Contrast: the fills collapse (correct) but our spacers became
+boxes (wrong) — FIXED** (`fix(forced-colors): stop the theme drawing borders it never
+meant`)
 
-A `@media (forced-colors: active)` block that swaps the fill step for
-`CanvasText` borders would keep the composition legible. No rule exists today.
+Emulated `forced-colors: active`: frame and card both compute `rgb(255,255,255)`, so
+every surface the theme creates collapses into one plane. The card's 1px border
+survives as black. **That part is correct behaviour** — a user asking for high contrast
+is asking for exactly this, and a theme must not fight it.
 
-**P2.5 The card radius passes the threshold where circular corners read as bolted on.**
-A `border-radius` corner is G1-continuous but not G2 — curvature jumps from 0 to 1/r
-at a single point, which the eye reads as a seam. That discontinuity is invisible
-below ~16px and obvious above it
-([Lisse](https://github.com/JaceThings/Lisse/wiki/Corner-Shapes-Comparison)).
-Our card is **20px**, past the line.
+The actual defect was the second effect, which this audit described wrongly. Several
+rules declare a **transparent border as a layout spacer**: the session and nav rows
+reserve 1px above and below so the hover edge can appear without moving the row.
+Forced-colors cannot know an author's transparent border was meant to be invisible, so
+it replaces it with the system text colour. Measured:
 
-`corner-shape: squircle` exists in the runtime: measured
-`CSS.supports('corner-shape','squircle') === true` on Chrome 156. It needs a larger
-`border-radius` to look right, so it is a token change plus one declaration, guarded
-by `@supports` for the Electron build if its Chromium is older
-([squircle.js.org](https://squircle.js.org/blog/squircles-in-css)). Not tried.
+| | normal | forced-colors |
+|---|---|---|
+| rows showing a visible border | **0 of 8** | **8 of 8** |
+
+Every row grew a hard black box it was never meant to have. Fixed by withdrawing those
+spacer borders in this mode and moving their 2px into padding, so the boxes keep their
+exact heights: session rows 34px and nav buttons 38px, both unchanged.
+
+Two things this cost, both worth recording:
+
+1. `forced-color-adjust: none` is the obvious tool and is wrong here — it inherits, and
+   would switch high contrast off for the row's text and its switch, which is precisely
+   what the user asked to keep.
+2. The two controls need **different** compensation, because `padding-block` replaces
+   rather than adds. Session rows had no vertical padding (0 → 1px); nav buttons had 7px
+   (7px → 8px). A single `padding-block: 1px` fixed the first and silently shrank every
+   nav button by 2px. Measured: 38px → 36px.
+
+The block lives in `BASE_CSS`, which the kernel prepends, so it also needed a doubled
+selector to out-specify the feature rule that declares the spacer border. Without it the
+block was a no-op and 8 of 8 borders remained.
+
+**P2.5 The card radius passes the threshold where circular corners read as bolted
+on — DEFERRED, not a fix.**
+
+A `border-radius` corner is G1-continuous but not G2 — curvature jumps from 0 to 1/r at
+a single point, which the eye reads as a seam. That discontinuity is invisible below
+~16px and obvious above it
+([Lisse](https://github.com/JaceThings/Lisse/wiki/Corner-Shapes-Comparison)). Our card
+is **20px**, past the line.
+
+The runtime supports the fix: measured `CSS.supports('corner-shape','squircle') ===
+true`, and the computed value reads back `superellipse(2)` on Chrome 156
+([squircle.js.org](https://squircle.js.org/blog/squircles-in-css)). Tried it live at
+three radii (20 / 24 / 28) and compared crops at 3×.
+
+**Deferred, and the honest reason is that I could not show it matters.** The 3× corner
+crops of circular-20 and squircle-24 are near-indistinguishable at this radius on this
+surface, and the pixel-diff tooling I reached for to quantify it failed. Shipping a
+visual change on the strength of "it is supposed to look better" is exactly the kind of
+change this project's rules exist to prevent — and unlike every other item here, there
+is no defect behind it. It stays a candidate, not a fix.
 
 **P2.6 There are no responsive rules, and that is deliberate.** 4 `@media` blocks
 exist; all four are reduced-motion. Zero width breakpoints. Measured at 6 widths
@@ -327,22 +388,53 @@ unclaimed part of the language.
 which is not an ancestor of the content. Any walk-up-the-DOM contrast checker reports
 the *canvas* for text that actually sits on the *card*: it reported 4.98 for text
 whose real ratio is 5.80. Not a visual defect — a measurement trap for whoever audits
-this next. Use the pixel, or hardcode the card tone as the backdrop.
+this next. Use the pixel, or hardcode the card tone as the backdrop. **No action
+possible or needed**; recorded in `architecture.md` §9.4.
 
-**P2.9 The host's 10px accent badge fails AA, and the canvas makes it slightly worse.**
-Measured on the Plugins page: accent `rgb(65,118,230)` at 10px on a 10%-accent pill.
-On white **3.75**, on our canvas **3.25** (AA small text needs 4.5). Pre-existing host
-styling, not ours, but it is text sitting on a surface we paint, so it is ours to
-notice.
+**P2.9 The host's 10px accent badge fails AA — and this audit's claim about the canvas
+was wrong.** Reported: "On white 3.75, on our canvas 3.25". Measured properly, with the
+theme toggled and the badge's own backdrop resolved rather than assumed:
 
-**P2.10 One hardcoded colour in the whole plugin.** `60-settings.js` gives the switch
-knob `boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'`. Every other colour in the plugin is a
-`--dsw-*` host alias or a token. The deviation is defensible — a knob needs a shadow and
-the host exposes no shadow token — but it is a literal in a codebase whose stated rule
-is "no hardcoded colours except artwork", and it is the one thing that will not follow a
-registered theme with an unusual palette. Either tokenise it as `--dsh-bento-knob-shadow`
-or record the exception in `decision.md`; leaving it as the only silent exception is the
-option that ages worst.
+| | contrast |
+|---|---|
+| theme ON | **3.75** |
+| theme OFF | **3.75** |
+
+Delta **0.00**. The badge is text on its own 10%-accent pill, and that pill paints over
+whatever is beneath; our canvas never reaches the text. The audit computed "on our
+canvas" from the page background without checking that the pill sits between them — so
+it invented a 0.5-contrast regression that does not exist.
+
+The AA failure is real and is the **host's**: 3.75 against a 4.5 requirement at 10px.
+Not ours to fix, and **not made worse by us**. No action.
+
+**P2.10 One hardcoded colour in the whole plugin — FIXED, and it was three defects**
+(`fix(switch): match the host switch, not an invented one`)
+
+Reported as a single literal: `60-settings.js` gave the switch knob
+`boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'`. Comparing the control against the host's
+own switch — which sits two clicks away on the General tab — found **three**
+disagreements, only one of which the audit had named:
+
+| property | host switch | ours (before) | verdict |
+|---|---|---|---|
+| box | 36×20 | 36×20 | matched |
+| track radius | **999px** (pill) | **10px** | wrong |
+| knob | 16×16, 50% | 16×16, 50% | matched |
+| knob shadow | **none** | `rgba(0,0,0,0.3) 0 1px 2px` | invented |
+| knob colour (light) | `#fff` | `#e9ecf2` | wrong token |
+| knob colour (dark) | `#0f1115` | `#61666b` | wrong token |
+
+All three fixed. Two details worth keeping:
+
+- **The shadow had to go, not be tokenised.** The audit suggested
+  `--dsh-bento-knob-shadow`. That would have preserved a decoration the host's switch
+  does not have. The whole plugin now declares **zero** literal colours (gate check 15).
+- **The obvious knob token is the wrong one.** `--dsw-alias-switch-thumb` resolves to
+  `#adb2b8` in dark; the host paints `#0f1115`. The token that matches in all four
+  theme/state combinations is `--dsw-alias-label-primary-foreground`, found by resolving
+  every candidate against the colour the host actually paints rather than by picking the
+  one whose name sounded right.
 
 ---
 

@@ -38,7 +38,7 @@ src/50-feature-settings.js feature: the Settings dialog as a bento board
 src/60-settings.js         settings rows, derived from the registry
 src/99-footer.js           translator, apply(), exports
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 14 pre-install checks
+verify.mjs                 16 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`.
@@ -102,6 +102,11 @@ see A12 and Pass 4.
 - Keyboard focus is never re-drawn. The host supplies the ring; this theme supplies the
   same fill on keyboard focus that it gives on hover, through `:has(:focus-visible)`
   rather than `:focus-within`, which would stick a fill on a row after a mouse click.
+- No literal colour anywhere in `src/`, and no transition duration that is not the
+  motion token — both are gate failures (checks 14 and 15).
+- Under Windows High Contrast the theme withdraws its spacer borders rather than let
+  forced-colors paint them, but keeps the card edges, which are what make the
+  composition legible once the fills flatten (D46).
 
 ## Install
 
@@ -437,7 +442,7 @@ half now imports and exports exactly as the working themes do, and
 
 ### Regression guard
 
-`node verify.mjs` runs 14 checks before any install and exits non-zero on
+`node verify.mjs` runs 16 checks before any install and exits non-zero on
 failure. Both original failure modes were proved by planting them: a missing
 `main` is reported, and a host half that throws on import is reported cleanly
 instead of crashing the checker itself.
