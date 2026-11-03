@@ -80,9 +80,27 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] [data-slot] > *:not([data-s
 
 /* The tab host is the element that actually paints the pane's white surface, one
    level inside the root. Without this the card is only ever a thin edge. The inner
-   radius matches the card so the pane's own content sits inside the rounding. */
-html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] [class*="tabHost"] {
+   radius matches the card so the pane's own content sits inside the rounding.
+ *
+ * THE BORDER-LEFT IS THE DIVIDER THE CARD WAS MEANT TO REPLACE.
+ * The host draws border-left: 1px solid rgba(0, 0, 0, 0.16) on this element — a rule
+ * separating the docked pane from the conversation. Once the column becomes its own
+ * inset card, that hairline is stranded 12px outside the card, floating on the canvas
+ * between the two surfaces. Measured: it is the only element in the whole shell painting
+ * a vertical edge, so it reads as a stray line rather than an edge of anything.
+ *
+ * The card's own border is the separation now, so the host's goes. The sidebar and
+ * centre columns already have zero borders - the right column just had one left over.
+ *
+ * WHY THE SELECTOR IS DOUBLED. The host declares this border with five compound
+ * selectors:
+ *   ._tabCell[data-dockkit-host="dock"][data-dockkit-column="0"] > ._tabHost_x
+ * which outranks html[ROOT] [part="rightbar"] [class*="tabHost"] (3 selectors) no matter
+ * the source order. Measured: border: 0 lost and the line stayed. Repeating the part
+ * attribute raises this rule above the host's without !important. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"][${PART_ATTR}] [class*="tabHost"] {
   background: transparent;
+  border: 0;
   border-radius: var(--dsh-bento-radius-inner);
   overflow: hidden;
 }
