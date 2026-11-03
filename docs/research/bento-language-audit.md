@@ -183,9 +183,10 @@ first pass, both caught by re-measuring:
    looked like a hack is what makes the geometry correct.
 
 **P2.3 The composer's 28px radius inside the 20px card is *not* a defect.** I flagged
-this mid-audit and then disproved it: the composer sits 214–331px from the card's
-edges, far beyond the 24px threshold where concentric maths is required. Independent
-radii are correct at that distance. Recorded because the number looks wrong and is not.
+this mid-audit and then disproved it: the composer sits 214px inside the card's left
+edge and 331px above its bottom edge, far beyond the 24px threshold where concentric
+maths is required. Independent radii are correct at that distance. Recorded because the
+number looks wrong and is not.
 
 **P2.4 The whole design disappears under Windows High Contrast.** Emulated
 `forced-colors: active`: frame and card both compute `rgb(255,255,255)`, so every
@@ -299,7 +300,7 @@ the wrong turns mattered.
 | Claim I made | What measurement showed | Where |
 |---|---|---|
 | the `h3` rule is "broken" | it is a **no-op**: `letter-spacing: 0` computes to `normal`, which is the same as having no rule at all | P1.3 |
-| composer radius is a concentric defect | 214–331px from the card edge; independent radii are correct past 24px | P2.3 |
+| composer radius is a concentric defect | 214px inside the card's left edge; independent radii are correct past 24px | P2.3 |
 | host icon buttons are "the correct 8px" | 216px is an x-offset inside a header row, not an inset from the card | P2.2 |
 | the Settings rows might be over-rounded too | they are **correct**: inset 0, row 14, card 14, so `outer = inner + 0` | P2.2 |
 | four inert declarations | **three** declarations plus one unreachable-by-inline-styles media query | §0 |
