@@ -145,35 +145,44 @@ have one that repeats.
 
 Three measurements, three problems.
 
-### 5.1 The product icon does not match the system
+### 5.1 The product icon did not match the system — FIXED
 
-`icon.svg` is shipped and used as the package icon:
+`icon.svg` **was** `0 0 32 32`, solid, four shapes at three opacities, filled with the
+literal `#4C7DF0`. It is now a **36×36 package icon** in the host's own gradient.
 
-| Property | theme's icon | host system |
+The comparison that matters is not the in-UI glyph grid (16px / 1px) but the **package
+slot**, which is a different artefact: every package icon on the Plugins page is
+`width=36 height=36 viewBox="0 0 36 36" fill="none"`, glyph ~19×18 inside ~8.5px padding,
+drawn in a cyan→blue gradient. Measured across the live set:
+
+| Property | theme's icon (before) | package slot convention |
 |---|---|---|
-| viewBox | `0 0 32 32` | `0 0 16 16` |
-| fill | **`#4C7DF0` literal** | `currentColor` |
-| style | **solid, 4 shapes, 3 opacities** | outline |
+| box | `0 0 32 32` | `0 0 36 36` |
+| style | solid, 4 shapes, 3 opacities | single-weight outline, 1–2 shapes |
+| paint | flat `#4C7DF0` | linear gradient `#54ECE7 → #658EFF` |
+| semantics | `role="img"` + English label | `role="presentation"`, wrapped `aria-hidden` |
 
-This is a *package* icon (an app-icon slot, where a 32px filled mark is correct and
-`currentColor` is not) — so it is not a defect **in that slot**. It becomes one the moment
-it is drawn *inside the UI*, because then it is a 32px filled blue mark among 16px
-outline `currentColor` glyphs.
+The chosen mark is a rounded tray divided into one large compartment and two stacked
+cells, in the set's own gradient. It was picked against three alternatives rendered
+beside the live host icons: four equal cells read as *generic grid*, three columns read
+as *columns*, and a card-with-inset read as *card*. Only the tray says "bento".
 
-**Rule:** a package icon and a UI icon are different artefacts. Do not reuse one as the
-other. If the theme ever needs an in-UI mark, it is a separate 16×16 outline asset, and
-the current file must not be it.
+**Why a fixed gradient in a theme that bans literal colour.** Gate 15 forbids literal
+colour in `src/*.js` because UI chrome must follow the registered theme. A package icon
+is **artwork**, and the host's own package icons were measured across both themes: their
+gradients are **identical in light and dark** (verified — same stop colours, same
+gradient ids). Matching that is correct, and the gate already scopes to `src/`, so no
+exemption was needed.
 
-Its blue also fails the non-text contrast floor on our own canvas:
+**Why it is decorative.** The host wraps every package icon in `<span aria-hidden="true">`;
+the row title carries the name. So the mark is `role="presentation"` with
+`aria-hidden="true"` and `focusable="false"`. An earlier draft had `role="img"` and an
+English `aria-label`, which claimed standalone semantics the icon never has — and could
+not be localised in a static file.
 
-| Surface | `#4C7DF0` contrast | Requirement |
-|---|---|---|
-| light canvas `#ebeef2` | **3.28** | 3.0 for non-text — passes, barely |
-| dark canvas `#1b1b1c` | 4.51 | passes |
-| white card | 3.82 | passes |
-
-3.28 clears 3:1 for a *graphical object* but nothing more, and it is a fixed colour — it
-will not follow a registered theme.
+**The remaining rule.** A package icon and an in-UI glyph are still different artefacts.
+If this theme ever draws inside the chrome, that is a separate 16×16 outline asset; the
+package mark must not be pressed into that role.
 
 ### 5.2 The Settings tab shows a gear, shared with two other tabs
 
@@ -187,9 +196,8 @@ cannot currently override it.
 
 **But it is still the theme's problem to state.** The tab that exists to configure this
 theme is visually indistinguishable from the tab that configures everything else, which
-is the exact failure mode §4.4 forbids. It should be recorded as a known limitation, not
-silently accepted as fine — and if the host ever exposes a glyph hook, this is the one
-icon worth drawing.
+is the exact failure mode §4.4 forbids. Recorded as a known limitation (D49). If the host
+ever exposes a glyph hook, this is where an in-UI 16×16 outline mark would go.
 
 ### 5.3 The nav rows are icon-led, correctly
 
@@ -220,13 +228,13 @@ Before adding an icon to this theme:
 
 ## 7. What to change, ranked
 
-**P1 — the Settings tab glyph is ambiguous.** Not fixable in CSS (host-owned map), so
-the fix is a host feature request or accepting the limitation. Recording it is the
-action available now; it is the only *visible* icon problem in the theme.
+**DONE — the package icon was rebuilt.** `icon.svg` is now a 36×36 outline tray in the
+host''s own gradient, matching the package slot''s measured convention (D49). It was the
+one UI artefact this theme owns.
 
-**P2 — document the two-artefact rule.** `icon.svg` is a package icon and must never be
-rendered inside the UI. One line in the README prevents a future session from "reusing"
-it as a tab mark, which is the obvious and wrong move.
+**OPEN — the Settings tab glyph is still the shared gear.** Not fixable in CSS
+(host-owned map), so the remaining fix is a host feature request. It is the only
+*visible* icon problem in the theme.
 
 **P2 — the reference is icon-sparse; keep it that way.** No feature should gain icons.
 If a future surface needs one, §6 is the gate.

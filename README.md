@@ -39,7 +39,7 @@ src/50-feature-settings.js feature: the Settings dialog as a bento board
 src/60-settings.js         settings rows, derived from the registry
 src/99-footer.js           translator, apply(), exports
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 16 pre-install checks
+verify.mjs                 17 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`.
@@ -445,7 +445,7 @@ half now imports and exports exactly as the working themes do, and
 
 ### Regression guard
 
-`node verify.mjs` runs 16 checks before any install and exits non-zero on
+`node verify.mjs` runs 17 checks before any install and exits non-zero on
 failure. Both original failure modes were proved by planting them: a missing
 `main` is reported, and a host half that throws on import is reported cleanly
 instead of crashing the checker itself.

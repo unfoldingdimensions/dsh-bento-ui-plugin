@@ -1185,3 +1185,53 @@ registered theme.
 one: `0 0 16 16`, 16px, 1px stroke (1.3 permissible only inside the Settings dialog),
 `butt`/`miter`, outline, `currentColor` (which gate 15 already enforces), sized ~1.1× the
 adjacent text size and centred on the text box.
+---
+
+## D49 — The UI icon is a 36px package mark, and it is decorative
+
+**Decision.** `icon.svg` is a **36×36 package icon**: a single-weight outline tray in the
+host's own cyan→blue gradient, `role="presentation"` and `aria-hidden="true"`. It is the
+one UI artefact this theme owns, and it is the only icon it draws.
+
+**What was reachable, measured.** Two host slots were considered and both are closed:
+
+| Slot | Reachable? | Why |
+|---|---|---|
+| Settings nav tab glyph | **no** | host-side hardcoded map keyed by section id; unknown id → the gear, shared with General and Remote Access |
+| Plugins page row | **only when installed** | rows exist only for bundles with `"installed": true`, which the plugin *manager* sets |
+| The package `icon` export | **yes** | what the Plugins page renders once installed |
+
+An earlier attempt to force the plugin into the web profile's `bundles` list was wrong
+and was reverted: it does not set `installed`, so it changed nothing and only dirtied the
+profile.
+
+**Why 36 and not 16.** The in-UI glyph grid is 16px with a 1px stroke, but the *package*
+slot is a different artefact at a different size: every package icon on the Plugins page
+is `width=36 height=36 viewBox="0 0 36 36" fill="none"`, with a glyph occupying roughly
+19×18 inside ~8.5px of padding. Drawing a 16px outline glyph here would have been the
+wrong system applied correctly.
+
+**Why a gradient, in a theme that bans literal colour.** The ban (gate 15) governs `src/`
+— UI chrome, which must follow the registered theme. A package icon is **artwork**: the
+host's own package icons use fixed gradients (`#54ECE7 → #658EFF`) that were verified
+**not** to change between light and dark. Matching them is the correct choice, and the
+gate already scopes to `src/*.js`, so no exemption was needed.
+
+**Why it is decorative.** The host wraps every package icon in
+`<span aria-hidden="true">`, so the row title carries the accessible name. An earlier
+draft had `role="img"` plus an English `aria-label`, which claimed standalone semantics
+the icon never has and could not be localised in a static file. `role="presentation"` +
+`aria-hidden` + `focusable="false"` is the honest description.
+
+**The mark.** A rounded container divided into one large compartment and two stacked
+right-hand cells. Chosen over three alternatives (four equal cells; three columns; a card
+with an inset) because those read as *generic grid*, *columns* and *card* — none of them
+say "bento tray". Verified at 36px and at 120px against the live host set.
+
+**Not verified, and the reason.** It has not been seen rendering inside the app. The
+Plugins page only shows `installed: true` bundles, and installing via the plugin manager
+writes to the **desktop** profile — the Electron-owned one this project has a standing
+rule never to test in. What *is* verified: the export resolves
+(`./icon` → `icon.svg`, 614 bytes), it parses, it renders inline and as a `data:` image
+with the gradient resolving, and its attribute set is byte-for-byte the convention the
+host's own icons use.
