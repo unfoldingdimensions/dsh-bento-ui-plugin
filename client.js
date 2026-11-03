@@ -1140,6 +1140,90 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:has(:focus-vis
     transition: none;
   }
 }
+
+/* INNER CARDS BECOME TILES ON THE BOARD.
+ *
+ * The content column is already the one raised card. Three of the host's sections then
+ * draw their OWN bordered white cards inside it — boxes inside a box, which is the exact
+ * language this theme exists to remove. Measured before this rule: every tab except
+ * General rendered nested cards, all with radius 20px, 1px border and white fill:
+ *
+ *   Models            2 rows   564x54    ul{flex column, gap 8}
+ *   Built-in plugins  29 cards 277x84    ul{grid 2x 277px, gap 10}
+ *   Agent presets     4 cards  276x191   ul{grid 2x 276px, gap 12}
+ *
+ * REACHED STRUCTURALLY, NOT BY CLASS. The three renderers live in different bundles and
+ * their class names are CSS-module hashes that differ per renderer (zGbnIq_, qSYn7G_,
+ * rtSEdW_) and change when a section is added. What all 35 share is the shape: a list
+ * item inside a settings section. That is the anchor, and it needs no stamping.
+ *
+ * FLATTEN THE PAINT, KEEP THE LAYOUT. The border and fill go; the box does not move.
+ * Nothing here sets display, grid or width, so the 2-up grids stay 2-up — 29 plugins in
+ * one column would be a worse answer than a box, not a more bento one. Keeping the boxes
+ * also means the host's own box-sizing budget is untouched (same reason as ::before on
+ * the content column): border-box means removing a border grows the content, never the
+ * cell, so the grid cannot reflow.
+ *
+ * Radius drops to the inner token: a 20px corner on a tile that now sits on a card of
+ * the same 20px reads as a second, competing container. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li {
+  border: 0;
+  background: transparent;
+  border-radius: var(--dsh-bento-radius-inner);
+  transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
+}
+
+/* Pointer and keyboard get the same fill, for the same reason as the General rows: a
+   tile that answers the mouse but not the keyboard tells a keyboard user less. These
+   are focusable through their inner button, so :has(:focus-visible) is the check. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li:hover,
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li:has(:focus-visible) {
+  background: var(--dsh-bento-hover);
+}
+
+/* TILES SIT ON THE BOARD'S GRID, NOT INSIDE AN INVISIBLE BOX.
+ *
+ * Removing a card's border and fill leaves its PADDING behind, and padding with no box
+ * around it does not read as breathing room — it reads as misalignment. Measured on
+ * Models before this rule: every row kept padding: 12px 14px, so its label sat 14px
+ * right of the section heading with a 54px-tall empty band around it. The row was still
+ * laid out as a card that no longer exists.
+ *
+ * The trim is the one already used for the General rows, and for the same reason: a
+ * negative inline margin plus a matching padding lets the hover fill bleed to the edge
+ * of the card while every label stays at exactly the x the host put it. The label does
+ * not move; only the fill's reach changes.
+ *
+ * :has(> *) narrows this to rows that wrap content. A bare text row would have its
+ * glyphs shifted by the negative margin and nothing to fill. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li:has(> *) {
+  padding-inline: var(--dsh-bento-gutter);
+  margin-inline: calc(-1 * var(--dsh-bento-gutter));
+}
+
+/* SELECTION MUST SURVIVE THE FLATTENING.
+ *
+ * Agent presets marks the chosen mode with a border and a tinted fill — the two things
+ * this rule removes. Losing it would leave "which mode is the default" unanswerable, so
+ * the state is re-expressed in the board's own vocabulary: the canvas tone plus an inset
+ * edge, the same pair the selected Settings destination uses. Reached through
+ * aria-pressed because it is the state, and it is stable across renderers. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li:has([aria-pressed="true"]) {
+  background: var(--dsh-bento-canvas);
+  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge);
+}
+
+/* The :hover fill must not win over a selected tile, or hovering the default mode would
+   make it look unselected. Declared after, and scoped to exclude the selected case. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li:hover:not(:has([aria-pressed="true"])) {
+  background: var(--dsh-bento-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li {
+    transition: none;
+  }
+}
 `;
 
     FEATURES.push({
