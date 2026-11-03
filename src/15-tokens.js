@@ -121,6 +121,32 @@ html[${ROOT_ATTR}] body {
   /* On the canvas rather than a card, the same tint must be mixed against the canvas or
      the selected cell sits a shade off the surface it is pretending to share. */
   --dsh-bento-selected-fill-canvas: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, var(--dsw-specific-sidebar-nav-item-active));
+
+  /* CARD SHADOW, DERIVED (D57).
+   *
+   * The reference specifies a soft two-layer lift:
+   *   0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06)
+   * Its colour is near-black with low alpha, which is exactly --dsw-alias-label-primary
+   * (#0f1115 light, #f9fafb dark) at low opacity. So the shadow is DERIVED from that
+   * token rather than written as a literal:
+   *
+   *   - gate 15 forbids an rgba() literal in src/, and rightly - a hardcoded black
+   *     shadow is invisible in dark mode, where a shadow must be darker than the
+   *     surface it falls on rather than merely darker than white.
+   *   - mixing label-primary with transparent produces the same colour at the same
+   *     alpha, and it resolves per theme automatically.
+   *
+   * The two layers are the reference's own offsets and blurs, unchanged: a tight 1px
+   * contact shadow plus a wide 24px ambient one. One layer alone reads either as a
+   * hard edge (1px) or as a smudge (24px); the pair is what makes a card look lifted
+   * rather than outlined.
+   *
+   * Exposed as a single token because the shadow is OPT-IN (see the card-shadow
+   * feature): a user who prefers the flat board gets exactly the same markup with the
+   * token unused. */
+  --dsh-bento-shadow:
+    0 1px 2px color-mix(in srgb, var(--dsw-alias-label-primary) 4%, transparent),
+    0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent);
 }
 
 /* Dark mode needs a different canvas token, not the same one. The cool grey above

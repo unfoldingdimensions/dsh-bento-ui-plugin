@@ -416,6 +416,36 @@ check('source: no hardcoded colour (every shade is a host token)', () => {
   return 'every colour resolves through a host token';
 });
 
+check('source: no box-shadow unless it resolves through a token', () => {
+  // A hardcoded shadow is worse than a hardcoded colour, because it fails differently
+  // in each theme: a black shadow that reads correctly on white is invisible on a dark
+  // surface, and the card appears to lose its lift rather than its colour. The theme's
+  // own shadow is derived from --dsw-alias-label-primary, so it is correct in both
+  // themes from one declaration (D57).
+  //
+  // Permitted: `var(--dsh-bento-…)`, `none`, `inherit`. Everything else is a literal
+  // shadow that will not follow the theme.
+  const offenders = [];
+  for (const name of readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort()) {
+    const raw = readFileSync(join(root, 'src', name), 'utf8');
+    const text = raw.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+    text.split('\n').forEach((line, index) => {
+      const code = line.replace(/\/\/.*$/, '');
+      const m = code.match(/box-shadow:\s*([^;]+);/);
+      if (!m) return;
+      const value = m[1].trim();
+      if (value === 'none' || value === 'inherit') return;
+      if (/var\(--dsh-bento-[a-z-]+\)/.test(value) && !/\brgba?\(|#[0-9a-fA-F]{3,8}\b/.test(value)) return;
+      offenders.push(`${name}:${index + 1}: ${value.slice(0, 60)}`);
+    });
+  }
+  if (offenders.length > 0) {
+    throw new Error('literal shadow, use --dsh-bento-shadow —\n    ' + offenders.join('\n    '));
+  }
+  return 'every shadow resolves through --dsh-bento-shadow';
+});
+
+
 const results = await runAll();
 
 for (const entry of results) {
