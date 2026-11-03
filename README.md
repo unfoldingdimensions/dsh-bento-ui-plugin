@@ -90,6 +90,10 @@ see A12 and Pass 4.
 
 ## Rules this plugin holds itself to
 
+- Selection is an accent **tint** derived with `color-mix()` from the host accent,
+  never a copied hex — so light and dark each get the correct tint from one declaration
+  (D55). The ink ratio is 65%, not 78%: measured, because mixing further toward the
+  theme's text colour *lowers* contrast rather than raising it.
 - Only `--dsw-alias-*` host tokens for colour, so light, dark and any registered
   theme follow automatically. No shade is introduced here.
 - No `require` of any Harness Client package; the switch is written locally from

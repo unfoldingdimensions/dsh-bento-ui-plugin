@@ -1466,3 +1466,104 @@ level down: the nav pill and the General rows (both flush inside the panel, both
 12), and the clickable surface filling each tile (20 inside a 16px tile — a child rounder
 than its parent). The last one inherits from the tile rather than restating a number, so
 the two cannot drift apart the way D45's literal did.
+---
+
+## D55 — Selection is an accent tint, derived from the host accent, not copied from the reference
+
+**Decision.** A selected row is marked with a **tint of the accent** behind its label, the
+label and icon in a **darker/lighter accent**, and **no border**. Both colours are
+`color-mix()` derivations of `--dsw-alias-state-business-primary`, never copied hexes.
+
+**Why not copy the reference.** The reference supplies `accent-soft #E8EFFE` and
+`accent-ink #1E4FBF`. Two problems:
+
+1. **They are one theme's values.** The host accent is `#4176e6` in light and `#7aaaff` in
+   dark. A light-mode tint pasted into dark mode is wrong, and there is no second pair to
+   paste. The derivation resolves correctly in both themes from one declaration.
+2. **Gate 15.** `src/` may contain no literal colour. A mix is an expression of a host
+   token, so the rule still holds — and the derivation is the token.
+
+**The values, and why the ratio is not intuitive.**
+
+```
+fill = 12% accent over the surface   (card, or canvas where the cell sits on canvas)
+ink  = 65% accent toward label-primary
+```
+
+12% over white resolves to `#E8EFFC`, within **1 RGB unit** of the reference's `#E8EFFE`.
+
+The ink ratio had to be measured, because the intuitive direction is wrong. `label-primary`
+is near-black in light and near-white in dark, so mixing *further* toward it **washes the
+ink out** and contrast falls:
+
+| ratio | worst-case contrast (both themes, both backdrops) |
+|---|---|
+| 78% (first attempt) | **4.14:1** — below AA |
+| 70% | 4.42:1 — below AA |
+| **65% (shipped)** | **4.60:1** — passes |
+
+65% is the smallest margin that clears AA on the canvas tint in dark mode, which is the
+tightest of the four cases. The reference's own pair measures 6.22:1.
+
+**Where it applies.** Three places, so selection is one idea rather than three:
+
+| surface | before | after |
+|---|---|---|
+| sidebar session row | host's neutral grey `rgba(38,49,72,0.06)` | accent tint + accent ink |
+| Settings nav destination | white tile + inset edge | accent tint + accent ink |
+| Agent preset tile | canvas tone + inset edge | accent tint + accent ink |
+
+The sidebar case is the one that matters most: the host marked the active row with a
+**neutral grey**, which on a grey canvas is barely a signal at all.
+
+**Two different host tokens per surface, deliberately.** The tint is mixed against the
+card where a tile sits on the card, and against the canvas where the cell sits on the
+canvas. Using one for both would put the selected cell a shade off the surface it appears
+to share.
+
+**The icon follows.** Verified rather than assumed: the nav glyph's SVG paths resolve to
+`currentColor` and compute to the accent ink, so setting the row's `color` colours icon
+and label together — matching the reference, where the whole row is blue.
+---
+
+## D56 — The Blue & Orange token reference: what we take, what we do not
+
+**Decision.** We adopt the reference's **selection treatment** and its **token model**.
+We do **not** adopt its **colour values** or its scale.
+
+The question "are we using this token reference?" has three separable answers, and
+answering it monolithically would be wrong either way.
+
+**1. Its values — no, and it would be wrong to.** `Tokens.dc.html` is a different
+product's design system (an RSI KPI dashboard): `#F6F7F9` page, `#2F6BEB` accent, 24px
+cards, Inter, an orange alternative theme. This plugin is a theme *inside another host*
+whose surfaces, accents and aliases belong to that host. Imposing a second palette would
+mean either overriding host tokens (which the gate forbids, because light/dark/registered
+themes must keep working) or shipping literals (same gate). Its scale also conflicts
+directly with measured host values: 24px cards against the host's 20/28, and its own
+8/9/16/20/24 radius set against ours.
+
+**2. Its model — yes, and we already matched it.** The reference's organising idea is:
+*every colour is a named CSS variable, the switch swaps the whole set, status colours stay
+fixed across themes.* Our tokens have that exact shape in the host's own names
+(`--dsw-alias-*` for values, `--dsh-bento-*` for composition), and swappability comes free
+because the host owns the alias layer and already swaps it for light/dark. Nothing needed
+adopting here; D55's derivations then follow whichever set is active.
+
+**3. Its selection treatment — no, and this was a real gap.** The reference marks a
+selected row with a tint of the accent, the label in a darker accent, and no border. We
+were using a white tile with an inset edge (Settings) and a neutral grey (sidebar). That
+is the one part of the reference that is both correct for our context and was missing, and
+it is what D55 adopts.
+
+**One thing the reference gets wrong for us, recorded so it is not copied later.** Its
+`accent-soft` / `accent-ink` are a *pair for the blue theme*; the orange theme has its own
+pair. Copying either into a host with a per-theme accent and no soft/ink tokens produces a
+tint that is correct in exactly one of light and dark. Deriving with `color-mix()` from
+whatever accent is active is what makes the pattern portable — which is why we took the
+pattern and not the numbers.
+
+**Referenced file:** `C:\Users\ADMIN\Downloads\Theme tokens – Blue & Orange-html\`
+(`Tokens.dc.html`, 25 token rows, and its `README.md` which states it is a reference
+mockup and that values should be replicated in the implementation's own styling system —
+which is precisely what D55 does.)

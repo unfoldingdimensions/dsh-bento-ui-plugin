@@ -1304,3 +1304,43 @@ sits on the card".
 by applying the rule to everything would have produced a dozen visibly wrong corrections
 in a change that tested green — because the false cases were small enough to pass
 inspection and numerous enough to hide among the real ones.
+---
+
+## L63 — "More accent" made the text less readable, and only measuring showed it
+
+The selected row needed an accent-blue label on an accent tint. The obvious derivation is
+to mix the accent mostly with the theme's text colour, so I used 78% accent. Contrast came
+out at **4.14:1**, below AA.
+
+The intuition says more accent = more saturated = more contrast. It is exactly backwards,
+because `label-primary` is **near-black in light and near-white in dark**. Mixing the
+accent toward it moves the colour toward *whichever end the theme's text sits at*, so at
+78% the blue had been washed most of the way to the theme's foreground and the remaining
+hue could not carry the contrast. Reducing to 65% raised it to 4.60:1.
+
+**The lesson.** A colour-mix percentage is not "how much of the colour you get" — it is a
+position on a line between two colours, and which end helps depends on the backdrop. Two
+of the three ratios I tried failed, and no amount of reading the CSS would have revealed
+it; only computing contrast against the actual fill did.
+
+---
+
+## L64 — "Are we using this token reference?" has three different answers
+
+The question was whether the Bento UI uses the Blue & Orange reference. It resolves into
+three separable facts, and answering only one would have been misleading:
+
+1. **The file's values** — no, and correctly so. It is a different product's design
+   system (an RSI KPI dashboard) with its own scale: `#F6F7F9` page, `#2F6BEB` accent,
+   24px cards, Inter. We are a theme inside someone else's host and cannot impose that.
+2. **Its token *model*** — partly, and it already matched. That model is "every colour is
+   a named CSS variable, the switch swaps the set, status colours stay fixed". Our tokens
+   carry the same shape in the host's own names (`--dsw-alias-*`); swappability comes free
+   because the host owns the alias layer. We did not need to adopt anything for this.
+3. **Its selection *treatment*** — no, and that was a real gap. The reference's tint +
+   accent-ink + no-border pattern is what this turn adopted (D55). It was the one part of
+   the reference that was both correct for our context and missing from ours.
+
+**The lesson.** "Are we using this reference?" is not yes/no. Separate what a reference
+specifies — values, model, and interaction patterns — because one can be wrong for you
+while another is exactly the thing you are missing.
