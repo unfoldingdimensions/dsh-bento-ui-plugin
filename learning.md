@@ -1095,3 +1095,48 @@ inference is right.
 kind of wrong sentence, because it makes the finding feel explained. The test: could I
 design an experiment that would show this cause and not another? If not, it is an
 inference, and the document says so.
+---
+
+## L53 — "It does not scroll" was a collapsed box, three layers away
+
+Reported: the right panel will not scroll. I had a ready-made suspect — an
+`overflow: hidden` I had written on `_tabHost` during the right-panel card work — and I
+went looking for it.
+
+It was not that. Measured, the panel was **288px tall inside a 900px column**, and
+nothing in the pane overflowed at all. There was nothing to scroll because there was no
+content box left to scroll. Disabling the theme gave 900px.
+
+The cause was one declaration I had added two features earlier: `position: relative` on
+an element the host positions `position: absolute` with all four insets set. That panel's
+height *was* its anchoring. Overriding `position` detached it and it shrank to content.
+
+**The lesson.** A reported symptom names where the user noticed the problem, not where it
+started. "Cannot scroll" and "box is a third of its height" are the same bug seen from
+two distances, and the second is the one that names the cause. Measure the box before
+believing the symptom's vocabulary — and when the obvious suspect does not reproduce,
+that is information, not a dead end.
+
+---
+
+## L54 — Restyling a box and repositioning a box look like the same edit
+
+The bug in L53 was not carelessness about CSS. `position: relative` is exactly what you
+write to give a pseudo-element a containing block, which is what the card technique
+needs — it is correct on the column and catastrophic on the host's absolutely-positioned
+panel. Both are "one line in a style block".
+
+The distinction that matters: **a property the host derives size from is a contract, not
+a default.** Overriding it is a layout change wearing a style change's clothes, and
+nothing fails at the moment you do it. It failed two features later, at the top of a very
+long chain of wrappers that are all `overflow: hidden`.
+
+Now gated (check 18). The gate's own first version was wrong twice — it never reset its
+selector tracking so it inherited the first rule's selector across the file, and it
+classified our own column wrappers as host-owned because they reach into their children
+with `> * > *`. Ten false positives on a clean tree before it was right.
+
+**The lesson.** A gate built from a real bug still has to be proved against that bug and
+against a clean tree. I have now shipped two gates whose first version failed one of
+those two directions, and both would have been caught by running them on the tree they
+were written for before trusting the green.

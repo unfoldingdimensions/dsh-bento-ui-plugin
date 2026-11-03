@@ -39,7 +39,7 @@ src/50-feature-settings.js feature: the Settings dialog as a bento board
 src/60-settings.js         settings rows, derived from the registry
 src/99-footer.js           translator, apply(), exports
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 17 pre-install checks
+verify.mjs                 18 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`.
@@ -108,6 +108,9 @@ see A12 and Pass 4.
 - Under Windows High Contrast the theme withdraws its spacer borders rather than let
   forced-colors paint them, but keeps the card edges, which are what make the
   composition legible once the fills flatten (D46).
+- No feature declares `position` on a host-owned element. Paint is ours; layout is
+  the host's, and a host element may be deriving its size from the position it is given
+  (D50).
 - No feature adds an icon to the interface. `icon.svg` is a package icon, not a UI icon,
   and the two must not be reused for each other (D48).
 
@@ -445,7 +448,7 @@ half now imports and exports exactly as the working themes do, and
 
 ### Regression guard
 
-`node verify.mjs` runs 17 checks before any install and exits non-zero on
+`node verify.mjs` runs 18 checks before any install and exits non-zero on
 failure. Both original failure modes were proved by planting them: a missing
 `main` is reported, and a host half that throws on import is reported cleanly
 instead of crashing the checker itself.

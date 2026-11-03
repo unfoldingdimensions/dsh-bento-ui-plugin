@@ -1235,3 +1235,45 @@ rule never to test in. What *is* verified: the export resolves
 (`./icon` → `icon.svg`, 614 bytes), it parses, it renders inline and as a `data:` image
 with the gradient resolving, and its attribute set is byte-for-byte the convention the
 host's own icons use.
+---
+
+## D50 — Never declare `position` on a host-owned element
+
+**Decision.** A feature may restyle an element's **paint**; it may not rewrite the
+host's **layout positioning**. `position` on any element reached through a host anchor
+is a gate failure (check 18).
+
+**Why, from the shipped bug.** The right panel would not scroll. It was not a scroll
+bug. The host positions the panel root `position: absolute` with all four insets set
+(`.P3OORG_panel`), so its **height comes from being edge-anchored**. The right-panel card
+feature declared `position: relative` on that same element to give its card a containing
+block. That override detached the panel: it stopped being edge-anchored, had no height of
+its own, and collapsed to content.
+
+| | panel height |
+|---|---|
+| theme off | **900px** (fills the column) |
+| theme on | **288px** (content height) |
+
+Every wrapper inside the pane is `overflow: hidden`, so the missing 612px was not
+clipped-and-scrollable — it was unreachable. The user-visible symptom ("no scrolling")
+was three layers away from the cause.
+
+**Why `z-index` went with it.** `z-index` only applies to positioned elements, so it was
+inert except as documentation of an intent that only worked *because* of the bug. The
+card is painted on the column's own `::after`, and the panel is a later child in paint
+order, so it sits above the card without help. Verified after removal: card still
+painted, 0 spill.
+
+**The general shape of this mistake**, which is why it gets a gate rather than a note:
+restyling a box and repositioning a box look like the same kind of edit in CSS. They are
+not. Paint is ours; layout is the host's. When a host element's size derives from a
+property, overriding that property is not a style change — it is a silent layout change,
+and it will not fail loudly.
+
+**The exemption, measured rather than assumed.** The Settings content column keeps
+`position: relative` because the host leaves it `position: static` — checked with the
+theme off — so nothing is detached. Its card is painted on `::before` with `z-index: -1`,
+which costs no layout width. Verified in both states: content 612x800, fills the panel,
+the real scroller still `overflowY: auto`. The exemption is named in the check so the
+next reader knows it was checked, not overlooked.
