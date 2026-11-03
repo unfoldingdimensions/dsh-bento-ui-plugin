@@ -873,3 +873,88 @@ scoping and no ownership.
 | menus | 16px | 12px |
 | settings panel | 28px | 14px (matches host exactly) |
 | bento cards | 20px | 14px |
+
+---
+
+## D39 — What the bento language audit is for, and what it is not
+
+**Decision.** A convention audit is a separate workstream from a feature pass. It
+produces a written inventory with tiers (P0/P1/P2) and **does not change code in the
+same change**. Findings live in `docs/research/bento-language-audit.md`; anything that
+becomes work gets its own decision entry and its own commit.
+
+**Why.** A pass starts from "restyle this surface" and ends at a verified render. An
+audit starts from "what does this style actually require" and ends at a list. Merging
+them would mean the list is shaped by whatever happened to be easy to fix, which is
+how a real gap gets dropped for a photogenic one. Keeping the audit read-only also
+means it can be wrong out loud — three of its first findings were wrong (§4 below) and
+correcting them cost nothing because no code depended on them.
+
+**What it found, in one line.** Six features, zero defects, three inert declarations,
+no type scale, no responsive rules, no focus parity, no forced-colors story, and a
+spacing ratio inverted against the idiom it borrows.
+
+---
+
+## D40 — The reference is a shadowless, border-plus-fill system, and the theme matches it
+
+**Decision.** Keep elevation at zero. Separation is a 1px edge plus a fill step
+(1.164 light / 1.235 dark); shadow is never used for depth. Any future feature that
+wants to "add polish" by raising a card's shadow is wrong.
+
+**Why.** Aggregated over the 12 extracted reference pages: **86 of 86 cards carry
+`box-shadow: none`**, 83 of 86 share `24px` radius, 68 of 86 share `20px` padding.
+The look is Vercel's shadow-as-border school, not Material elevation.
+
+This also settles a claim I would have got backwards from the screenshots. The bento
+aesthetic is described as soft and elevated; the reference gets its softness from a
+**1.143 contrast step and a hairline**, and its hierarchy from font **weight**
+(400 / 600 / 700), not from surface. Recorded because "add a subtle shadow" is the
+first thing a future session will want to do and it would break the system.
+
+**Corollary for contrast tooling.** Card surfaces are painted on `::after`, so they
+are not ancestors of their content. A DOM-walking contrast check reports the canvas
+for text that sits on the card: measured 4.98 for text whose true ratio is 5.80. The
+pixel, or a hardcoded backdrop, is the only honest source here.
+
+---
+
+## D41 — The theme takes bento's surface and refuses bento's layout, deliberately
+
+**Decision.** No feature may reflow a column, change a grid track, vary cell sizes, or
+introduce an anchor cell. The host solves the layout; the theme paints on it.
+
+**Why.** Bento's documented failure modes are all layout failures — it needs every
+cell filled, it degrades under resizing, and it destroys reading order, which is why
+the pattern is recommended for presentations and marketing rather than working
+applications. None of those are reachable here because no cell is ever re-flowed. The
+three columns, their widths, the drag handles and the collapse behaviour are all the
+host's.
+
+**The honest cost of that choice**, stated so it is not mistaken for a win: the theme
+has the bento *surface* and none of the bento *composition*. Measured, the outer
+margin is 12px against a 24px inter-card gap — ratio **0.5**, where the idiom wants
+the outer margin larger. The cards sit closer to the window edge than to each other.
+That is the app three-pane idiom (VS Code, Slack), not the tray. It reads as "panels in
+a window wearing card styling" rather than "a tray", and it cannot be fixed without
+padding the frame, which carries an inline `grid-template-columns` and would compress
+every column and move every drag handle.
+
+Recorded as a known limit rather than a defect, because the alternative is worse.
+
+---
+
+## D42 — Zero width breakpoints is the host's call, not ours
+
+**Decision.** No `@media (min-width …)` / `max-width` rules. The theme inherits the
+host's reflow and contributes only tokens that survive it.
+
+**Why, measured.** At 1600 / 1280 / 1100 / 960 / 820 / 700: zero horizontal document
+scroll, zero clipped sidebar rows, composer intact, and the host's own sidebar collapse
+(56px rail at ≤960) picks up our rail tokens — 4px gutter, 10px radius, verified
+applied. The theme's contribution at narrow widths is that it degrades, not that it
+adapts.
+
+The one convention this leaves unowned is "reflow, do not shrink". The theme neither
+implements it nor claims to. That is defensible — a radius and a gutter are a token
+system, breakpoints belong to whoever owns the grid — but it is a gap, not a design.

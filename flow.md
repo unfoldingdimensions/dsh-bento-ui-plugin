@@ -249,3 +249,50 @@ gives 1.164 light / 1.453 dark.
 `settings.general.item` registration in the same change (D25). Re-check the
 Settings board CSS afterwards, because the rows will live under a new section
 anchor.
+
+---
+
+## 8. Audit a convention (what this theme is missing)
+
+A design-convention audit is a **different loop** from a pass, and the difference is
+the point: a pass ends in a verified render, an audit ends in a written list and
+touches no code (D39).
+
+```
+SCOPE      name the conventions being tested, before looking at anything
+           └─ for bento: grid/anchor, spacing ratios, radius tiers, elevation,
+              type scale, motion, focus parity, forced-colors, responsive reflow
+
+AGGREGATE  if a reference corpus exists, query it instead of trusting the screenshots
+           └─ research_tmp/reference/design-system.json   (12 pages, card/token data)
+           86/86 cards have no shadow, and that one query rewrote the elevation model
+
+MEASURE    one probe per convention, both sides of every claim
+           └─ audit-*.cjs  — computed style AND a with/without comparison where a
+              rule's effect is in question
+
+CLASSIFY   P0 breaks something · P1 wrong or risky · P2 worth fixing when nearby
+           └─ nothing goes in a tier without a number behind it
+
+RECORD     docs/research/<topic>.md holds the findings and the sources
+           decision.md gets one entry per ruling the audit produces
+           learning.md gets only what cost time or was nearly got wrong
+```
+
+**Three checks that turn a description into a finding.** Each caught something here.
+
+1. **With/without.** For any rule whose effect is claimed, measure the value, remove
+   the rule, measure again. `letter-spacing: 0` turned out to compute identically to
+   `normal`, so the rule is a no-op — a fact no amount of reading the stylesheet
+   yields.
+2. **Match count before verdict.** A selector that matches 0 elements is a dead rule,
+   not a styling choice. `--dsh-bento-gap` is referenced 0 times in a sheet that
+   declares it.
+3. **Reachability, not just correctness.** A `:focus-visible` rule on a
+   `role="treeitem"` at `tabIndex=-1` with no focusable descendants is *correct
+   syntax that no user can trigger*. Correctness and reachability are separate
+   questions and only the second one is about the user.
+
+**What an audit must not do.** It must not fix what it finds in the same change. The
+list has to be free to be wrong — three findings here were, and correcting them cost
+nothing because no code depended on them.

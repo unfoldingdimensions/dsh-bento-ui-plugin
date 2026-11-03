@@ -724,3 +724,83 @@ restyling a working surface, to satisfy a checklist.
 **The lesson.** "Surveyed, and the correct action is none" is a complete result. It
 needs the same evidence as a change — the measurements above — and it belongs in the
 decision record precisely because the absence of a commit looks like an omission.
+
+---
+
+## L37 — A green gate says the CSS is well-formed, not that it applies
+
+The build gate has 13 checks and passed on every commit. This audit found **three
+declarations in the shipped stylesheet that do nothing**, plus a fourth failure that
+is the same blind spot wearing a different coat:
+
+1. `section h3 { letter-spacing: 0 }` — Chromium computes `letter-spacing: 0`,
+   `0px`, and `normal` identically. The declaration is valid, matched two `h3`
+   elements, and changed nothing.
+2. `--dsh-bento-gap` — declared, referenced zero times.
+3. `[data-row-key^="session:"]:focus-visible` — the selector is correct and the rule
+   *does* paint when forced. But session rows are `role="treeitem"` at `tabIndex=-1`
+   with zero focusable descendants, so it can never match in real use.
+4. The four reduced-motion blocks in the stylesheet all work — and they miss the one
+   component that needed them, because our own switch's transitions are **inline**,
+   where no media query can reach. The token resolved to `0ms` and the switch still
+   animated for 160ms.
+
+Every one of those is invisible to a gate that checks syntax, brace balance, and
+declaration-before-use. **A linter proves the file parses. Only a rendered page proves
+the rule landed.** The check that would have caught #1 and #2 is cheap: after
+injecting, assert that every declared custom property is referenced, and that no rule
+declares a value equal to the element's inherited default. That is a gate I did not
+write and should have.
+
+---
+
+## L38 — Reading a rule's source is not the same as measuring its effect
+
+Twice this audit I decided something from the stylesheet and was wrong:
+
+1. I wrote that the `h3` rule set tracking, then measured the *computed* value, saw
+   `normal`, and concluded the rule was broken. It is not broken — `0` **is**
+   `normal` in computed style. The rule is a no-op because its effect is zero, not
+   because it failed to parse. Two different findings, and my first explanation was
+   the wrong one.
+2. I flagged the composer's 28px radius inside a 20px card as a concentric-radius
+   defect. It sits 214–331px from the card's edges; concentric maths only binds under
+   ~24px of inset. The number looked wrong and was right.
+
+Both were caught by the same move, and it is the move that has now caught something
+on every pass: **state the claim as a measurable difference, then measure both sides
+of it.** "Removing this rule changes the computed value" and "this radius is
+inconsistent with its parent at this inset" are both answerable in ten lines of
+browser script. Neither is answerable by looking at the source.
+
+---
+
+## L39 — The audit's most useful output was the list of things that were already right
+
+Targeting conventions rather than defects produced a long list of passes: shadows,
+gap, radius tiers, cell closure, anchor dominance, dark layering, collapsed-rail
+tokens, reduced motion in the sheet. That list is not filler — it is the set of
+decisions a future session would otherwise "correct" into inconsistency, the way I
+nearly corrected the settings nav tile from 14px to 10px in L35.
+
+**The lesson.** An audit that only lists gaps teaches the next session what to add.
+An audit that also lists the holds teaches it what not to touch. The second list is
+the one that prevents regressions, and it is nearly free once the first list is
+measured.
+
+---
+
+## L40 — The reference's own numbers contradict its reputation
+
+The bento look is widely described as soft, elevated, shadowed. The reference corpus
+says otherwise: **86 of 86 cards have `box-shadow: none`**, and 83 of 86 share one
+radius, 68 of 86 one padding. Its "softness" is a 1.143 contrast step and a 1px
+border, and its hierarchy is font **weight** (400 / 600 / 700), not surface.
+
+I would have guessed shadows and got the whole elevation model wrong. The aggregate
+file was already on disk from the earlier extraction; the work here was running one
+grouping query over it rather than trusting the impression the screenshots give.
+
+**The lesson.** A style's reputation is not its implementation. When a reference
+corpus is already extracted, aggregate it before designing from memory of how it
+looked.

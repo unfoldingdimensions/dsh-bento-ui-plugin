@@ -464,3 +464,78 @@ Two measurement methods are used deliberately:
    are tinted grey" reading: every scanline's modal colour was `rgb(255,255,255)`,
    so the bands were anti-aliased text, not a style. Computed style and the
    rendered file are different evidence and both are needed.
+
+---
+
+## 9. Design-language contract (audit 2026-11-03)
+
+What the theme may do to a surface, stated as rules so a future feature does not
+have to rediscover them. Derived from the 12-page reference corpus and from measuring
+the shipped plugin; the full inventory with evidence is
+`docs/research/bento-language-audit.md`.
+
+### 9.1 The surfaces, measured
+
+| | light | dark |
+|---|---|---|
+| canvas | `#ebeef2` (host nav-item-active) | `#1b1b1c` (host sidebar fill) |
+| card | `#ffffff` (host bg-layer-2) | `#2c2c2e` |
+| card vs canvas | **1.164** | **1.235** |
+| card edge vs card | 1.254 | 1.464 |
+
+The fill step is the card. The edge is decorative. **Elevation is always zero** —
+86 of 86 reference cards have `box-shadow: none`, and the theme's only two shadows are
+`inset 0 0 0 1px` hairline replacements that cost no layout (D14).
+
+### 9.2 Radius vocabulary
+
+| Tier | Value | Used by |
+|---|---|---|
+| card | 20px | sidebar, centre, right panel |
+| inner | 14px | rows, tiles, nav buttons, settings rows |
+| rail | 10px | the card when the sidebar is collapsed to 56px |
+| pill | host | not ours |
+
+The reference runs 24 / 18 / 12; ours is scaled down one step because a column here
+is narrower than a 660px reference card. `14px` inner is **not** the concentric result
+for a 12px inset under a 20px card — the maths gives 8px — and the host's own icon
+buttons in the same container already use 8. Recorded as a known inconsistency
+(audit P2.2), not a bug.
+
+### 9.3 What a feature may and may not touch
+
+| May | May not |
+|---|---|
+| paint a card, clear a host root, lift content above it | change a grid track, a column width, or a drag handle |
+| add a gutter as **padding on the column** | add a gutter as margin on the column (moves handles) |
+| supply a hairline as `inset box-shadow` | supply it as `border` on a host-sized control (costs 2px, D14) |
+| restyle a host row's geometry | restyle a host page's typography, badges or switches (D35) |
+| read a host token | introduce a shade of its own outside the artwork |
+
+### 9.4 DOM facts a contrast or accessibility tool must know
+
+1. **Cards live on `::after`.** They are not ancestors of their content, so any
+   DOM-walk contrast check reports the canvas instead of the card. Measured error:
+   4.98 reported against 5.80 actual.
+2. **Session rows are `role="treeitem"`, `tabIndex=-1`, with zero focusable
+   descendants.** The host never moves focus into the tree, so a
+   `:focus-visible` rule on a row is correct and unreachable. Do not write one and
+   claim a keyboard affordance.
+3. **Our own switch's transitions are inline**, so `prefers-reduced-motion` in the
+   stylesheet cannot reach them (audit P1.1).
+4. **The composer is 214–331px from the card's edges.** Its 28px radius is
+   independent by the >24px rule, not a concentric-radius defect.
+
+### 9.5 Spacing, and where it breaks the idiom
+
+| | theme | convention |
+|---|---|---|
+| gutter (column padding) | 12px | — |
+| gap between cards | 24px | — |
+| gap / radius | 24/20 = 1.2 | 0.5–1.0 |
+| outer margin / gap | 12/24 = **0.5** | ≥1.5 |
+| inner padding / gutter | ~13/24 = 0.54 | ~2 |
+
+The theme is a three-pane application shell wearing card surfaces. That is a decision
+(D41), not an oversight: the outer margin is owned by the frame, which carries an
+inline `grid-template-columns` and cannot take padding without moving every column.

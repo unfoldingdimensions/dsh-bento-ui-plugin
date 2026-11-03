@@ -8,7 +8,7 @@ feature at a time.
 The harness shell is a three-column grid: a session sidebar, a conversation
 centre column and a right panel, all flush on one canvas. This plugin insets
 each column onto its own rounded card, under a single document attribute, with
-each card switchable on its own from Settings › General.
+each card switchable on its own from Settings › Bento layout.
 
 It is a **theme plugin**, not a page: it ships no panel, no route and no tool. It
 restyles what the host already renders.
@@ -17,10 +17,11 @@ restyles what the host already renders.
 
 | File | Contains |
 |---|---|
-| [decision.md](decision.md) | Append-only decisions (D1–D16): what was chosen and why, including the rejected options |
-| [architecture.md](architecture.md) | Contracts and boundaries: the plugin shape, the boot audit's failure states, eight DOM-reachability facts (A1–A8), module structure, profile state, the verification harness |
-| [flow.md](flow.md) | Runnable sequences: add a feature, the Chrome-before-the-app loop, diagnose "loaded but nothing happened", recover from a boot failure, the isolated-profile test loop |
-| [learning.md](learning.md) | What cost time and why (L1–L17), including the mistakes |
+| [decision.md](decision.md) | Append-only decisions (D1–D42): what was chosen and why, including the rejected options |
+| [architecture.md](architecture.md) | Contracts and boundaries: the plugin shape, the boot audit's failure states, DOM-reachability facts (A1–A12), module structure, profile state, the verification harness, the design-language contract (§9) |
+| [flow.md](flow.md) | Runnable sequences: add a feature, the Chrome-before-the-app loop, diagnose "loaded but nothing happened", recover from a boot failure, the isolated-profile test loop, audit a convention (§8) |
+| [learning.md](learning.md) | What cost time and why (L1–L40), including the mistakes |
+| [docs/research/bento-language-audit.md](docs/research/bento-language-audit.md) | What the theme implements against what the bento idiom requires, measured, tiered P0/P1/P2, with sources |
 
 Read `learning.md` before changing anything here — most of it exists because a
 confident-looking change silently did nothing.
@@ -133,7 +134,7 @@ Six features ship:
 
 ### Pass 4 (own Settings tab) — shipped
 
-The plugin's four toggles now live in their own **Bento layout** tab. Settings ›
+The plugin's toggles now live in their own **Bento layout** tab. Settings ›
 General keeps none of them.
 
 ```js
@@ -333,8 +334,9 @@ profile, not the desktop profile):
 - The plugin activates with **zero console errors** and no boot audit failure.
 - All four shell roles are stamped: `frame`, `sidebar`, `center`, `rightbar`.
 - The stylesheet is injected with the token layer and all three feature blocks.
-- **Settings › General shows all three rows** — "Sidebar card", "Session tiles"
-  and "Settings board", each with a working `role="switch"` toggle.
+- **Settings › General showed all three rows** at that time — "Sidebar card", "Session tiles"
+  and "Settings board", each with a working `role="switch"` toggle. They moved to their
+  own **Bento layout** tab in pass 4.
 
 **The Settings board, measured in light and dark across all five sections:**
 
