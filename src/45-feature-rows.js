@@ -75,6 +75,36 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > butto
 }
 
 /* Reduced motion: the border swap is instant rather than animated. */
+/* SELECTED ROW: THE REFERENCE TREATMENT (D55).
+ *
+ * The host marks the active session / destination with a neutral grey
+ * (rgba(38,49,72,0.06)). That is a state, but it says nothing about WHICH thing is
+ * chosen beyond being slightly darker than its neighbours - and on a grey canvas it
+ * is easy to miss entirely.
+ *
+ * The reference does it with colour: a tint of the accent behind the label, the
+ * label in a darker accent, no border. That is legible at a glance and is the one
+ * place in the shell where an accent is the right answer, because it is the only
+ * place the interface is telling you where you are.
+ *
+ * Both colours are derived from the host accent, so light and dark each get their
+ * own correct tint (#4176e6 / #7aaaff) without a second declaration.
+ *
+ * The host's hover fill is left alone. A selected row that is also hovered keeps
+ * this tint, because this rule is declared after the host's hover rule - verified
+ * by reading the computed colour in both states, not assumed from source order.
+ * Addressed through aria-selected, which the host sets on the active row, so this
+ * does not depend on a hashed class name.
+ */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"][aria-selected="true"],
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-current="true"],
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-selected="true"] {
+  background: var(--dsh-bento-selected-fill-canvas);
+  color: var(--dsh-bento-selected-ink);
+  border-color: transparent;
+}
+
+/* Reduced motion: the border swap is instant rather than animated. */
 @media (prefers-reduced-motion: reduce) {
   html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"],
   html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button {

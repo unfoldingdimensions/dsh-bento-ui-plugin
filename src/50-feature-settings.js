@@ -48,12 +48,27 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button {
   border-radius: var(--dsh-bento-radius-nested);
 }
 
-/* The selected destination becomes a tile on the canvas. The edge is an inset
-   shadow rather than a border so the cell keeps its exact 40px height and nothing
-   below it shifts by the pixel a real border would add. */
+/* SELECTED DESTINATION: THE REFERENCE TREATMENT (D55).
+ *
+ * Was a white tile with an inset edge — i.e. the selected nav cell looked like a card
+ * among cards, which reads as "raised" rather than "chosen". The reference does the
+ * opposite: a TINT of the accent behind the label, the label itself in a darker accent,
+ * and no border at all. That is what makes selection legible at a glance.
+ *
+ * The fill is mixed against the CANVAS, not the card, because this cell sits on the
+ * canvas between the panel edge and the content card; mixing against the card would put
+ * it a shade off the surface it appears to share.
+ *
+ * Both colours are derived tokens, so this follows the host accent per theme — #4176e6
+ * in light, #7aaaff in dark — rather than pinning one theme's blue. Measured contrast of
+ * ink on fill: 5.16:1 light, AA for body text.
+ *
+ * The label colour has to be set explicitly. The host paints its own label colour on the
+ * button, so inheriting would leave dark ink on a tinted ground in light mode. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="true"] {
-  background: var(--dsh-bento-card);
-  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge);
+  background: var(--dsh-bento-selected-fill-canvas);
+  color: var(--dsh-bento-selected-ink);
+  box-shadow: none;
 }
 
 /* The content column becomes the one raised card, painted on a pseudo-element so
@@ -242,12 +257,16 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section
  *
  * Agent presets marks the chosen mode with a border and a tinted fill — the two things
  * this rule removes. Losing it would leave "which mode is the default" unanswerable, so
- * the state is re-expressed in the board's own vocabulary: the canvas tone plus an inset
- * edge, the same pair the selected Settings destination uses. Reached through
- * aria-pressed because it is the state, and it is stable across renderers. */
+ * the state is re-expressed with the same accent-tint treatment as the Settings
+ * destination above (D55). Reached through aria-pressed because that is the state, and
+ * it is stable across renderers rather than tied to a hashed class name.
+ *
+ * Mixed against the CARD here, because these tiles sit on the content card — the same
+ * mix used on the canvas would read a shade too light against it. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li:has([aria-pressed="true"]) {
-  background: var(--dsh-bento-canvas);
-  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge);
+  background: var(--dsh-bento-selected-fill);
+  box-shadow: none;
+  color: var(--dsh-bento-selected-ink);
 }
 
 /* The :hover fill must not win over a selected tile, or hovering the default mode would

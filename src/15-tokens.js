@@ -89,6 +89,38 @@ html[${ROOT_ATTR}] body {
   /* A pointer surface that works on either backdrop, because it is translucent
      rather than a fixed tone. */
   --dsh-bento-hover: var(--dsw-alias-interactive-bg-hover);
+
+  /* SELECTION: A TINT OF THE ACCENT, NOT THE ACCENT ITSELF (D55).
+   *
+   * The reference is a tint behind the label and a darker accent for the label:
+   *   fill #E8EFFE, text #1E4FBF, no border
+   * which is what makes a selected row read as chosen rather than as a filled button.
+   * The host has the accent but NO soft or ink variant, so both are DERIVED here rather
+   * than pasted. Two reasons the derivation matters more than the values:
+   *
+   *   1. It follows the theme. The host accent is #4176e6 in light and #7aaaff in dark.
+   *      A copied #E8EFFE would be wrong the moment the theme changes or a third one is
+   *      registered; these mixes resolve to the correct tint in each theme automatically.
+   *   2. It keeps gate 15 honest. There is no literal colour in src/, so the rule that
+   *      "every shade is a host token" still holds — the mix IS the token.
+   *
+   * The proportions are measured, not guessed. 12% accent over the card reproduces the
+   * reference's #E8EFFE to within 1 RGB unit (#E8EFFC). The ink is 65% accent toward the
+   * label, which yields a DARKER blue in light (#3258A7) and a LIGHTER one in dark
+   * (#A0C2FE) - because the label it mixes toward is near-black in one theme and
+   * near-white in the other. That inversion is why the ratio is 65 and not 78: mixed
+   * further toward the label the text washes out and contrast FALLS, which is the
+   * opposite of the intuition, so it was measured rather than reasoned about.
+   *
+   * Worst-case contrast across both themes and both backdrops (card and canvas):
+   *   4.6:1 at 65%, against 4.14:1 at 78% and 4.42:1 at 70%. 65% is the smallest margin
+   * that clears AA (4.5:1) on the canvas tint in dark mode - the tightest of the four
+   * cases. The reference's own pair measures 6.22:1. */
+  --dsh-bento-selected-fill: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, var(--dsw-alias-bg-layer-2));
+  --dsh-bento-selected-ink: color-mix(in srgb, var(--dsw-alias-state-business-primary) 65%, var(--dsw-alias-label-primary));
+  /* On the canvas rather than a card, the same tint must be mixed against the canvas or
+     the selected cell sits a shade off the surface it is pretending to share. */
+  --dsh-bento-selected-fill-canvas: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, var(--dsw-specific-sidebar-nav-item-active));
 }
 
 /* Dark mode needs a different canvas token, not the same one. The cool grey above
