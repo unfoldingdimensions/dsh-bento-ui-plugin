@@ -1,0 +1,12 @@
+﻿# Dependencies
+node_modules/
+
+# Build output that is regenerated from src/ by `npm run build`
+# NOTE: client.js is intentionally COMMITTED. The host resolves ./client at boot,
+# so the built bundle must be present for the plugin to load. It is the artefact
+# that ships, not a cache.
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "title": "Bento Layout",
+    "description": "Turns the three-column shell into a raised card grid, and lays the Settings dialog out as a bento board. Each piece can be switched off separately in Settings > General."
+  },
+  "settings": {
+    "title": "Bento layout",
+    "description": "Separate the shell columns into rounded cards.",
+    "on": "On",
+    "off": "Off"
+  }
+}

@@ -1,0 +1,674 @@
+# Learning
+
+What cost time, and why. Written so a future session does not pay for it again.
+Established 2026-11-03, from building `dsh-bento-theme`.
+
+---
+
+## L1 — I broke the user's app, and the recovery broke their config
+
+**What happened.** The first install aborted application startup. The recovery
+dialog's "disable third-party plugins" option rewrote `cordis.patch.yml` from
+5278 to 1345 bytes, dropping 13 config rows — including nine model definitions
+across two providers, the `web-ui-*` settings, the `dsh-claude-style` config and
+`plugin-market`. The app then booted with 17 bundles where there had been 24.
+
+**What made it recoverable.** The recovery wrote a timestamped backup first, and
+I compared the restore byte-for-byte before calling it repaired. Without that
+backup the model list would have been gone.
+
+**The lesson.** A UI plugin's failure mode is not "the UI looks wrong", it is
+"the application does not start". Before installing anything into the desktop
+profile, test it where a failure costs nothing.
+
+---
+
+## L2 — Four confident, wrong diagnoses before one rendered screenshot
+
+I said, in order: the missing `main` field was the cause; then the export shape;
+then `dsh.client.inject`; then a 404 on the bundle. Each was stated with more
+confidence than the evidence supported. Each was disproven by the next check.
+
+What actually found the truth: rendering the page and reading
+`getComputedStyle`, the injected stylesheet, and the stamped attributes. Three
+real bugs (L3, L4, L5) were visible in one render and invisible in review.
+
+**The lesson.** For CSS and lifecycle-order questions, a rendered page is faster
+than any amount of source reasoning. Read the code to form a hypothesis; never to
+conclude. Label a hypothesis a hypothesis while stating it.
+
+I also told the user `main` was "probably the culprit", then later had to
+supersede that. Saying "probably" did not make it less wrong.
+
+---
+
+## L3 — `apply` mutated a framework-owned object
+
+`ctx.bentoTranslate = makeTranslator(ctx)` threw. Because it ran before the
+try/catch and before the settings row registered, the plugin reported `failed`
+and *nothing* appeared — the failure was silent to the user in the only place
+they would look.
+
+**Fix.** Locals only; each step of `apply` in its own try/catch; register the
+settings row **first** so a later failure still leaves a switch to click.
+
+**The lesson.** `apply` is an activation boundary, not application code. Anything
+that can throw should be isolated and should degrade to "feature off", never to
+"plugin failed".
+
+---
+
+## L4 — Custom properties do not inherit upward
+
+The card painted `transparent`. The stylesheet was correct, the selector matched,
+the class was applied, the radius computed — but the surface colour was empty.
+
+Cause: `--dsh-bento-card: var(--dsw-alias-bg-layer-1)` was declared on `html`,
+and the host defines `--dsw-alias-*` on `<body>`. A custom property is substituted
+**on the declaring element**, so `var()` resolved against nothing, computed to
+empty, and painted as nothing. No error, no warning, no console message.
+
+**Fix.** Surface tokens declared on `body`.
+
+**The lesson.** A `var()` chain is only as defined as the element you wrote it on.
+When a style silently does nothing, check the token resolved — not just that the
+rule matched.
+
+---
+
+## L5 — The plugin activated before the shell existed
+
+The stamping observer attached to `document.querySelector('[data-slot="root"]')`,
+which was **null** at activation time. The observer never attached, so no element
+was ever stamped, so the feature was never applied. The plugin loaded, registered
+its settings row, and did visibly nothing.
+
+**Fix.** Observe `document.body`; stamp on every mutate, idempotently, coalesced
+with `requestAnimationFrame`.
+
+**The lesson.** The client half runs before React renders the shell. Any DOM work
+at activation time needs a retry or an observer — and the observer must attach to
+a node that already exists.
+
+---
+
+## L6 — A backtick inside a CSS comment terminated a template literal
+
+The CSS lives in a JS template literal. Writing `` `body` `` inside a CSS comment
+ended the literal early, producing `SyntaxError: Unexpected identifier`.
+
+Caught twice by `node --check` before install.
+
+**The lesson.** In CSS-in-template-literal, backticks and `${` are escape
+hazards in *comments too*. A syntax check before install is not ceremony.
+
+---
+
+## L7 — "It works" and "it looks right" are different claims
+
+After all the functional fixes, the sidebar card rendered as **white on
+`#f9fafb`** — structurally perfect, visually almost invisible. The generic
+`bg-layer-*` aliases are all pure white in this light theme, so a card built from
+them is white-on-white.
+
+**Status.** Resolved (D15). The card is now `--dsw-alias-bg-layer-2`, which is
+lighter than the canvas in both themes. Measured: light `#fff` on `#f9fafb`
+(1.045), dark `#2c2c2e` on `#1b1b1c` (1.235). The light-mode ratio is still
+subtle — that is the host's own elevation step and it is what a quiet, flat
+interface wants; the edge (1px, 10% black) carries the boundary, not the fill.
+
+**The lesson.** Token discipline gets you a card that follows light/dark and every
+theme; it does not get you contrast. Those are separate checks — and the contrast
+check has to run in both themes, because a token that is "white" in one is not
+necessarily "lighter" in the other (L13).
+
+---
+
+## L8 — The boot audit's state word is the fastest diagnostic
+
+```
+loading  → the import promise never settled
+failed   → import threw, or apply threw
+pending (waiting for service: X) → an injected service never appeared
+import failed: <text> → transport/registration/dependency/factory error
+```
+
+One word distinguished "hung" from "threw", and that cut the hypothesis space
+immediately. Reading it was worth more than the four theories it replaced.
+
+**The lesson.** Before theorising about a plugin that did not activate, get the
+host's own state word for it.
+
+---
+
+## L9 — Verify in a browser, and check the settings panel is open
+
+Two verification traps that each produced a false negative:
+
+- **The settings row is not in the DOM at boot.** `settings.general.item` only
+  renders while Settings is open. I reported "settings row missing" from a
+  closed-panel observation, when the row was working the whole time.
+- **A 404 from my own probe was mine, not the host's.** Relative URLs
+  (`plugins/??...`), `&amp;` entities in the boot HTML, and cookie auth all had
+  to be right before a probe meant anything. I concluded "the bundle is not
+  served" from a broken probe; the bundle was being served correctly.
+
+**The lesson.** When a probe disagrees with the product, suspect the probe first,
+and confirm by comparing against a known-good control in the same run.
+
+---
+
+## L10 — What the reference plugin actually taught
+
+`dsh-claude-style` (774 KB, mature) validated the approach and marked the edges:
+
+- It never touches track geometry; it paints columns and gives elements their own
+  edges. The drag handles are absolutely positioned at computed x offsets, so
+  track changes break resizing.
+- It stamps its own `data-*-part` attributes at runtime — confirming there is no
+  stable host selector to rely on.
+- It scopes every rule under one body attribute and reads only alias tokens,
+  which is why one stylesheet survives every theme.
+- Its storage of fact: a 68 KB style spec and a version-pinned contract. That is
+  the true maintenance cost of restyling someone else's DOM, and it is worth
+  stating plainly to anyone considering it.
+
+**The lesson.** A mature plugin's *constraints* are the valuable part of reading
+it — more than its features.
+
+---
+
+## L11 — Cost of this session, honestly
+
+- Roughly four wrong diagnoses before the first render.
+- One application-level outage and a destructive config rewrite, both recovered
+  and both verified.
+- At the end of the first session the theme activated and painted but had **not**
+  been confirmed visually acceptable, and that was stated as open. **Resolved in
+  the Settings-board session** (D15, L12, L13): the surface pairing was corrected
+  for dark mode, the contrast is now measured in both themes, and the Settings
+  panel is verified in light and dark across all five sections.
+
+**The lesson that generalises beyond this plugin.** Static evidence — the file
+exists, the slot registered, the install reported `applied` — is not evidence
+that the user's experience changed. Only the rendered result is. Every time this
+session substituted a weaker signal for the real one, it produced a wrong claim.
+
+---
+
+## L12 — Insetting a dialog narrowed a control the host had already sized to fit
+
+Building the Settings board, the first version gave the content column
+`margin: 8px` to inset the card. It looked right in the CSS and rendered wrong:
+the Appearance control's third cube ("System") wrapped onto a line of its own.
+
+Measured cause: the content column went from **612px to 596px**. The Appearance
+row is three cubes at `flex: 1 1 180px` with an 8px gap inside `flex-wrap: wrap`,
+so it needs 3×180 + 2×8 = **556px** inside a **564px** row. Taking 18px away
+left 546px for a 556px control, and the wrap fired.
+
+**Fix.** Paint the card on a positioned pseudo-element (`::before`, `z-index: -1`)
+instead of insetting anything. The column keeps the exact box the host solved, so
+no control can reflow.
+
+**The lesson.** In a dialog the host has already laid out, a theme must **paint,
+not resize**. The dangerous changes are not the visible ones; they are the ones
+that shave a solved box below a wrapping threshold — and the margin that did it
+was 8px, which looked like a small, safe design choice.
+
+---
+
+## L13 — A dark-mode token that is "the lighter one" is not the lighter one
+
+The card was built on `--dsw-alias-bg-base`, which is `#fff` in light mode and so
+reads as raised. In dark mode the same token is `#151517` while the canvas is
+`#1b1b1c` — the card came out **darker than its background**, so the layering
+inverted and the card looked like a recess.
+
+My own contrast script said `NaN` for two of these rows and I nearly read past it
+(an unparseable value is a failed measurement, not a pass). Rerunning it properly
+gave the real numbers: `bg-base` 1.060 (darker), `bg-layer-2` 1.235 (lighter).
+`bg-layer-2` is the tone the host itself paints the Settings panel with.
+
+**The lesson.** Verify a surface token in **both** themes before believing it is
+"the raised one". Light mode cannot tell you the direction of the layering in
+dark mode. And when a measurement returns something unparseable, that is a
+finding, not noise.
+
+---
+
+## L14 — I wrote a gate that passed a violation, then nearly wrote one that failed a clean tree
+
+Two bad gates in a row, on the same bug:
+
+1. **False positive.** I grepped every `/* */` block for a backtick. But JSDoc
+   blocks legitimately contain backticks (naming functions), so the check failed
+   on a clean tree. A gate that cries wolf gets deleted, not fixed.
+2. **False negative.** I rescoped it to look only inside template literals and
+   then planted the violation — and it **passed**. The reason is uncomfortable: a
+   stray backtick in a CSS comment often leaves the bundle as *valid JavaScript*.
+   The rest of the comment becomes an identifier expression, the next backtick
+   opens a new literal, and `node --check` is happy while the stylesheet is
+   silently truncated.
+
+**Fix.** Check the artefact, not the intent: every `*_CSS` literal in the built
+`client.js` must have balanced braces and end on a closing rule. Plus a scoped
+source check that skips JSDoc. Both were proved by planting a violation and
+watching them name the cause (`backtick in CSS comment at 15-tokens.js:29`,
+`literal at line 52: 2 { vs 1 }`).
+
+A third mistake in the middle of this: my PowerShell plant used a double-quoted
+string, so the backtick was consumed as an escape and the "violation" never
+reached the file. The gate looked clean-green against a file with no bug in it.
+**A test planted wrong proves nothing** — verify the plant landed before reading
+the result.
+
+**The lesson.** "I wrote a check and it passes" is worth nothing until the check
+has been seen failing on the defect it exists to catch. And when a fix must be
+proved by planting a fault, confirm the fault is actually present.
+
+---
+
+## L15 — A visual impression is not a measurement
+
+Looking at the finished Settings screenshot, I saw grey bands across several rows
+and concluded the hover fill was stuck on. Reading `getComputedStyle` for all 14
+rows returned **zero** tinted rows. Convinced the measurement might be the
+problem, I read the PNG's own pixels: at every scanline across the card the modal
+colour was `rgb(255,255,255)`. The "bands" were anti-aliased text at that zoom.
+
+**The lesson.** Two different evidence sources, used deliberately: computed style
+answers "what did the browser apply", the screenshot's pixels answer "what is
+actually on screen". When they seem to disagree, read the pixels before changing
+code — and when they agree, stop looking. Neither the eye nor the stylesheet gets
+the last word alone.
+
+---
+
+## L16 — Counting the wrong thing, twice
+
+Two counting errors that each produced a wrong statement:
+
+- **Row count.** I reported the desktop patch as "27 rows" and briefly alarmed
+  myself; it is **18 top-level entries**. The 27 included `- id:` lines nested
+  inside `insert:` blocks, which are children of a row, not rows. The correct
+  check is `(?m)^- id:` at column 0.
+- **Bundle bytes.** `build.mjs` prints the *fragment* byte count, while the file
+  carries a banner on top, so the two numbers never match. I read that difference
+  as a changed file.
+
+**The lesson.** When a number surprises you, check what it is counting before
+reacting to it. A verification figure is only meaningful with its unit and its
+scope stated.
+
+---
+
+## L17 — What the Chrome-first loop actually bought
+
+The session's original process was reasoning-first, and it produced four wrong
+hypotheses (L2). The Settings redesign was done measure-first, and it produced:
+
+| Found by measuring | Would have shipped if only reasoned about |
+|---|---|
+| the Appearance control wrapping (L12) | a broken control on the most-used settings tab |
+| the card inverting in dark mode (L13) | a design that looks wrong in the theme a user picks for comfort |
+| my own selector assumptions being wrong | rules that silently match nothing |
+
+Each was found in a single render-and-measure cycle, before the desktop profile
+was touched. The original defect (D4) took an application outage to find.
+
+**The lesson.** The order is the whole value. Probe the DOM, prove the selectors,
+render, measure, and only then install. Written up as D12 and `flow.md` §2.
+
+---
+
+## L18 — The card was never low-contrast; it was covered
+
+For two sessions this project carried an open issue: "the sidebar card is white on
+`#f9fafb`, contrast too weak to call done" (L7). I chased it as a colour problem —
+tried `bg-layer-1`, then `bg-base`, then `bg-layer-2`, and finally declared the
+light 1.045 ratio "subtle by design".
+
+It was not a colour problem. The host's own sidebar content root
+(`hHd-Xa_root`) paints an **opaque `#f9fafb` rectangle, 280px wide, with
+`border-radius: 0`**, directly on top of the card. The card was only ever visible
+as the 8px gutter ring around that rectangle. The interior I kept measuring was
+the host's background, not mine.
+
+Found only when the canvas turned cool blue-grey and the screenshot showed the
+sidebar staying warm `#f9fafb` while the frame around it went `#ebeef2` — a
+mismatch that no computed-style check on the *card* would ever have revealed,
+because the card's computed colour was always correct. The lie was in what painted
+over it.
+
+**The lesson.** "The style is applied but looks wrong" and "the style is applied
+and is hidden by something above it" produce nearly identical computed-style
+output. The distinguishing evidence is a **pixel scan of the rendered result**
+plus a walk of every opaque descendant wider than the thing you painted. I had
+both tools and used neither on this question for two sessions.
+
+**Cost.** Two sessions of colour tuning that were never going to work.
+
+---
+
+## L19 — A test harness bug looked exactly like a design failure
+
+While testing the dark-mode canvas, the result came back showing the canvas still
+at the old colour. I nearly recorded "the token override does not apply in dark
+mode" as a finding — which would have been a false constraint baked into the
+design docs.
+
+The cause was in my own script: I concatenated the canvas override onto the
+previous CSS block with a leading `;`, producing an empty declaration. The
+override never parsed. Isolated in a clean page, the same override applied
+correctly on the first try.
+
+**The lesson.** This is L9 again and it keeps recurring: when a probe disagrees
+with the product, suspect the probe first. The cheap control is to test the
+suspicious rule **alone**, on a clean page, before concluding anything about the
+product. Here that control would have taken one minute; not doing it nearly cost
+a wrong entry in `architecture.md`.
+
+---
+
+## L20 — Selecting on a class-name fragment, deliberately (**superseded by D20**)
+
+> **Superseded.** This entry argued that `[class*="_root"]` was an acceptable
+> scoped exception. Pass 2 found a **structural** selector that needs no class name
+> at all (`> * > *`, see D20/A10), and it matched one element where the fragment
+> matched twenty-five. The reasoning below about *which* fragile selectors are
+> acceptable still holds; the example it is applied to does not.
+
+The theme uses a class-matching selector to reach the host's two content roots.
+That contradicts D3 ("reach the shell by runtime stamping, not by selector
+guessing"), so it is worth stating why the exception is acceptable rather than
+pretending it is not one.
+
+The distinction: `_root` is a **CSS-module stem**, not a full hashed name. The
+hash prefix changes (`hHd-Xa_root`, `wSkVaW_root`) but the stem survives, and the
+selector is always scoped under this plugin's own stamped part attribute. It
+degrades safely — if the stem ever changes, the rule simply stops matching and the
+card reverts to being covered (a cosmetic regression), it does not break layout.
+
+That is a different risk class from naming `pI_x6G_sidebarCol` outright, which
+would either match nothing or match the wrong element after an update.
+
+**The lesson.** A fragile selector is acceptable when its failure is cosmetic and
+self-isolating, and unacceptable when its failure is silent and wrong. Say which
+one you are choosing.
+
+---
+
+## L21 — A structural selector beat the class fragment I had already proposed
+
+L20 argued that `[class*="_root"]` was an acceptable scoped exception. It was, but
+it was the wrong tool: because the column's DOM child is a `display: contents`
+anchor with no box, the root is reachable as `> * > *` — pure structure, no name.
+
+The difference is not academic. The fragment selector matched **25 elements** in
+the sidebar (every nested `_root` in the tree); the structural one matches
+**one**. On a tree I do not own, the narrower selector is the safer one, and the
+broad version would have cleared fills inside the session list the host meant to
+keep.
+
+**The lesson.** Before reaching for a name fragment, draw the actual parent/child
+chain. "There is no stable selector" is a conclusion that deserves the same
+scepticism as any other — here the stable selector was structural and had been
+there all along.
+
+---
+
+## L22 — The pointer's resting place produced two false alarms
+
+Verifying hover and focus, two probes came back wrong and both were mine:
+
+1. **"Two rows are tinted — the hover is leaking."** The pointer had been left
+   where a previous script moved it, and the second tint was the host's own
+   *selected* row (`YDXeBa_selected`). Parking the pointer at empty space first
+   showed seven rows and exactly one tint.
+2. **"Focus does not work."** `element.focus()` returned `activeElement !== row`,
+   so I was about to record a regression. The rows are `role="treeitem"` divs with
+   no `tabindex` — **the host never made them focusable**. The theme's
+   `:focus-visible` rule therefore cannot fire, and never could. That is a
+   pre-existing property of the host's markup, not something pass 2 broke.
+
+**The lesson.** A stateful probe carries state between steps. Reset the input
+(the pointer, the focus, the scroll) before measuring, and when a state is absent,
+first ask whether the *host* ever provided it before blaming the change.
+
+---
+
+## L23 — What pass 2 cost, and what it fixed
+
+One file, 24 lines of CSS, two gate catches (the backtick check fired on my own
+comment), and about an hour.
+
+It fixed the defect that had been open across two sessions and was recorded as a
+cosmetic colour problem. The pixel evidence after the fix:
+
+```
+light, y=450:  canvas 12px | CARD rgb(255,255,255) 254px | canvas 12px
+dark,  y=450:  canvas 12px | CARD rgb(44,44,46)    254px | canvas 12px
+```
+
+**The lesson, and it is the same one as L18 from the other side.** The fix took
+minutes; finding it took two sessions, because the wrong question ("which colour
+is right?") was cheaper to ask than the right one ("what is painting on top of
+it?"). When a style is applied and correct but the result is wrong, the question
+is never *what value*, it is *what layer*.
+
+---
+
+## L24 — I copied a working selector into a column that is shaped differently
+
+Pass 2 found a clean fix: `> * > *` reaches the sidebar's content root. Pass 3
+needed the same thing for the conversation column, so I wrote the same selector.
+
+It matched a **zero-width second anchor**, did nothing, and left the root opaque
+over the card. The card's own computed style was perfect the whole time — which is
+precisely the failure mode L18 had just documented, and I walked into it one pass
+later by copying instead of measuring.
+
+The two columns are not the same shape:
+
+```
+sidebar:  column → anchor → root                 (> * > * works)
+centre:   column → anchor → anchor → root        (> * > * hits the second anchor)
+```
+
+**Fix.** `:not([data-slot])` — anchors carry a slot attribute, the root does not,
+so the rule skips an anchor at any depth instead of being pinned to a count.
+
+**The lesson.** "The same problem" is a hypothesis, not a fact. Two regions that
+render the same kind of thing can sit at different depths, and a selector that
+proves one says nothing about the other until it is measured there. Check that the
+rule matched the element you intended, not just that the rule is present in the
+sheet.
+
+---
+
+## L25 — Two backtick catches in three passes
+
+The backtick gate fired twice during this redesign (pass 2 and pass 3), both times
+on a CSS comment I wrote while explaining the host's DOM. Both were caught before
+install, both cost one edit.
+
+That is the gate doing exactly its job — and it is worth noting *why* it keeps
+firing: the comments that describe this plugin most usefully are the ones quoting
+CSS and DOM selectors, which is exactly where a backtick wants to appear.
+
+**The lesson.** The rule is not "be careful", it is "the gate is cheap and the
+error is silent". Writing the comment naturally and letting the gate stop it is
+cheaper than contorting the prose to avoid a character.
+
+---
+
+## L26 — Reporting a failure I did not cause, and saying so
+
+Opening a session in the test instance showed a red error block: the session log
+contains an event type this harness build does not know. It looks alarming and it
+sits inside the very column pass 3 had just changed.
+
+It is not ours. It is a session-log version mismatch between harness builds, it
+renders in the host's own error styling inside the host's own content area, and it
+reproduces without the plugin installed.
+
+**The lesson.** When a failure appears inside a region you just changed, the
+temptation is either to claim it or to quietly not mention it. Both are wrong.
+Reproduce it without the change, state which it is, and record the reproduction so
+the next session does not re-investigate it from scratch.
+
+---
+
+## L27 — A constant declared in the later file, read by the earlier one
+
+I put `ROW_ATTR` in `60-settings.js` because that is where the rows are rendered,
+and used it in `50-feature-settings.js` because that is where the stylesheet is
+built. Fragments concatenate in filename order, so 50 runs first and the stylesheet
+string is assembled **at module scope** — before 60 has initialised anything.
+
+```
+web boot: 1 entry did not activate
+dsh-bento-theme: import failed: Cannot access 'ROW_ATTR' before initialization
+```
+
+The app did not boot. This is the same failure class as D4: an import-time throw
+takes the whole application down and reports the plugin as failed, which is the
+most expensive way for a plugin to be wrong.
+
+**Fix.** The constant moved to the prelude, and `verify.mjs` now checks fragment
+ordering statically so the next occurrence is caught before an install rather than
+after.
+
+**The lesson.** "The obvious place to declare it" and "the place it must be
+declared" are different answers when a build step concatenates files into one
+scope. The rule here is now explicit: anything read at module scope by a
+lower-numbered fragment lives in the prelude.
+
+---
+
+## L28 — A gate that flags twelve false positives is worse than no gate
+
+My first version of the ordering check scanned for any identifier read before its
+declaring fragment. On a clean tree it reported twelve violations — `frame`,
+`roles`, `title`, `kernel` — every one a **function-local** variable in a
+different function, matched because I was comparing names, not scopes.
+
+I narrowed it to declarations at exactly four spaces, the fragments' module-scope
+indent. That passes clean and still catches the real bug.
+
+**The lesson.** This is the second time a gate of mine has been the problem rather
+than the code (L14 was the first). The pattern is the same both times: I checked
+whether the gate was *green*, not whether it was *right*. A noisy gate trains
+people to ignore it; a silent one trains them to trust it. Both need a planted
+failure to prove they work, and both need a clean-tree run to prove they do not
+fire wrongly.
+
+---
+
+## L29 — The host's section chrome comes from the host's section content
+
+The plugin tab rendered its rows flush against the card's top edge, and my first
+guess was wrong twice:
+
+1. First I thought the panel needed a wrapper for *horizontal* inset. It did —
+   measured rows at x=520 where the host's sections start at x=532.
+2. Then the rows were still flush *vertically*. The wrapper had not fixed it
+   because the cause was different: the options area is `padding: 0 24px 24px`,
+   with **no top padding at all**.
+
+The host's own sections get away with that because each one opens with a title or
+intro block. A plugin section opening straight into rows has nothing to supply the
+offset.
+
+**The lesson.** When you render into someone else's container, you inherit the
+container's box and **not** the chrome their own content happened to provide.
+Whatever offset their content created, your content has to create for itself. The
+telltale is a measurement that equals the container's own coordinate — a first row
+at exactly the options box's y is not a coincidence, it is the absence of padding.
+
+---
+
+## L30 — Inline styles silently beat the stylesheet, so the "fixed" padding never applied
+
+The plugin tab's labels sat exactly on the card's left border. I had already
+written the CSS that should prevent it — the board gives rows a negative inline
+margin and an equal `padding-inline` so the hover fill can bleed to the card edge
+while the text stays on the host's inset.
+
+It never applied. The row also carried an inline `padding: '16px 0'`, and an
+inline shorthand beats a stylesheet's `padding-inline`. So the margin pulled the
+row out and the padding that was supposed to cancel it was overwritten by the
+shorthand's `0`. Measured: `cardToText = 0`.
+
+**Fix.** `paddingBlock: 16` inline; horizontal padding only in the stylesheet.
+
+**The lesson.** Two specific things, both worth carrying forward:
+
+1. **Inline style > stylesheet — always.** When a component sets a shorthand
+   inline, no stylesheet rule on that element can win any of the longhands it
+   covers. Split by axis instead of assuming the stylesheet can override.
+2. **A measurement that equals a container's own coordinate is a clue, not a
+   coincidence.** `cardToText = 0` and the earlier `firstRowY = optionsY` (L29)
+   are the same signature: a child sitting exactly on its parent's edge means a
+   padding or margin meant to separate them is absent, not merely small.
+
+This is also the third time this session that a defect I had *already written CSS
+for* turned out to be a specificity/override problem rather than a wrong value.
+
+---
+
+## L31 — I scoped one rule and silently deleted a page's text
+
+Fixing the over-broad centre selector, I scoped the whole rule to the
+conversation. The conversation still looked right. The Plugins page lost **every
+character of text** and kept only its switches — because the rule I narrowed had
+been doing two jobs:
+
+1. **clearing** the root's opaque background (conversation only)
+2. **lifting** content above the absolutely-positioned card (every page)
+
+Narrowing it to fix (1) also disabled (2) for every page.
+
+I caught it because the screenshot was blank where text should be, and because I
+was looking at the *other* surface, not just the one I had changed. The measurement
+that would have caught it earlier is trivial: `centre.innerText.length` on the
+page should be ~1500, and it was ~0.
+
+**The lesson.** Before scoping a selector, list every job it is doing. A rule that
+matches broadly is often covering more than one concern, and narrowing it fixes one
+while quietly removing the others. Split first, then narrow.
+
+---
+
+## L32 — The failure was invisible in computed style and obvious in a screenshot
+
+Every computed-style probe during that regression looked reasonable: the card was
+white, radius 20, the column 1160px, the rules present. Nothing said "the text is
+gone". Only the rendered screenshot showed a blank page.
+
+**The lesson.** This is L18/L22 again from a third angle. Computed style answers
+"did the browser apply what I wrote"; it cannot answer "is the result usable". For
+any change to paint order or stacking, **look at the render**, and pick one cheap
+numeric invariant (`innerText.length`) to assert alongside it.
+
+---
+
+## L33 — What items 1 and 2 cost
+
+Two changes, roughly an hour, one self-inflicted regression caught by screenshot
+within a minute of making it.
+
+Worth recording what the correct split is, because it is not intuitive:
+
+```
+lift  (broad)   > * > *:not([data-slot])        every page in the column
+clear (narrow)  [data-slot="main"] [data-slot="main.conversation"] ...
+```
+
+The scary rule is the one that looks safer. "Narrow it to the conversation" reads
+as conservative and was in fact the destructive change.
+
+**The lesson.** In CSS, a narrower selector is not a safer selector. Match the rule's
+scope to the *set of elements that need it*, which is not always the set of
+elements you were thinking about when you wrote it.

@@ -1,0 +1,10 @@
+﻿# Normalise line endings on commit so the generated client.js is byte-stable across
+# platforms. The bundle is compared by hash in development, and CRLF conversion on
+# checkout would silently change it.
+* text=auto eol=lf
+
+# Binary-ish artefacts that must never be line-ending-converted.
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary

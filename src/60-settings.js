@@ -1,0 +1,154 @@
+/**
+ * Settings rendering. Rows derive from the feature registry, so a new feature
+ * appears in Settings without touching this file.
+ *
+ * WHERE THE ROWS LIVE. This plugin registers its own tab on the
+ * `settings.section` list slot and renders the toggles inside it, rather than
+ * appending them to the host's General section:
+ *
+ *   - the section anchor is `[data-slot="settings.section"]`, a list slot the host
+ *     itself registers its General/Models/... tabs into
+ *   - `dsh-skills-doctor`, an installed third-party package, registers a tab the
+ *     same way, so this is a supported extension point with a working precedent
+ *   - three switches that only turn parts of one theme on and off are that
+ *     theme's configuration, not general application settings
+ *
+ * REGISTERED ONCE, IN ONE PLACE. The old `settings.general.item` registration is
+ * gone. Registering in both places would give a user two switches for one setting,
+ * which is a state the UI should not be able to represent.
+ *
+ * A switch is written here rather than imported: a plugin may not load Harness
+ * Client packages as modules, and the primitive can change without notice.
+ * Geometry, `role="switch"` semantics and colours follow the host control; only
+ * `--dsw-alias-*` tokens and this theme's own tokens are used.
+ */
+    /** Marks a row this plugin renders, so its stylesheet can address it without
+     * depending on a hashed class name or on which section it landed in.
+     * Declared in 00-prelude.js: 50-feature-settings.js reads it at module scope. */
+    function Switch({ checked, onChange, label }) {
+      return h(
+        'button',
+        {
+          type: 'button',
+          role: 'switch',
+          'aria-checked': checked,
+          'aria-label': label,
+          onClick: () => onChange(!checked),
+          style: {
+            flex: 'none',
+            position: 'relative',
+            width: 36,
+            height: 20,
+            padding: 2,
+            boxSizing: 'border-box',
+            borderRadius: 10,
+            border: 0,
+            cursor: 'pointer',
+            background: checked ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-border-l2)',
+            transition: 'background-color 160ms cubic-bezier(0.2, 0, 0, 1)',
+          },
+        },
+        h('span', {
+          'aria-hidden': true,
+          style: {
+            display: 'block',
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            background: 'var(--dsw-alias-bg-overlay)',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+            translate: checked ? '16px 0' : '0 0',
+            transition: 'translate 160ms cubic-bezier(0.2, 0, 0, 1)',
+          },
+        }),
+      );
+    }
+
+    /**
+     * One preference row. The host's section body already supplies the horizontal
+     * padding, so this row only owns its own vertical rhythm and the hairline
+     * between rows - the same shape the host's own rows have.
+     */
+    function FeatureRow({ feature, enabled, onChange, t }) {
+      const title = t(feature.title);
+      return h(
+        'div',
+        {
+          [ROW_ATTR]: feature.id,
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            /* Vertical only. Horizontal padding and the matching negative margin
+               belong to the board stylesheet so its hover fill can extend past the
+               text while the text stays on the host's own inset. An inline shorthand
+               here would override that padding-inline and pull the text to the
+               card's edge - measured cardToText = 0. */
+            paddingBlock: 16,
+            color: 'var(--dsw-alias-label-primary)',
+            fontSize: 14,
+            lineHeight: '22px',
+          },
+        },
+        h(
+          'div',
+          { style: { flex: '1 1 auto', minWidth: 0 } },
+          h('div', null, title),
+          h(
+            'div',
+            {
+              style: {
+                color: 'var(--dsw-alias-label-secondary)',
+                fontSize: 12,
+                lineHeight: '18px',
+              },
+            },
+            t(feature.about),
+          ),
+        ),
+        h(Switch, { checked: enabled, onChange: (next) => onChange(feature.id, next), label: title }),
+      );
+    }
+
+    /**
+     * The panel body for this plugin's own Settings tab.
+     *
+     * The options area the host renders sections into has `padding: 0 24px 24px` —
+     * NO top padding. The host's own sections never notice, because each one opens
+     * with a title/intro block that supplies the visual offset. A plugin section has
+     * no such block, so its first row lands flush against the card's top edge
+     * (measured: first row at y=104, the same y as the options box itself).
+     *
+     * So the panel supplies its own top offset, and only that: horizontal padding
+     * still belongs to the host, and the board stylesheet's negative inline margins
+     * depend on it staying that way.
+     */
+    function mountSettings(ctx, api, translate) {
+      function Panel() {
+        api.useFeatureStates();
+        return h(
+          'div',
+          { style: { display: 'flex', flexDirection: 'column', width: '100%', paddingTop: 20 } },
+          api.features().map((feature) =>
+            h(FeatureRow, {
+              key: feature.id,
+              feature,
+              enabled: api.isOn(feature.id),
+              onChange: api.set,
+              t: translate,
+            }),
+          ),
+        );
+      }
+
+      // The slot label is resolved by the host from a function, so it follows the
+      // active locale without re-registering.
+      const navLabel = () => translate(SETTINGS_TAB_TITLE);
+
+      ctx.slots.inject('settings.section', () =>
+        ctx.slots.register(
+          { name: 'settings.section', id: 'bento-theme', order: 30, label: navLabel },
+          Panel,
+        ),
+      );
+    }

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Bento layout">
+  <rect x="2" y="2" width="12" height="12" rx="3" fill="#4C7DF0"/>
+  <rect x="18" y="2" width="12" height="7" rx="3" fill="#4C7DF0" opacity="0.55"/>
+  <rect x="2" y="18" width="7" height="12" rx="3" fill="#4C7DF0" opacity="0.55"/>
+  <rect x="13" y="13" width="17" height="17" rx="3" fill="#4C7DF0" opacity="0.8"/>
+</svg>
