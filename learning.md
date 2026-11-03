@@ -851,3 +851,68 @@ not plant against uncommitted work.
 **The lesson.** Prove the failure mode you can reach, mentally, *and* the one you
 cannot: use a second plant in a different file or a different syntax, because the
 narrowest check passes on the example you had in mind while missing its neighbour.
+
+---
+
+## L43 — "No focus indicator" was a false finding, and it was false for one reason
+
+The audit's P1.2 said keyboard users see nothing on the Plugins page. It was written
+from this measurement:
+
+```js
+getComputedStyle(control).outline   // "rgb(15, 17, 21) none 3px"
+```
+
+`none` — so, no indicator. **Wrong.** The host draws a 2px brand ring on the control's
+`::after`, absolutely positioned at `inset: 0`. Because the row is `position:
+relative`, that pseudo resolves against the **row**, so the ring outlines the whole
+card. A full ring around the row, in both themes, confirmed at 3x zoom.
+
+The mistake was not a missed detail, it was a **category error**: "outline" is one of
+several ways to draw a focus indicator, and I tested for the one I happened to think
+of. Pseudo-elements, box-shadow rings, background changes, and transformed siblings all
+exist. The general test is not "does it have an outline" but "does anything change when
+focus moves" — a before/after diff of the rendered pixels, which is what settled it.
+
+**The lesson.** Test for the property you care about ("is focus visible"), not for the
+implementation you expect. When a finding says a thing is *absent*, that claim needs
+the same evidence as one that says it is present — and absence is harder, because you
+have to rule out every mechanism rather than find one.
+
+---
+
+## L44 — The theme broke the host's focus ring, and only pixels showed it
+
+Once the ring was found, the interesting question was not "is it there" but "does it
+still line up". The host draws it at its own card radius, 20px. This theme had set the
+row to 14px. So the ring arced wider than the surface it outlined, and both curves
+separated at all four corners.
+
+Every computed-style check passed. `rowRadius=14px`, `ringRadius=20px`, both correct
+for their own element — the *relationship* was wrong, and no property reports a
+relationship. It took a 3x crop of one corner and the two images side by side.
+
+**The lesson.** A theme that restyles a container inherits responsibility for every
+decoration the host attaches to that container, including decorations drawn on
+pseudo-elements the theme never mentions. Changing a radius is not a local change when
+something else is drawn at the old radius — grep for what *uses* the value, not just
+what declares it.
+
+---
+
+## L45 — The audit's proposed fix would have introduced a second bug
+
+P1.2's suggested fix was `:focus-within`. Taking it would have made a row fill after a
+**mouse click** on its switch and stay filled after the pointer left, because
+`:focus-within` does not distinguish keyboard focus from a click. A fill that persists
+once focus is no longer visible is not a focus indicator; it is a stuck highlight.
+
+`:has(:focus-visible)` gives the keyboard fill without the click stickiness. Verified
+by clicking the switch, moving the pointer away, and asserting the row computed
+transparent — a test written specifically because the obvious selector fails it.
+
+**The lesson.** When an audit hands you a fix, the audit's reasoning is a hypothesis
+too. Two of this theme's fixes (P1.1 and P1.2) came with a suggested approach that was
+wrong for a reason specific to this codebase — a control that must work when the
+stylesheet is absent, and a selector that cannot tell keyboard from mouse. The
+suggestion is the finding's weakest part; treat it that way.

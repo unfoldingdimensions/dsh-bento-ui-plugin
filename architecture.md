@@ -521,6 +521,7 @@ buttons in the same container already use 8. Recorded as a known inconsistency
 | add a gutter as **padding on the column** | add a gutter as margin on the column (moves handles) |
 | supply a hairline as `inset box-shadow` | supply it as `border` on a host-sized control (costs 2px, D14) |
 | restyle a host row's geometry | restyle a host page's typography, badges or switches (D35) |
+| match the radius of a host pseudo-element the row's radius moved under | re-draw an indicator the host already draws |
 | read a host token | introduce a shade of its own outside the artwork |
 
 ### 9.4 DOM facts a contrast or accessibility tool must know
@@ -540,6 +541,19 @@ buttons in the same container already use 8. Recorded as a known inconsistency
 4. **The composer is 214px inside the card's left edge and 331px above its bottom
    edge.** Its 28px radius is independent by the >24px rule, not a concentric-radius
    defect.
+5. **The host's focus indicator is on the control's `::after`, not its `outline`.**
+   A 2px brand ring, `position: absolute; inset: 0`, whose containing block is the
+   page ROW (because the row is `position: relative`). So it outlines the whole row,
+   not the control. Testing `getComputedStyle(el).outline` reports `none` and is not a
+   test for "is focus visible" (D44, L43).
+6. **The ring's radius is the host's card radius (20px), not the row's.** Any feature
+   that changes a row's radius must also set `li *:focus-visible::after` to the same
+   value, or the two curves separate at the corners. `border-radius: inherit` does not
+   work: the pseudo inherits from the button, not the row (D44, L44).
+7. **A page row's focusable controls sit four levels down**, `li > div > div > div >
+   button`, and there are 22 of them across 13 rows on the Plugins page. The MCP page
+   renders **zero** `section ul > li`, so `page-rows` does not apply there at all
+   despite the feature's description.
 
 ### 9.5 Spacing, and where it breaks the idiom
 

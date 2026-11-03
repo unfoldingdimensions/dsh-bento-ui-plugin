@@ -20,7 +20,9 @@ does not have a type scale, a spacing ratio, a corner geometry, a focus story, o
 high-contrast mode. Three of its declarations are inert and it does not know that,
 because the build gate checks structure and never checks application.
 
-**P1.1 is fixed** (2026-11-03). The rest of the list stands as written.
+**P1.1 and P1.2 are fixed** (2026-11-03). P1.2's premise turned out to be partly
+wrong — the host does draw a focus ring — so read that entry for what was actually
+broken. The rest of the list stands as written.
 
 ---
 
@@ -133,15 +135,63 @@ A gate now prevents the class, not just this instance — see L37 and `verify.mj
 plants: the original `160ms` literal, a `0.16s` variant, and a literal inside a CSS
 template literal in a feature fragment.
 
-**P1.2 Keyboard users get no row highlight on the Plugins page.** The `page-rows`
-feature gave `section ul > li` a hover fill. Measured on that page: the row's own
-buttons have `outline: none 3px` and `box-shadow: none`, and the `li` background does
-**not** change under `:focus-within` (compared before/after focusing a child:
-`rgba(0,0,0,0)` → `rgba(0,0,0,0)`, unchanged). A mouse user sees a tile; a keyboard
-user sees nothing.
+**P1.2 Keyboard users get no row highlight on the Plugins page. — FIXED, and the
+report was partly wrong** (`feat(focus): give rows a keyboard fill and match the ring
+to the tile`)
 
-The theme has **5 `:hover` rules and 0 `:focus-within` rules**. Fix: add
-`:focus-within` beside each `:hover` that supplies a fill. One selector per surface.
+What the audit claimed. The `page-rows` feature gave `section ul > li` a hover fill.
+Measured on that page: the row's own buttons have `outline: none 3px` and
+`box-shadow: none`, and the `li` background does **not** change under `:focus-within`
+(compared before/after focusing a child: `rgba(0,0,0,0)` → `rgba(0,0,0,0)`,
+unchanged). Conclusion drawn: "a mouse user sees a tile; a keyboard user sees
+nothing."
+
+**That conclusion was false.** The host does draw a keyboard focus indicator, and it is
+a good one: a 2px brand-coloured ring on the focused control's `::after`, positioned
+absolutely at `inset: 0`. Because the row is `position: relative`, that pseudo's
+containing block resolves to the **row**, so the ring outlines the whole card rather
+than the 82px title button. Confirmed in pixels, both themes, at 3x scale: a full ring
+around the entire row.
+
+Why it was missed: the audit read `getComputedStyle(control).outline`, found `none`,
+and stopped. The indicator lives on a pseudo-element, and `outline` on the element
+itself was never going to show it. **Reading an element's own outline is not a test for
+"is there a focus indicator".**
+
+Two real defects *were* there, and both are now fixed.
+
+**Defect 1, ours: the ring's corners did not match the tile's.** The host draws its
+ring at its own card radius, `20px`. This feature had set the row to `14px`. Measured:
+`rowRadius=14px`, `ringRadius=20px`. So on a focused row the ring arced wider than the
+surface it was outlining, and the two curves separated at all four corners — the row
+read as double-rounded. Caught by cropping the corner at 3x, not by reading computed
+style. Fixed by setting the pseudo's radius to the same token, scoped to
+`li *:focus-visible::after`. `border-radius: inherit` is not the fix: the pseudo
+inherits from the button, a zero-radius content-sized box, not from the row.
+
+**Defect 2, also ours: the fill was pointer-only on both surfaces.** The Plugins rows
+and the Settings board each had a hover fill and no keyboard fill, so a mouse user was
+told which row they were on and a keyboard user was not. Fixed with
+`:has(:focus-visible)` on both. The first attempt on the Plugins page fixed only the
+radius and left the fill pointer-only, and the verification caught it — four failed
+checks, which is why the check existed.
+
+**Why `:has(:focus-visible)` and not `:focus-within`.** `:focus-within` also matches
+after a **mouse click** on a switch, so a row would stay filled with the hover tone
+after the pointer had left — a fill that no longer means focus. Verified: click the
+switch, move the pointer away, row computes transparent. This matters because the
+audit's own suggested fix was `:focus-within`, and taking it would have introduced a
+sticky-fill bug while fixing the missing one.
+
+**Scope note.** The MCP-connector page has **zero** `section ul > li` — it renders a
+panel, not a row list — so `page-rows` never applied there despite the feature's
+description naming it. The feature's `about` text was over-promising; the CSS was not
+broken.
+
+Verified: 10/10 checks across both themes — hover fill equals keyboard fill, ring
+radius equals row radius, keyboard focus produces a fill, and a mouse click does not
+leave one. Regression sweep clean: canvas, both cards, all radii, 6 Settings tabs, no
+horizontal scroll, 0 console errors.
 
 **P1.3 Three declarations are inert, and the gate cannot see it.** Proven with and
 without the stylesheet loaded:
@@ -320,12 +370,12 @@ as a nice theme rather than a redesign.
 ## 5. The one-line answer
 
 Six working features, zero defects, three inert declarations, no type scale, no
-responsive rules, no focus parity, no forced-colors story, and a spacing ratio that is
-the inverse of the idiom it borrows — with the single highest-value change being the
-reduced-motion bug in our own switch, because it breaks a rule the code states out
-loud. **That one is now fixed; the rest is unchanged.**
+responsive rules, no forced-colors story, and a spacing ratio that is the inverse of
+the idiom it borrows. **The two P1 items are now fixed**, and fixing P1.2 exposed a
+correction: the keyboard-focus story was never as bad as reported, but the theme *had*
+broken the host's focus ring by changing the row radius under it.
 
-## 6. Corrections made during this audit
+## 6. Corrections made during this audit and the fixes that followed
 
 Recorded because the audit's value is that its wrong turns are visible, not because
 the wrong turns mattered.
@@ -337,10 +387,20 @@ the wrong turns mattered.
 | host icon buttons are "the correct 8px" | 216px is an x-offset inside a header row, not an inset from the card | P2.2 |
 | the Settings rows might be over-rounded too | they are **correct**: inset 0, row 14, card 14, so `outer = inner + 0` | P2.2 |
 | four inert declarations | **three** declarations plus one unreachable-by-inline-styles media query | §0 |
+| keyboard users see "nothing" on the Plugins page | the host draws a 2px ring on the control's `::after` that spans the whole row; I read the control's own `outline` and stopped | P1.2 |
+| the fix is `:focus-within` | that would stick a fill on the row after a mouse click; `:has(:focus-visible)` is the correct selector | P1.2 |
+| `page-rows` styles the MCP page | that page renders zero `section ul > li`; the feature's description over-promises | P1.2 |
 
-Five claims, five measurements, four of them wrong on the first pass. All were
-corrected before any code depended on them — which is the argument for auditing
-without fixing in the same change (D39).
+Eight claims, eight measurements, **six wrong on the first pass**. Five were corrected
+before any code depended on them. The sixth — "keyboard users see nothing" — got as far
+as a written finding and a task, and was disproved only when the fix was reproduced on
+a fresh instance. That is the argument for auditing without fixing (D39) *and* for
+reproducing a defect before patching it: a wrong audit finding costs a paragraph, a
+wrong fix costs a commit.
+
+Two of the corrections are themselves the defect: the ring radius mismatch and the
+pointer-only fill were both created by this theme, and neither was visible from the
+stylesheet.
 
 ---
 

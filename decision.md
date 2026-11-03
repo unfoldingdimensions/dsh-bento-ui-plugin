@@ -994,3 +994,44 @@ approximately never.
 two variables at runtime would pass it. It is a floor, not a proof — and it was proved
 red against three plants (a `160ms` literal, a `0.16s` literal, and a literal inside a
 CSS template literal in a different fragment) before it was trusted.
+
+---
+
+## D44 — Keyboard focus is the host's ring plus our fill; `:has(:focus-visible)`, never `:focus-within`
+
+**Decision.** Wherever this theme gives a row a pointer fill, it gives the same fill to
+keyboard focus, via `:has(:focus-visible)`. The focus *ring* is the host's and is never
+re-drawn. Where a feature changes a row's radius, it also sets the radius of the host's
+ring pseudo-element, so the two curves match.
+
+**Why the fill and not the ring.** The host already draws an excellent indicator: a 2px
+brand-coloured ring on the focused control's `::after`, absolutely positioned at
+`inset: 0`, whose containing block resolves to the row. Adding our own ring would double
+it. What was missing was the *fill* — hover indicated the row, keyboard focus indicated
+only the 36x20 switch inside it.
+
+**Why not `:focus-within`.** It also matches after a mouse click on a switch, so the row
+would keep the hover tone after the pointer left. A fill that persists when focus is no
+longer visible is a stuck highlight, not an indicator. `:has(:focus-visible)` restricts
+it to keyboard navigation. Verified by clicking a switch, moving the pointer away, and
+asserting the row computes transparent — `:focus-within` fails that test.
+
+**Why the radius has to be set explicitly.** The host draws its ring at the card radius
+(`20px`); this theme's row tiles are `14px`. The ring therefore arcs wider than the
+surface it outlines and both curves separate at all four corners. `border-radius:
+inherit` does not help — the pseudo inherits from the button, a zero-radius
+content-sized box, not from the row. The rule is scoped to
+`li *:focus-visible::after` and was verified to be inert on every other pseudo-element
+in a row (all compute `content: none`).
+
+**Correction to the audit.** P1.2 reported that keyboard users saw "nothing" on the
+Plugins page. That was false: the ring exists and spans the row. The report came from
+reading the control's own `outline` and never looking at its pseudo-elements. The
+genuine defects were the radius mismatch and the pointer-only fill, both caused by this
+theme — neither visible from the stylesheet.
+
+**Accepted cost.** The theme now owns one property of a host pseudo-element. A future
+host build that changes what `::after` paints on a page control would be affected; the
+row's own radius would then disagree in a different way. The rule is deliberately
+narrow (focus-visible, inside a page row, inside the centre column) so the blast radius
+is one property on one pseudo in one context.

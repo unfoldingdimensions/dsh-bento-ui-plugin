@@ -99,6 +99,9 @@ see A12 and Pass 4.
   duration is a gate failure. The token cannot be the only mechanism: the switch in
   this plugin's own Settings tab is rendered when the theme is off and the stylesheet
   does not exist, so its duration falls back to the OS preference read at render.
+- Keyboard focus is never re-drawn. The host supplies the ring; this theme supplies the
+  same fill on keyboard focus that it gives on hover, through `:has(:focus-visible)`
+  rather than `:focus-within`, which would stick a fill on a row after a mouse click.
 
 ## Install
 

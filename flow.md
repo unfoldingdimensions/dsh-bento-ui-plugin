@@ -345,3 +345,25 @@ RECORD     audit doc: mark the item FIXED with the before/after numbers
 restore with `git checkout`. Planting against uncommitted work means the restore
 command deletes the fix along with the plant — which happened here, and was caught only
 because the gate ran afterwards.
+
+**When the finding itself looks wrong, verify the premise before the fix.** P1.2 read
+"keyboard users see nothing", and the first hour of the fix was spent discovering the
+host already drew a focus ring. The step that mattered was not REPRODUCE-the-claim but
+**DISPROVE-the-claim**: enumerate every mechanism by which the effect could happen
+before concluding it does not.
+
+```
+PREMISE    for a finding of the form "X is absent", list how X could be present:
+           └─ element outline · pseudo-element outline · box-shadow ring ·
+              background change · border-colour change · transform · sibling element
+           then test each. Absence claims need every mechanism ruled out, not the
+           first one confirmed missing.
+
+BEFORE     a before/after pixel diff of the focused and unfocused render. If anything
+AFTER      changes, something is indicating focus and the finding is wrong.
+
+RELATION   once an indicator is found, check what it ASSUMES about the box it is drawn
+           on: radius, inset, colour, offset. This theme had changed the row's radius
+           under a ring still drawn at the host's own radius — visible only in a 3x
+           corner crop, invisible to every computed-style check.
+```
