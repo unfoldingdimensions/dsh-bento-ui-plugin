@@ -109,6 +109,27 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:hover {
   background: var(--dsh-bento-hover);
 }
 
+/* KEYBOARD PARITY.
+ *
+ * This board gives a row a fill on hover, and a row that reacts to a pointer but not
+ * to the keyboard is a keyboard user being told less than a mouse user. Measured
+ * before this rule: a hovered row computed the hover fill, while the same row under
+ * keyboard focus stayed transparent — the only indication being the host's ring,
+ * which is drawn around the 36x20 switch, not around the row.
+ *
+ * :has(:focus-visible) rather than :focus-within, deliberately. :focus-within also
+ * matches after a MOUSE click on the switch, so the row would stay filled after a
+ * click until focus moved elsewhere — a fill that no longer means "focus". Requiring
+ * a focus-visible descendant keeps the fill tied to keyboard navigation, which is
+ * what hover means for the pointer.
+ *
+ * This is the same pairing as the Plugins page rows (48-feature-pages.js): fill on
+ * hover, fill on keyboard focus, ring supplied by the host. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*):has(:focus-visible),
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:has(:focus-visible) {
+  background: var(--dsh-bento-hover);
+}
+
 /* Reduced motion: the fill appears at once rather than fading in. */
 @media (prefers-reduced-motion: reduce) {
   html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*),

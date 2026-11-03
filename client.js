@@ -694,8 +694,49 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section ul > li {
   transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
 }
 
-html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section ul > li:hover {
+/* The pointer fill, and the keyboard fill that has to match it.
+ *
+ * :has(:focus-visible) rather than :focus-within, for the same reason as the Settings
+ * board (50-feature-settings.js): :focus-within also matches after a mouse click on a
+ * switch, which would leave a row filled with the hover tone long after the pointer
+ * had left — a fill that no longer means "focus". Requiring a focus-visible
+ * descendant keeps this tied to keyboard navigation, which is what hover is for the
+ * pointer. Measured: the two now compute the same tone. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section ul > li:hover,
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section ul > li:has(:focus-visible) {
   background: var(--dsh-bento-hover);
+}
+
+/* THE FOCUS RING MUST FOLLOW THE TILE'S RADIUS.
+ *
+ * The host already draws the keyboard focus indicator, and it is a good one: a 2px
+ * brand-coloured ring on the focused control's ::after, positioned absolutely with
+ * inset 0 in a containing block that resolves to the ROW. The ring therefore outlines
+ * the whole card rather than the control, and no indicator needed to be added here.
+ * (An earlier survey missed this: it read the control's own outline, found none, and
+ * concluded keyboard users saw nothing. The ring lives on the pseudo-element.)
+ *
+ * What the host cannot know is that this feature changed the row's radius. It draws
+ * the ring at its own card radius, 20px; the row above it is now 14px. Left alone the
+ * two disagree at every corner: the ring arcs wider than the surface it outlines, so
+ * the curves separate and a focused row reads as double-rounded.
+ *
+ * Inheritance is not the fix: the pseudo inherits from the BUTTON, a zero-radius
+ * content-sized box inside the row, not from the row. The radius is set explicitly,
+ * and only while the control is focus-visible.
+ *
+ * This is a RENDER fix, not a layout one. Border-radius paints inside the box and
+ * changes no dimension, which is what makes touching a host-owned pseudo safe.
+ *
+ * The selector is structural because the control is not a direct child of the row:
+ * li > div > div > div > button, and the page's class names are hashed per build.
+ *
+ * Scope verified rather than assumed: of every pseudo-element inside a row, exactly
+ * one paints a box — the focus ring. Every other ::after in the row computes
+ * content: none, so this rule is inert on them. That was measured on the shipped
+ * build (13 rows, 22 controls), not reasoned about. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section ul > li *:focus-visible::after {
+  border-radius: var(--dsh-bento-radius-inner);
 }
 
 /* The group heading separates sections rather than being one, so it gets breathing
@@ -922,6 +963,27 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
    a control — so it keeps the host's flat treatment and gains no hover fill. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*):hover,
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:hover {
+  background: var(--dsh-bento-hover);
+}
+
+/* KEYBOARD PARITY.
+ *
+ * This board gives a row a fill on hover, and a row that reacts to a pointer but not
+ * to the keyboard is a keyboard user being told less than a mouse user. Measured
+ * before this rule: a hovered row computed the hover fill, while the same row under
+ * keyboard focus stayed transparent — the only indication being the host's ring,
+ * which is drawn around the 36x20 switch, not around the row.
+ *
+ * :has(:focus-visible) rather than :focus-within, deliberately. :focus-within also
+ * matches after a MOUSE click on the switch, so the row would stay filled after a
+ * click until focus moved elsewhere — a fill that no longer means "focus". Requiring
+ * a focus-visible descendant keeps the fill tied to keyboard navigation, which is
+ * what hover means for the pointer.
+ *
+ * This is the same pairing as the Plugins page rows (48-feature-pages.js): fill on
+ * hover, fill on keyboard focus, ring supplied by the host. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*):has(:focus-visible),
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}]:has(:focus-visible) {
   background: var(--dsh-bento-hover);
 }
 
