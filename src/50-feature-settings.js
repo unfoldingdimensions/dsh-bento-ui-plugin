@@ -71,6 +71,24 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="t
   box-shadow: none;
 }
 
+/* SELECTION ALSO CARRIES WEIGHT (D58).
+ *
+ * Colour alone says which row is chosen only if the tint separates from the canvas at a
+ * glance. A heavier label says it a second way, in a channel that survives a grey-scale
+ * screenshot, a dim display and a colour-blind viewer. It is also what the reference does:
+ * its active nav item is both tinted and stronger.
+ *
+ * 500, not 700. Measured before choosing: the label resolves at 400 and applying 600
+ * changed the cell's box not at all (164x40 before and after), so weight is free here.
+ * 500 is the lightest step that still reads as deliberately heavier beside a 400 sibling;
+ * 700 would make the row compete with the dialog's own heading.
+ *
+ * Applied to the label, not the button. The icon beside it is a stroked SVG, which
+ * font-weight cannot affect - naming the text keeps the rule honest about what it does. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="true"] span {
+  font-weight: 500;
+}
+
 /* The content column becomes the one raised card, painted on a pseudo-element so
    its box — and therefore every control inside it — is exactly the size the host
    solved. z-index: -1 keeps it behind the column's children while staying inside

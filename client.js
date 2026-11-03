@@ -1178,6 +1178,24 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="t
   box-shadow: none;
 }
 
+/* SELECTION ALSO CARRIES WEIGHT (D58).
+ *
+ * Colour alone says which row is chosen only if the tint separates from the canvas at a
+ * glance. A heavier label says it a second way, in a channel that survives a grey-scale
+ * screenshot, a dim display and a colour-blind viewer. It is also what the reference does:
+ * its active nav item is both tinted and stronger.
+ *
+ * 500, not 700. Measured before choosing: the label resolves at 400 and applying 600
+ * changed the cell's box not at all (164x40 before and after), so weight is free here.
+ * 500 is the lightest step that still reads as deliberately heavier beside a 400 sibling;
+ * 700 would make the row compete with the dialog's own heading.
+ *
+ * Applied to the label, not the button. The icon beside it is a stroked SVG, which
+ * font-weight cannot affect - naming the text keeps the rule honest about what it does. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="true"] span {
+  font-weight: 500;
+}
+
 /* The content column becomes the one raised card, painted on a pseudo-element so
    its box — and therefore every control inside it — is exactly the size the host
    solved. z-index: -1 keeps it behind the column's children while staying inside
@@ -1470,6 +1488,143 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settin
          not make. */
       enabled: false,
       css: SHADOW_CSS,
+    });
+//#endregion
+
+//#region src/52-feature-composer.js
+/**
+ * Feature: composer spacing.
+ *
+ * The composer's own chrome and the statistics strip beneath it are laid out by the host
+ * at values that read as cramped once the shell around them has room to breathe:
+ *
+ *   stats bar  row gap 12px, but each pill has padding 1px 8px and each middot separator
+ *              has margin 0 6px - so three values compete inside 22px of height
+ *   composer   the control row sits with no gap scale of its own
+ *
+ * This feature does not redesign either of them. It gives the strip a single spacing
+ * scale, which is the fix for "everything is crowded here": the problem was never one
+ * number, it was three unrelated ones.
+ *
+ * STABLE HOOKS ONLY. The bar carries `data-composer-stats`, a data attribute the host
+ * writes itself, so nothing here depends on a CSS-module hash. Its inner parts are
+ * addressed through their role fragment (anchor / pill / sep), which is the same
+ * structural approach used for the Settings tile renderers.
+ *
+ * WHY A SETTING. Density is a preference: someone with a short window wants the compact
+ * strip, someone on a large display wants air. Shipping one value would be a taste
+ * decision imposed on both.
+ */
+    const COMPOSER_CSS = `
+/* ONE SPACING SCALE FOR THE STATS STRIP.
+ *
+ * Measured before: row gap 12, pill padding 1px 8px, separator margin 0 6px. Those three
+ * numbers were unrelated, which is what made the strip read as crowded rather than
+ * compact - the gaps between groups and the gaps inside a group were nearly the same,
+ * so nothing grouped.
+ *
+ * The scale below makes the relationship explicit: a group's internal gap is smaller
+ * than the gap between groups. That is what makes two statistics read as two, instead of
+ * as five fragments in a row.
+ *
+ * SPECIFICITY, learned the hard way: the host sets gap: 12px on this element with a class
+ * selector, and a single attribute selector of ours loses to it regardless of source
+ * order. Measured with the first version: the computed gap stayed 8px - our own token
+ * fallback - so the rule appeared to be working while actually doing nothing. Repeating
+ * the attribute raises it above the host's without !important. */
+html[${ROOT_ATTR}] [data-composer-stats][data-composer-stats] {
+  gap: calc(var(--dsh-bento-gap) + 4px);
+  padding-block: 2px;
+}
+
+html[${ROOT_ATTR}] [data-composer-stats] [class*="pill"] {
+  gap: 7px;
+  padding: 3px 8px;
+}
+
+html[${ROOT_ATTR}] [data-composer-stats] [class*="sep"] {
+  margin-inline: 2px;
+}
+
+/* The composer seat's own bottom inset. Measured: the strip sat flush against the card's
+   lower edge, so the last row of text had no breathing room below it. */
+html[${ROOT_ATTR}] [data-slot="conversation.composer"] {
+  padding-block-end: 2px;
+}
+`;
+
+    FEATURES.push({
+      id: 'composer-spacing',
+      title: { en: 'Composer spacing', zh: '输入栏间距' },
+      about: {
+        en: 'Give the composer and its statistics strip a real spacing scale, so the numbers group instead of crowding.',
+        zh: '给输入栏和下方统计条一套统一的间距规则，让各项数据成组而不是挤在一起。',
+      },
+      order: 24,
+      enabled: true,
+      css: COMPOSER_CSS,
+    });
+//#endregion
+
+//#region src/53-feature-corners.js
+/**
+ * Feature: card corners.
+ *
+ * THE DEFECT THIS FIXES, and why it is separate from the cards themselves.
+ *
+ * A card is painted on the column's `::after` as an inset rounded rect. The content
+ * inside it is NOT painted by that pseudo-element: the host's own scroll containers
+ * paint it, and they are plain rectangles running to the card's exact edges. An empty
+ * conversation shows a perfect 20px corner; the moment content reaches the bottom of the
+ * scroll area the rectangle wins and the corner goes square.
+ *
+ * Reproduced deliberately: filling the scroll body with a solid block and scrolling to
+ * the end squared off both bottom corners; giving that container the card's own radius
+ * restored them.
+ *
+ * TWO CONDITIONS ARE BOTH REQUIRED, and getting either wrong makes this a no-op:
+ *
+ *   1. The element must actually SCROLL. A radius on a box with `overflow: visible`
+ *      paints nothing - it cannot clip what it does not clip. The first version of this
+ *      rule targeted the sidebar's `listArea` wrapper, which is `visible`, and did
+ *      nothing; the scroller one level in is `list`.
+ *   2. The radius must match the box's OWN corners. Both scrollers reach the card's
+ *      outer edge (measured: bottom 888 against a card bottom of 888), so it is the
+ *      card's 20px they must follow - not the 12px inner tier, which is for controls
+ *      inset from that edge.
+ *
+ * `overflow` is never set here. These elements already scroll; adding an overflow value
+ * would change scrolling behaviour rather than painting, and on a `visible` box it would
+ * create a scroll container that the host did not ask for.
+ */
+    const CORNERS_CSS = `
+/* The conversation's scroll body: reaches all four card edges, and scrolls. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-conversation-scroll] {
+  border-radius: var(--dsh-bento-radius);
+}
+
+/* The sidebar's row list. [class*="list"] alone matched the non-scrolling listArea
+   wrapper first; this targets the scroller, proven by reading overflow on both. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="list"] {
+  border-radius: var(--dsh-bento-radius);
+}
+
+/* The right panel's body: the same card, the same corner, when it scrolls. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] [class*="tabHostBody"] {
+  border-radius: var(--dsh-bento-radius);
+}
+`;
+
+    FEATURES.push({
+      id: 'card-corners',
+      title: { en: 'Card corners', zh: '卡片圆角' },
+      about: {
+        en: 'Clip scrolling content to the card\u2019s rounded corners, so the bottom edge stays curved once a conversation fills it.',
+        zh: '让滚动内容裁切在卡片的圆角内，会话内容填满后底边仍保持圆角。',
+      },
+      order: 23,
+      enabled: true,
+      css: CORNERS_CSS,
     });
 //#endregion
 
