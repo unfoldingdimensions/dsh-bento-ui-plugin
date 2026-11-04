@@ -79,6 +79,16 @@
       } catch (error) {
         report(ctx, 'detail sections', error);
       }
+
+      // 4. The sidebar status row (D71).
+      //
+      // Its own guard for the same reason: a second host slot, a second independent failure mode.
+      // Grouping it with step 3 would mean one broken slot silently removing the other's row.
+      try {
+        if (kernel !== null) mountSidebarStatus(ctx, kernel.api, translate);
+      } catch (error) {
+        report(ctx, 'sidebar status', error);
+      }
     }
 
     return { inject: ['slots', 'locale'], apply };

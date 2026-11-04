@@ -856,6 +856,54 @@ check('detail sections: registered into the documented slot, guarded, and null-s
   return 'documented slot, 2 registrations with ids+orders, guarded per subject, mounted last in its own guard';
 });
 
+check('sidebar status: registered in its own guard, reads the host prop, and never fakes usage', () => {
+  // D71 adds a second host slot, so the same three risks apply plus one specific to this row:
+  // the reference's footer shows a token count that no client plugin can know, and the whole point
+  // of the row's design is that it states something TRUE instead. A future edit that reintroduces a
+  // usage figure - as a literal, or as a plausible-looking placeholder - would make this row lie,
+  // which is worse than the row not existing.
+  const status = readFileSync(join(root, 'src', '62-sidebar-status.js'), 'utf8');
+  const footer = readFileSync(join(root, 'src', '99-footer.js'), 'utf8');
+
+  if (!/ctx\.slots\.inject\('sidebar\.footer\.action'/.test(status)) {
+    throw new Error("never injects 'sidebar.footer.action' - the row will not mount");
+  }
+  if (!/name: 'sidebar\.footer\.action'/.test(status)) {
+    throw new Error('registers without the documented slot name');
+  }
+  if (!/id: 'bento-status'/.test(status)) throw new Error('registration has no id');
+  if (!/order:\s*\d+/.test(status)) throw new Error('registration has no order');
+
+  // The host passes exactly { wide }; reading any other key means the row renders in the 56px rail.
+  if (!/props\.wide/.test(status)) {
+    throw new Error('does not read the host prop "wide", so it cannot hide in the collapsed rail');
+  }
+
+  // NO INVENTED USAGE. This row exists because the reference's "516M today" is unbuildable; any
+  // token/balance/currency figure appearing here means someone faked it.
+  if (/\b(tokens?|balance|credit|billing|usd|\\\$)\b/i.test(status.replace(/\/\*[\s\S]*?\*\//g, ''))) {
+    throw new Error('the status row mentions usage/billing data, which no client plugin can obtain - see D70 §4.1');
+  }
+  // and no fabricated number: the only numeric output must come from the feature count
+  if (/['"`]\s*\d+\s*(M|K|B)\s*(tokens?)?['"`]/i.test(status)) {
+    throw new Error('the status row contains a literal magnitude (e.g. "516M tokens") rather than a computed count');
+  }
+
+  // Mounted in its own guard, after the detail sections.
+  const idx = footer.indexOf('mountSidebarStatus');
+  if (idx < 0) throw new Error('apply() never calls mountSidebarStatus');
+  if (!/catch \(error\)/.test(footer.slice(idx))) {
+    throw new Error('the sidebar status mount is not wrapped in its own try/catch');
+  }
+  if (footer.indexOf('mountDetailSections') > idx) {
+    throw new Error('the status row mounts before the detail sections, so one slot failure could take the other');
+  }
+
+  return 'documented slot, reads { wide }, no usage data, own guard after the detail sections';
+});
+
+
+
 
 
 

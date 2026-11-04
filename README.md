@@ -49,11 +49,12 @@ src/54-feature-font.js     feature: the two reference typefaces
 src/55-feature-composer-chips.js  feature: the control row as one toolbar
 src/60-settings.js         settings rows, derived from the registry
 src/61-detail-sections.js  the plugin detail page's two extra sections (slot-mounted)
+src/62-sidebar-status.js   the sidebar foot's status row (slot-mounted)
 src/99-footer.js           translator, apply(), exports
 assets/*.woff2             Inter + JetBrains Mono, latin subset, OFL 1.1
 tools/make-fontdata.mjs    assets/*.woff2 -> src/14-fontdata.js
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 28 pre-install checks
+verify.mjs                 29 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`. If you touched
@@ -232,6 +233,16 @@ see A12 and Pass 4.
   a contents wrapper, so a child walk reported our two sections as absent while they laid out
   correctly as grid items. Expand contents wrappers before counting children — this is the third
   place the trap has appeared (L104).
+- **Each host slot gets its own guard, even when two slots ship in one feature.** The detail sections
+  and the sidebar row are both slot mounts, but they fail independently; one `try` would let a broken
+  plugin-detail slot silently remove the sidebar row (D71, gate 30).
+- **A row that shows a number must compute it.** The sidebar status row counts the kernel's own
+  switch features, so it cannot claim a feature that is switched off — verified by toggling two:
+  12 of 13 became 10 of 13. It carries no usage figure, because none is obtainable; gate 30 fails the
+  build if one reappears (D71, L107).
+- **A planted defect must be verified as planted.** Two of four plants silently failed to modify the
+  file, and the gate looked weak when the proof was wrong. Assert the file contains the broken text
+  before running the gate, or "did not fire" has two indistinguishable causes (L105).
 
 ## The spacing rules
 
@@ -286,7 +297,7 @@ See `decision.md` D23–D25 and `flow.md` §7.
 
 ## Status
 
-Twelve features and two colour choices ship:
+Thirteen features and two colour choices ship:
 
 | id | title | default | what it does |
 |---|---|---|---|
@@ -296,6 +307,7 @@ Twelve features and two colour choices ship:
 | `page-rows` | Page rows | on | gives the rows of full pages mounted in that column (Plugins, MCP) the same tile treatment |
 | `detail-board` | Plugin detail board | on | lays the plugin detail page out as a board: a raised hero panel with an accent hairline, a pill breadcrumb, and section cells on a two-track grid with the list section spanning both; also mounts two sections into `plugins.detail.section` — real package facts, and which of this theme's mechanisms are in effect (D69, D70) |
 | `rightbar-card` | Right panel card | on | insets the docked right panel onto its own card |
+| `sidebar-status` | Sidebar status row | on | a quiet row at the sidebar foot showing the active accent and how many pieces of the layout are on; hidden in the collapsed rail. States a real count, never a fabricated usage figure (D71) |
 | `settings-bento` | Settings board | on | lays the Settings dialog out as two sibling cards on one canvas — navigation and content — with the row rules removed |
 | `card-shadow` | Card shadow | **off** | lifts the four card surfaces with a soft two-layer shadow; off keeps the flat board |
 | `card-corners` | Card corners | on | clips scrolling content to the card's rounded corners, so the bottom edge stays curved once a conversation fills it |

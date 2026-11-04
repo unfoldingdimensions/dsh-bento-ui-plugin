@@ -2070,3 +2070,52 @@ the count silently omits exactly the elements the extra wrapper was added to con
 
 **The lesson.** A bug that recurs in a third location was never a bug - it was an unstated rule
 about the DOM. The fix belongs in the probe helper, not in each probe.
+## L105 — A planted defect that does not plant is indistinguishable from a gate that cannot fail
+
+I planted four defects to prove gate 30 works. Two "passed" - the fake-usage check and the mount-order
+check - and I nearly concluded the gate had two holes. Both plants had silently failed to modify the
+file: the first replaced a string that appears only in a COMMENT (so the regex matched the comment and
+left the code alone), and the second's block regex did not match, so it wrote the file back unchanged.
+
+Only when I printed `planted: True` and the two `indexOf` positions BEFORE re-running the gate did the
+truth show: the gate was correct both times, and my proof was not.
+
+**The lesson.** A defect-planting step must verify the plant. Assert that the file now contains the
+broken text, or that the two positions have actually swapped, before running the gate. Otherwise
+"the gate did not fire" has two indistinguishable causes, and the one you will believe is the wrong
+one - that the gate is weak.
+
+## L106 — Searching for the wrong label made a working feature look broken
+
+The collapsed-rail test reported "the status row did not come back after expanding". The row came
+back every time. The test clicked a button whose aria-label it guessed as "Expand sidebar"; the host
+calls it **"Open sidebar"**, so the click found nothing, the sidebar stayed at 56px, and the row was
+correctly absent in a rail that had never expanded.
+
+This is L95's failure in a new costume: a click that lands on nothing is not a failed click, and the
+symptom is indistinguishable from the feature being broken. Two fixes, both cheap: read the actual
+label set before searching for one, and assert the TRANSITION (width went 280 -> 56 -> 280) rather
+than only the end state. With the width assertions in place, a click that does not land fails
+loudly as "the sidebar did not expand", which names the real problem.
+
+**The lesson.** When a probe clicks, assert the state change the click was supposed to cause, not
+just the outcome you were hoping to measure. A test whose click silently misses reports the product's
+behaviour under conditions the test never established.
+
+## L107 — The reference's most convincing detail was the one that had to be refused three times
+
+The plugin-detail reference has three elements that look like static decoration and are in fact
+unbuildable: the usage tile ("518M tokens"), the Update tile ("Check for updates"), and now the
+sidebar footer's "516M today". Two of the three are the same underlying absence - no usage, balance
+or billing data reaches a client plugin - and the third is `packageRef` deliberately projecting a
+narrow face that omits the fields the host's own update logic reads.
+
+Each phase I re-derived that absence rather than assuming it, because "we checked this last time" is
+how a refusals becomes stale. And each time the row that shipped states something true instead: a
+feature count, a package's real facts, the active accent.
+
+**The lesson.** A design reference is a picture of an outcome, and roughly a fifth of the details in
+a good one are assertions about data the picture cannot show. The work is not to reproduce the
+picture; it is to find, for each element, the nearest true statement that occupies the same position.
+That is a better deliverable than a pixel match, and it is the only one that survives contact with a
+user who reads the number.

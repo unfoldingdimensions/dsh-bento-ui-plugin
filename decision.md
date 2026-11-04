@@ -2412,3 +2412,60 @@ subject data (Kind Bundle / Status Installed / Source Third-party / Version 0.1.
 1 of 1 / Enabled Yes), sit as half-width cells in the 2-track board, and produce no page errors. The
 item page renders the facts section 0 times, as the contract requires. Phase 1's radii, Settings,
 rail and tab checks all still pass.
+## D71 — The sidebar foot gains a status row, and the reference's token figure stays refused
+
+Phase 3 of the reference, and the smallest of the three: one row, mounted into a documented slot.
+
+**THE REFERENCE'S FOOTER IS THREE PARTS, AND ONE IS UNBUILDABLE.**
+
+```
+[avatar]  Signed in to DeepSeek          516M today
+```
+
+The avatar and label are a shape. "516M today" is the part the feasibility report already ruled out,
+and the reason has not changed: no token, balance or currency figure reaches a client plugin. The
+line is refused rather than faked - a footer that states a number the user will believe and that is
+not real is worse than a footer without the number.
+
+**WHAT SHIPS INSTEAD, IN THE REFERENCE'S OWN COMPOSITION:**
+
+```
+[accent dot]  Bento layout              12 of 13 on
+```
+
+Three parts, same rhythm, every one of them true. The dot is the user's chosen accent, so the row
+doubles as a quiet confirmation of which accent is active - otherwise only visible where the accent
+happens to be used. The figure is read from the kernel's own feature registry, so it cannot claim a
+feature that is switched off. Verified by switching two features off: 12 of 13 -> 10 of 13.
+
+The row counts **switch** features only. `accent` and `ink` are `choice` features with no on/off
+state; including them would make the denominator wrong by however many choices ship.
+
+**THE SLOT, QUOTED AND THEN CHECKED.** The contract catalog says `sidebar.footer.action` is
+`kind: list, scope: root`, "Optional actions BESIDE Settings at the sidebar foot", and each action
+"receives only the column state". The exact prop was read from the host's own render call rather than
+guessed:
+
+```
+renderSlot("sidebar.footer.action", { wide })
+```
+
+One prop, `wide`. A component reading any other key would render inside the 56px rail as though it
+were expanded. The row returns null when `wide` is false: a 56px strip holding a truncated word is
+worse than nothing, and the rail already shows the accent through the selected nav row.
+
+**STYLES ARE IN THE STYLESHEET, NOT INLINE.** The first draft styled the row with inline objects,
+which would have bypassed the token layer, the reduced-motion rules and gate 15 - the three things
+every other feature in this bundle gets for free. Moving to `STATUS_CSS` with a class keeps the
+renderer carrying data only, and the row now reads its colours from host tokens like everything else.
+
+**GUARDED SEPARATELY FROM THE DETAIL SECTIONS.** Both are host-slot mounts, but they fail
+independently: grouping them under one `try` would let a broken plugin-detail slot silently remove
+the sidebar row. Gate 30 pins the ordering, the prop name, the slot name, and - the specific risk
+for this row - that no usage figure reappears. A planted `516M tokens` fails it.
+
+**Verified** (both themes, 1600x1000): the row mounts once above the Settings trigger, shows the
+accent dot in the theme's own accent colour, reads "12 of 13 on", and the count drops by exactly two
+when two features are switched off. In the 56px rail it renders nothing and returns when the column
+is expanded (56 -> 280). No page errors, no sidebar overflow, and the Settings trigger does not move.
+Phase 1 and Phase 2 suites both still pass.
