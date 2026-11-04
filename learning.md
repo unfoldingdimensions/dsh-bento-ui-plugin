@@ -1861,3 +1861,49 @@ The lesson generalises to every layout change. A regression check that runs only
 build cannot tell "my change caused this" from "this was already true". The three-way probe — theme
 off, theme before the change, theme after — costs one extra browser context and converts a suspicion
 into a fact. Without it, the honest options are to revert a correct fix or to ship an unverified one.
+## L92 — Two motion layers exist, and neither one is retunable from a single place
+
+Auditing every animation in the harness produced a fact no single file states: the shell
+(`dsh-web-frontend`) and the component layer (31 `dsh-client-ui-*` packages) carry **separate**
+motion systems that only partly share tokens. The shell has 14 `@keyframes` and 37 motion rules;
+the component layer has 179 declarations shipped as CSS strings inside each `client.js`.
+
+The shell reads the theme's duration tokens in **4 of its 37** motion rules (11%), and never reads
+`-fast` or `-slow`. So the intuitive plan — "retime the app by setting `--ds-transition-duration`" —
+moves one rule in nine. Across both layers there are 27 distinct durations and 12 distinct easings,
+including 52 uses of `.12s` that no token reaches.
+
+**The lesson.** Before promising a themeable property, count how many declarations actually read the
+token. A design token that is declared, documented and correct can still govern almost nothing. The
+check is a grep for `var(--the-token)` across every layer, not a read of the token definition.
+
+## L93 — "Unguarded" was a parser artifact, and it inverted the finding
+
+My first reduced-motion audit reported 12 of 14 keyframes as unguarded. The truth is 3. The bug was
+the question, not the parsing: it asked *"does a reduced-motion block mention this keyframe's name?"*
+A guard cancels motion by writing `animation: none` on the **carrier selector** and never repeats the
+keyframe's name, so every guarded animation looked unguarded.
+
+The second attempt used a hand-rolled `@media` flattener and found 2 of the 10 blocks — a different
+wrong answer from the same area. Only the third approach, reusing the brace matcher that had already
+found all 10 blocks and then matching **selectors** rather than names, produced 11 guarded / 3
+unguarded, which is what the live page confirms.
+
+**The lesson.** An accessibility audit that reports a defect must first prove the detector works on a
+case that certainly has the guard. Two of my three attempts would have shipped a false finding about
+the harness's a11y in a document meant to be a reference.
+
+## L94 — A doc that states counts has to be checked against the measurement that produced them
+
+The animation inventory makes ~18 numeric claims (14 keyframes, 37 rules, 179 declarations, 31
+packages, 4 WAAPI calls, 4 of 37 tokenised). I wrote a verifier that recomputes every one from the
+asar and compares it to the claim.
+
+It failed one: the doc said the shell "never" reads the duration token; it reads it 3 times plus 4
+easing uses. The prose was written from an earlier grep that only looked for `-fast`, which the shell
+genuinely never uses — a true observation about one token generalised into a false statement about
+the family.
+
+**The lesson.** When a document's value is its numbers, the numbers need a checker, for the same
+reason the build has gates. The failure mode is quiet: a slightly wrong count reads exactly like a
+right one, and this doc will be cited later as the map for custom animation work.

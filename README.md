@@ -23,6 +23,7 @@ restyles what the host already renders.
 | [learning.md](learning.md) | What cost time and why (L1–L40), including the mistakes |
 | [docs/research/bento-language-audit.md](docs/research/bento-language-audit.md) | What the theme implements against what the bento idiom requires, measured, tiered P0/P1/P2, with sources |
 | [docs/research/icon-philosophy.md](docs/research/icon-philosophy.md) | What icons do in a bento composition, the host's measured icon system, and the rule that this theme draws none in the UI (D48) |
+| [docs/research/animation-inventory.md](docs/research/animation-inventory.md) | Every place the harness animates: 14 shell `@keyframes`, 37 shell motion rules, 179 component-layer declarations across 31 packages, the two disconnected token systems, reduced-motion coverage, and what CSS can and cannot reach |
 
 Read `learning.md` before changing anything here — most of it exists because a
 confident-looking change silently did nothing.
