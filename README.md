@@ -275,10 +275,42 @@ Two rules are worth stating in words because a table cannot carry them:
 
 ## Install
 
-Install through the plugin manager (`install_bundle` with this directory). The
-directory is symlinked into the profile, so rebuilding `client.js` changes the
-served source, but **the browser only picks up new client code after a reload** —
-a running page keeps the module generation it booted with.
+Two ways, both real - the second is the one verified end to end on a clean profile.
+
+**1. From the command line, into the profile you boot.** This adds the bundle *and* registers it,
+so the theme is live after a reload:
+
+```
+dsh plugin --profile <your-profile> add git+https://github.com/unfoldingdimensions/dsh-bento-ui-plugin.git
+```
+
+**2. From the GUI: Plugins > Add plugin.** Paste the same GitHub address and press Install.
+Then **switch it on** in the Installed list - the GUI install adds the package but leaves the
+bundle row disabled, so the theme does nothing until that switch is flipped. This is the host's
+behaviour for every third-party bundle, not specific to this one (verified against another
+published plugin, which lands in the same state). The switch writes the bundle row, and the theme
+is live immediately without a restart.
+
+**What you get after enabling:** the shell's three columns become rounded cards, Settings gains a
+**Bento layout** tab, and each of the 13 features plus the two colour choices can be switched off
+on its own there. Nothing is destroyed - turning the top-level row off restores the host's own look.
+
+**Requirements and what was actually tested.** DSH 0.2.x. Verified on the running 0.2.0-rc.2 CLI
+against the 0.2.1-rc.5 runtime, installed from the public URL into a profile with nothing else in
+it, at six viewport widths (1100px to 1920px) in both themes and in Chinese. The package is
+self-contained: the two typefaces are inlined as base64, so it makes no network requests at all.
+
+**Two things worth knowing before you install.**
+
+- **A version gate cannot save you.** `engines.dsh` and `dsh.compatibility.dsh` were both tested
+  with an impossible requirement (`>=99.0.0`) and the plugin installed and activated anyway, so no
+  manifest field can refuse an incompatible runtime. A future DSH build that renames a slot or
+  changes the sidebar footer props could break the two slot-mounted sections (the package facts and
+  the status row); the CSS would survive.
+- **If you run another theme, the font may not be this one's.** `dsh-claude-style` sets the font
+  token at higher specificity, so it wins. Everything else - the cards, the radii, the spacing -
+  still applies. Switch off **UI font** in Settings > Bento layout if you would rather not have the
+  two compete.
 
 ## The pass plan
 

@@ -2469,3 +2469,48 @@ accent dot in the theme's own accent colour, reads "12 of 13 on", and the count 
 when two features are switched off. In the 56px rail it renders nothing and returns when the column
 is expanded (56 -> 280). No page errors, no sidebar overflow, and the Settings trigger does not move.
 Phase 1 and Phase 2 suites both still pass.
+
+## D72
+
+**The plugin ships as a git-installable package, and the docs say so plainly, because the install
+path a stranger takes is not the one this machine uses.**
+
+Every verification so far ran against a directory symlink into a profile that already had a dozen
+other plugins. That is not what a new user has. The question "will it work on someone else's PC"
+cannot be answered by the developer's own machine, so it was answered by building the stranger's
+machine: a profile created from the shipped web template with nothing else installed, the plugin
+installed from the **public GitHub URL** rather than a local path, and every claim re-measured there.
+
+What was measured on that clean profile, in both themes and at six viewport widths (1920x1080 down
+to 1100x800): the root attribute is set, the centre and sidebar cards are painted at 24px with a
+12px inset from their column (the card geometry is the theme's, not the host's), the bundled
+typefaces win the body font, the status row reads "12 of 13 on", and there is no horizontal
+overflow at any of the six widths. Then the decisive check: with the document attribute stripped on
+that same page, the card radius went 24px -> 0px, the frame background went grey -> white, the font
+fell back, and the count of large rounded surfaces went 3 -> 0. The theme is the cause of what is on
+screen, not a coincidence of the host's own styling.
+
+**The package is self-contained.** A full-text scan of the shipped client.js finds zero http(s)
+URLs, zero fetch, zero dynamic import, zero process/node: references and zero
+navigator.platform/userAgent reads; the only two url() values are inline base64 data: fonts.
+npm pack ships 10 files and no source, no build script and no assets directory. There is no
+platform assumption to break on macOS or Linux, because there is no platform-specific code.
+
+**SELECTORS ARE NOT HASH-BOUND, WHICH IS THE ONE THING THAT COULD HAVE BROKEN EVERYWHERE.** The host
+hashes its CSS-module class prefixes per build (pI_x6G_sidebarCol here). This bundle references
+hashed *names* only inside comments - the four occurrences of X_2TxG, YDXeBa, VOzbGW and hHd-Xa in
+client.js are all explanatory prose. Every live selector matches on a hash-free substring
+([class*="_rows"], [class*="footerActions"]) or on a stable host contract (data-slot, role, aria-*).
+That is why the clean install on the same host version works from a directory that never existed on
+this machine - but it is also why the risk is a *host version* change, not a machine change, and
+that risk is stated rather than hidden (see below).
+
+**What was NOT verified, stated plainly.** (1) Only one host version was exercised - the running
+0.2.0-rc.2 CLI against the 0.2.1-rc.5 runtime. A future host build that renames a slot, changes the
+sidebar.footer.action props, or replaces the detail-page structure could break a section or the
+status row; the theme's own CSS would survive, the two slot-mounted sections are the exposed part.
+(2) The version requirement is advisory only: engines.dsh and dsh.compatibility.dsh were both
+planted with ">=99.0.0" and **both installed and activated anyway** through dsh plugin add, so no
+manifest field can refuse an incompatible runtime. The docs therefore tell people which host version
+this was built against instead of implying a guard that does not exist.
+

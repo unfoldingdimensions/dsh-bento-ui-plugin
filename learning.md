@@ -2119,3 +2119,57 @@ a good one are assertions about data the picture cannot show. The work is not to
 picture; it is to find, for each element, the nearest true statement that occupies the same position.
 That is a better deliverable than a pixel match, and it is the only one that survives contact with a
 user who reads the number.
+
+## L108
+
+**"It works on my machine" was answerable, and the way to answer it was to build the other machine
+rather than reason about it.**
+
+Twenty-nine gates and four phases of screenshots all ran against a directory symlink in a profile
+carrying a dozen other plugins. None of that says anything about a clean install, and none of it
+would catch a hardcoded path, a dev-only import, or a selector bound to a build hash. The cheap
+move - reading the bundle and concluding "no URLs, no platform calls, should be fine" - is exactly
+the class of inference that has been wrong all session.
+
+So: dsh --profile zz-bento-git --from-default-profile web, then install from the public git URL,
+then re-measure. The clean profile found the theme working *and* found something the symlinked
+profile never could.
+
+**Two of my checks were broken again, and both times the product was fine.** The locale test wrote
+dsh-locale to localStorage; the host does not store locale there, so the UI stayed English and the
+test silently proved nothing - I only caught it because the label still read "Bento layout" after a
+supposed switch. Driving the real Language menu produced the Chinese label and confirmed the
+bundle's zh copy resolves end to end. The second: I judged the GUI install by "dialog closed", which
+fires while the spinner is still showing "Preparing installation...", so my first read said the
+install failed when it had not. Waiting for the settled state instead gave the real answer.
+
+**The real answer was a genuine surprise.** Installing through the GUI's own **Add plugin** flow
+leaves the plugin in the profile's dependencies but **off the dsh.profile.bundles list**, so it
+appears under Installed with its switch off and does nothing until the user flips that switch. That
+looked like my bug, so I tested a well-known published plugin the same way: dsh-cost-meter lands in
+exactly the same state. It is host behaviour, and it changes what the install instructions have to
+say - "install, then switch it on" - rather than something to fix in this repo.
+
+**The lesson.** A portability claim needs three things this repo did not have: an install from the
+public URL, a profile with nothing else in it, and an A/B on that profile proving the theme caused
+what is on screen. Each is cheap. Together they turn "should work" into a measurement, and they are
+the only way to find out that the last step of the install is a switch the user has to flip.
+
+## L109
+
+**A theme that loses the font to another theme is not broken, and finding out which rule wins takes
+one probe, not an argument.**
+
+Installed next to dsh-claude-style, the card geometry still works - the A/B shows the same
+24px -> 0px radius change - but the body font is Anthropic Sans, not Bento Inter. The cause is in the
+cascade, measured rather than guessed:
+body[data-dsh-claude-style][data-dsh-claude-typeface="claude"] sets --dsw-font-family at specificity
+(0,2,1), while this theme's html[data-dsh-bento] body sets it at (0,1,2). Higher specificity wins
+regardless of sheet order, so whichever theme states the more specific selector owns the typeface.
+
+**What shipped was the honest documentation, not a specificity war.** Escalating the selector to
+out-specify every other theme would work until the next theme out-specifies this one, and it would
+leave two plugins silently fighting over one token with no way for the user to adjudicate. The
+docs state the interaction and let the user choose which theme owns typography - ui-font is a
+feature in this bundle, so switching it off is a supported answer.
+
