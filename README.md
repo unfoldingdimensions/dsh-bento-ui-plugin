@@ -151,6 +151,11 @@ see A12 and Pass 4.
   tinted for a while and read as a blue-grey slab across 861px (D61).
 - The composer's surface claim costs nothing in layout: the hairline is an inset shadow, not
   a border, because a border would move a control the host has already sized (D14).
+- A "weird border" that is not in the CSS is usually a gap. The queue tab was 16px narrower than
+  the composer and inset 8px each side, so the card showed through as a rectangle-shaped band
+  (D67). Measure the two adjacent boxes' geometry before hunting for a border.
+- An inset is often applied twice — as padding *and* inside a `calc()` width. Removing the visible
+  one leaves the invisible one; zero the custom property and both go.
 - A reported "overlap" may be a truncation. The preset-card header was a flex row with a
   non-shrinking tag; the title ellipsised and the badge sat right after it. Measure for
   intersecting rects before looking for z-index (D66).

@@ -139,6 +139,69 @@ html[${ROOT_ATTR}] [data-slot="conversation.input.dock"] > * {
   backdrop-filter: none;
   box-shadow: inset 0 0 0 1px var(--dsh-bento-edge), var(--dsh-bento-shadow);
 }
+
+/* THE QUEUED-MESSAGE TAB BECOMES THE COMPOSER'S TOP SEGMENT (D67).
+ *
+ * Reported as "the queue message box has weird rectangle around it". Measured, three things make
+ * it read as a separate box glued onto the composer rather than as part of it:
+ *
+ *   1. WIDTH.  The dock is 845px with 8px of padding each side, so the panel is 829px, while the
+ *              composer below it is 861px. The tab is 16px narrower and inset 8px on both sides,
+ *              so the card shows through around it - that exposed strip IS the rectangle.
+ *   2. FILL.   It paints the host's frosted menu material: rgba(67,69,74,0.45) in dark over a
+ *              44,44,46 card, resolving to 54,55,59 - a slab LIGHTER than the composer it sits on.
+ *   3. OUTLINE. A 0.5px border on its ::after in --dsw-alias-border-l1, which is
+ *              rgba(255,255,255,0.06) in dark and rgba(0,0,0,0.04) in light.
+ *
+ * None of those is wrong on the host's own flat white composer - a frosted tab with a hairline is
+ * a normal floating-chip treatment. They are wrong once the composer became a white raised card
+ * with a 28px radius (D61): a narrower, lighter, outlined box sitting on top of it reads as a
+ * mistake, not as a stack.
+ *
+ * SO THE TAB JOINS THE CARD. Full width, the card tone, the composer's own top radius, no
+ * backdrop, no outline. The host already places it flush - its own margin-bottom is
+ * calc(0 - gap - 3px), measured at -9px, which puts the panel 1px INTO the composer's top edge -
+ * so removing the outline and matching the tone and width makes the two read as one surface
+ * without moving either.
+ *
+ * THE RADIUS IS THE COMPOSER'S OWN, READ FROM ITS TOKEN. The composer card takes
+ * var(--dsw-radius-panel) (measured 28px); the theme's 20px card tier is a different curve and a
+ * 20px top corner under a 28px composer would be visibly tighter on the same silhouette. So the
+ * tab reads the same host token rather than a literal, and follows the composer if the host
+ * retunes it.
+ *
+ * THE WIDTH IS THREE VALUES, NOT ONE. The dock's own rule is
+ *
+ *   width: calc(100% - side-clearance*2 - dock-inset*2)
+ *   padding: 0 dock-inset
+ *
+ * so removing the padding alone leaves the box 845px against the composer's 861px: 8px of
+ * side-clearance each side is still being subtracted from the width itself. Both have to go.
+ * The two custom properties are zeroed on the dock rather than the width being overridden with a
+ * literal, so the host's own calc still runs and still tracks whatever the composer's max-width
+ * turns out to be.
+ *
+ * Both border-radius values carry four components, and only the TOP two are the card's curve -
+ * the bottom two are 0 so the tab's bottom edge stays square where it meets the composer. */
+html[${ROOT_ATTR}] [data-slot="conversation.composer"] [data-queue-dock] {
+  --dsh-composer-side-clearance: 0px;
+  --dsh-composer-dock-inset: 0px;
+  padding-inline: 0;
+}
+
+html[${ROOT_ATTR}] [data-slot="conversation.composer"] [data-queue-dock] > * {
+  border-radius: var(--dsw-radius-panel) var(--dsw-radius-panel) 0 0;
+  background: var(--dsh-bento-card);
+}
+
+html[${ROOT_ATTR}] [data-slot="conversation.composer"] [data-queue-dock] > *::before {
+  background: var(--dsh-bento-card);
+  backdrop-filter: none;
+}
+
+html[${ROOT_ATTR}] [data-slot="conversation.composer"] [data-queue-dock] > *::after {
+  border: 0;
+}
 `;
 
     FEATURES.push({

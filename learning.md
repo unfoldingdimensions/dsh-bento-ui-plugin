@@ -1764,3 +1764,51 @@ error. Compare the two incidents: last turn the same mistake produced a bundle t
 stylesheet that was silently short, and a suite of green checks; this turn it produced "literal
 terminated early at 50-feature-settings.js:420". Same bug, minutes apart, and the only difference
 is that a guard now exists for the shape it actually takes.
+
+## L86 — "Weird rectangle" was accurate, and the rectangle was the card showing through
+
+The report described a rectangle around the queue row. There was no rectangle element: it was the
+composer card visible in the 8px strip on each side of a tab that was 16px narrower than the
+composer it sat on. The tab had a fill of its own, so the card showed only where the tab was
+absent — a border-shaped artifact made of nothing but the mismatch.
+
+Measuring width first is what found it. The panel was 829px against the composer's 861px, and no
+amount of looking at fills, borders or shadows would have explained a rectangle that is actually
+the gap between two boxes.
+
+**The lesson.** When something looks like it has a border that is not in the CSS, measure the two
+adjacent boxes' geometry before hunting for a border. "There is an outline" and "there is a gap"
+look identical at a glance and have nothing in common in the fix.
+
+## L87 — Removing one of a width's two subtractions leaves it still wrong
+
+The dock's width and its padding both subtract the same 8px:
+
+```css
+width: calc(100% - side-clearance*2 - dock-inset*2);
+padding: 0 dock-inset;
+```
+
+So it is inset twice over. I removed the padding, measured 845 vs 861, and the first reading of
+that number was "the rule did not apply". It had applied — the padding was gone — and the width
+still carried its own subtraction. Zeroing the two custom properties fixed both at once.
+
+**The lesson.** When a box is nested inside an inset, the inset is frequently applied twice: once
+as padding and once inside a `calc()` width. Removing the visible one leaves the invisible one.
+The check that settles it is measuring the box against its intended outer width, not reading the
+declarations.
+
+## L88 — The simulation had to be mounted in the right parent before any of it was measurable
+
+The queue dock only exists while a message is queued, which a fresh profile never has, so it had
+to be simulated. The first mount put it in the composer's *hero* stack — the empty-session
+container — and every candidate fix then showed a 90px gap to the composer that was an artifact of
+my own placement, not of the CSS.
+
+It only became measurable once the dock was inserted immediately before the real composer card,
+inside its actual stack, where the host's own −9px margin could pull it flush. Then the junction
+measured −1px and the width mismatch was the only real problem left.
+
+**The lesson.** A simulated DOM node is only as good as its position. Mount it where the real one
+lives — same parent, same sibling order — or the layout you measure is the layout you invented.
+Three of the candidate screenshots in this task were discarded for exactly this reason.

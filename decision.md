@@ -2162,3 +2162,52 @@ traded for a truncation.
 **`row-gap: 4px` is the only new spacing.** The host's `gap: 6px` becomes the column gap when the
 row wraps, and a wrapped row needs its own line gap. 4 rather than 6 so the tag sits closer to the
 title it labels than to the description below it.
+
+---
+
+## D67 — The queued-message tab becomes the composer's top segment
+
+**Reported as** "the queue message box has weird rectangle around it". Measured, it was three
+separate mismatches, not one:
+
+| | host value | composer (this theme) |
+|---|---|---|
+| width | **829px** (dock 845 − 8px padding each side) | **861px** |
+| left edge | inset 8px | flush |
+| fill | frosted menu material → `54,55,59` dark | card `44,44,46` |
+| outline | 0.5px `--dsw-alias-border-l1` on `::after` | none |
+
+So it was a box 16px narrower than the composer, inset 8px on both sides, a shade *lighter* than
+the surface under it, with its own hairline. That exposed strip of card around it is the rectangle
+the report describes.
+
+**None of those values is wrong on the host's own composer.** A frosted tab with a hairline is a
+normal floating treatment over a flat white composer. They became wrong when D61 made the composer
+a white raised card with a 28px radius: a narrower, lighter, outlined box sitting on top of a card
+reads as a mistake, not as a stack.
+
+**Decision: the tab joins the card.** Full width, the card tone, the composer's own top radius, no
+backdrop, no outline. The host already places it flush — its own margin-bottom is
+`calc(0 - stack-gap - 3px)`, measured −9px, putting the panel 1px *into* the composer's top edge —
+so nothing had to move to make the two read as one surface.
+
+**The width took two attempts, and the miss is instructive.** Removing the dock's `padding-inline`
+alone left the panel at 845px against 861px. The dock's own rule is:
+
+```css
+width: calc(100% - side-clearance*2 - dock-inset*2);
+padding: 0 dock-inset;
+```
+
+The padding was only half of it — the width itself still subtracts 8px of side-clearance each side.
+Both custom properties are zeroed on the dock rather than overriding `width` with a literal, so the
+host's own calc still runs and still tracks whatever the composer's max-width turns out to be.
+
+**The radius is read from the host's token.** The composer card takes `var(--dsw-radius-panel)`
+(measured 28px), not the theme's 20px tier. A 20px top corner under a 28px composer would be
+visibly tighter on the same silhouette, so the tab reads the same host token.
+
+**The multi-row state was checked separately.** With several messages queued the dock gains a
+header button with its own 12px radius and a chevron. That header keeps its radius — it is a
+control inside the panel, not the panel's curve — and the panel's `overflow: hidden` still clips
+the list, verified with three rows.
