@@ -1889,3 +1889,53 @@ a border, because a border adds 2px to a control the host has already sized (D14
 
 **Answered, for the owner's second question:** no, the design does not call for a blue text
 box. The blue was this theme's own canvas token, not the design's, and it is now gone.
+
+---
+
+## D62 — The To-dos dock gets an edge, in both states, from one rule
+
+**Decision.** The host's To-dos dock takes the card tone plus the theme's inset hairline and
+soft shadow. It is the same raised treatment the composer got in D61, applied to the panel
+that sits directly above it.
+
+**Why it was invisible, measured rather than assumed.** The host mounts a TodoPanel into the
+slot `conversation.input.dock` (slot id "todo", order 0). Its own stylesheet gives it:
+
+| property | host value | resolved here |
+|---|---|---|
+| `background` | `var(--dsw-specific-menu)` | `rgba(248,249,250,0.58)` |
+| `backdrop-filter` | `var(--dsw-menu-backdrop-filter)` | **none** |
+| `box-shadow` | `var(--dsw-elevation-panel)` | **none** |
+| `border` | `0` | — |
+
+That is a frosted material built to float over *content* it can blur, separated by the
+shadows behind it. On this theme's conversation card — a white surface — 58% near-white over
+white composites to white, there is nothing for the blur to blur, and the elevation shadow
+resolves to `none`. The bar had no edge of any kind. "Just getting merged in the white
+background" is a literal description of the compositing.
+
+**A distinct tone, not a darker wash.** The panel takes `--dsh-bento-card`. That does not
+replace the host's material with a similar one; it separates the bar from the card by tone,
+which is what every raised surface in this theme does. The host's hairline and elevation are
+replaced by ours because neither survives a dark card: `--dsw-alias-border-l1` measures
+`rgba(0,0,0,0.04)` and `--dsw-specific-menu` is 58% alpha.
+
+**Both states, one rule.** Collapsed and expanded render the same root element and differ
+only by whether the `<ul>` exists — measured 829×36 vs 829×204, same radius, same fill. The
+rule targets the container's surface, so it covers both, and no state selector is written
+because the element carries no collapsed/expanded attribute to select on.
+
+**The selector is `[data-slot="conversation.input.dock"] > *`, and it matches exactly one
+element** — verified, not assumed: `matchedByRule === 1` of `dockChildren === 1`. The slot
+anchor is host-written, so no CSS-module hash appears here.
+
+**Not changed, deliberately.** No gap or margin was added: the dock already has the host's
+own inset separating it from the composer, and the request was the surface. No size changed
+either — the panel is still 36px collapsed and 204px expanded, and the header row is still
+24px.
+
+**Proof it is visible, not just computed.** The host's material was forced back over the
+panel and the region screenshotted before and after, then compared pixel by pixel: **61% of
+pixels changed in light, 66% in dark.** Computed style says what was applied; only pixels say
+what is on screen, and both were needed here because the "before" state *had* a fill and a
+shadow that simply could not be seen.

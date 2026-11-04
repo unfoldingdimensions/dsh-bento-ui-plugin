@@ -137,6 +137,11 @@ see A12 and Pass 4.
   31 that look like they own a family each. Those 31 are derived; measured, one token
   moves 62 of them (D59). The host's full fallback chain is reproduced after the new
   faces, because the subsets are latin-only and CJK must keep its platform face.
+- A translucent host material is not a surface until it is composited. The To-dos panel
+  shipped with a 58%-alpha fill, a blur and a three-layer shadow; on a white card all three
+  read as nothing, because the blur and shadow tokens resolve to `none` and 58% near-white
+  over white is white (D62). Resolve a translucent fill against what is behind it, then read
+  the pixels before calling it fixed.
 - Two surfaces of the same kind get the same treatment. The Settings navigation is a list
   of destinations exactly as the main page's sidebar is, so both are cards, inset and
   rounded the same way, sitting on the same canvas (D60). A rule that cards one and leaves
@@ -186,7 +191,7 @@ Eleven features ship:
 | `settings-bento` | Settings board | on | lays the Settings dialog out as two sibling cards on one canvas — navigation and content — with the row rules removed |
 | `card-shadow` | Card shadow | **off** | lifts the four card surfaces with a soft two-layer shadow; off keeps the flat board |
 | `card-corners` | Card corners | on | clips scrolling content to the card's rounded corners, so the bottom edge stays curved once a conversation fills it |
-| `composer-spacing` | Composer spacing | on | gives the composer and its statistics strip one spacing scale, so the numbers group instead of crowding |
+| `composer-spacing` | Composer spacing | on | gives the composer and its statistics strip one spacing scale so the numbers group instead of crowding, and an edge to the To-dos panel above it, which the host paints as frosted material that composites invisibly on a white card |
 | `ui-font` | Reference typeface | on | sets Inter for interface text and JetBrains Mono for code, both bundled — the host loads no webfont of its own |
 | `composer-chips` | Composer controls | on | gives the model and access selectors one shared fill and radius so the row reads as one toolbar, and lifts the reasoning-effort suffix from 1.83:1 to 5.36:1 |
 

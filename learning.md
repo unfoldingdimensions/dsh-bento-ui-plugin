@@ -1568,3 +1568,46 @@ so both looked like product defects. What separated them from real defects was c
 number prediction: the shadow string visibly contained two `0px 8px 24px` terms, and the
 composer's computed fill was byte-identical to the card's. When the evidence contradicts the
 assertion, suspect the assertion.
+
+## L75 — "There is a shadow" and "you can see the shadow" are different facts
+
+The To-dos bar looked like it had no surface at all. Reading its computed style showed it
+had four: a 58%-alpha fill, a blur, a three-layer elevation shadow, and a radius.
+
+All four were real and all four were inert. `--dsw-menu-backdrop-filter` and
+`--dsw-elevation-panel` both resolve to `none` on this host, so two of the four were not
+merely weak, they were absent. The fill is `rgba(248,249,250,0.58)` — 58% near-white — and it
+sits on a white card, so it composited to white. The element had *every* property of a
+floating surface and no visible edge whatsoever.
+
+**The lesson.** `getComputedStyle` answers "what value was applied", and for a translucent
+fill that is not the same question as "what colour is on screen". Two checks are needed:
+resolve the colour against what is behind it, and read the pixels. This project already knew
+that (architecture §8, L12) and I still started from the computed style and had to go back to
+pixels to prove the fix.
+
+**A second trap in the same probe.** I simulated the host's panel markup before styling it,
+because this profile's sessions fail to load and no real todos exist. That simulation is
+honest *only because it uses the host's own CSS-module classes and its own stylesheet already
+loaded in the document* — the appearance measured was the host's, not an imitation. A
+hand-written approximation of the classes would have measured my own guess back at me. When a
+simulation stands in for missing data, it has to borrow the real thing's styling, not
+reproduce it.
+
+## L76 — Both remaining failures were the assertions again, and one was a unit mistake
+
+After the fix, two checks failed in both themes. Neither was the CSS:
+
+1. **"tone differs from the card"** — I had written the assertion for the *recessed*
+   treatment, the one that was rejected two turns ago. The chosen fix keeps the card tone and
+   separates with a hairline plus shadow, so "differs from the card" is false by design. The
+   assertion contradicted the decision it was verifying.
+2. **"header height unchanged (36)"** — 36 is the *panel root's* collapsed height; the
+   header row is 24. I compared a container measurement against a child expectation and got
+   a mismatch that looked exactly like a layout regression.
+
+**The lesson.** A failing assertion is a claim about intent, and intent can be wrong in a way
+the code is not. Both of these would have been "fixed" by changing working CSS. The tell was
+cheap: the numbers were 24 and 36 — a child and its parent — and the tone assertion
+contradicted a decision recorded one entry earlier. Read the assertion against the decision
+before touching the implementation.
