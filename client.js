@@ -1860,6 +1860,48 @@ html[${ROOT_ATTR}] [data-slot="conversation.composer"] {
   padding-block-end: 2px;
 }
 
+/* THE DARK BAND ABOVE THE COMPOSER (D64).
+ *
+ * Reported as "the conversation pane is darker at the bottom in dark mode". It is the HOST's
+ * own sticky scrim, not this theme's paint. Once a conversation is active the host applies:
+ *
+ *   .wSkVaW_root[data-phase=active] .wSkVaW_composerSeat {
+ *     position: sticky; bottom: 0; z-index: 7;
+ *     background: linear-gradient(180deg, transparent 0px, var(--dsw-alias-bg-base) 36px);
+ *   }
+ *
+ * The gradient exists so content scrolling UNDER the composer fades out instead of being cut
+ * off. It fades to --dsw-alias-bg-base, which the host assumes is the surface behind it.
+ *
+ * Measured, that assumption is what breaks in dark:
+ *
+ *   theme    bg-base           our canvas        our card
+ *   light    rgb(255,255,255)  rgb(235,238,242)  rgb(255,255,255)
+ *   dark     rgb(21,21,23)     rgb(27,27,28)     rgb(44,44,46)
+ *
+ * In LIGHT bg-base equals the card, so the gradient is invisible - nothing to fix. In DARK
+ * bg-base is rgb(21,21,23) while the card is rgb(44,44,46): a 23-unit drop, measured down the
+ * strip (44 -> 21 over 36px). The fade still does its job of hiding scrolling content, but it
+ * fades to a tone 23 units darker than the surface it sits on, and reads as a smudge across
+ * the bottom of the card.
+ *
+ * THE FIX KEEPS THE FADE AND CHANGES ITS DESTINATION. The transparent keyword is replaced with a
+ * zero-alpha mix of the card tone rather than the keyword, because CSS interpolates toward
+ * transparent as transparent BLACK - fading 'var(--dsh-bento-card)' to the 'transparent'
+ * keyword would darken on the way, which is the same bug in miniature. Mixing the card tone
+ * with itself at 0% gives a transparent CARD-COLOURED stop, so the ramp is purely in alpha and
+ * the destination is now the surface actually behind it, in both themes.
+ *
+ * Scoped to the centre column and gated on the host's own phase rather than restyled globally:
+ * with the theme off, or on any other surface, the host's gradient stays exactly as it was. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-phase="active"] [class*="composerSeat"] {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--dsh-bento-card) 0%, transparent) 0px,
+    var(--dsh-bento-card) 36px
+  );
+}
+
 /* THE TO-DOS DOCK GETS A SURFACE OF ITS OWN (D62).
  *
  * The host renders it into the slot "conversation.input.dock" (slot id "todo", order 0),

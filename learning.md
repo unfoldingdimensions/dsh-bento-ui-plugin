@@ -1670,3 +1670,52 @@ side by side and pick from pixels. And when a value "does not apply", check whet
 and was then overridden by inheritance — `getComputedStyle` on the element showed
 `superellipse(1)` in a probe and `1.5` in the real tree, which is only visible when the parent
 chain is inspected too.
+
+## L80 — The bug did not exist until the page had content
+
+Three probes found no dark band because an empty conversation never renders it. The host's scrim
+is gated on `data-phase=active`; with no messages the root stays in `hero`, that rule has no
+match, and there is genuinely no gradient. So a scan of an empty profile returned "nothing paints
+here" three times — correct, and useless.
+
+The fix was not a better CSS scan. It was forcing the single state the bug lives in, and then the
+gradient appeared on the first try.
+
+**The lesson.** A visual bug that a user reports from a *used* app may not be reachable in a fresh
+one. Before enumerating elements, ask what state the reporter was in, and if the harness cannot
+reach it, force it. "I could not reproduce it" is a statement about the harness, not about the
+bug, and it stayed literally true through three exploratory probes.
+
+## L81 — The guard covered the shape the bug had, not the shape the bug takes
+
+The backtick-in-a-template-literal hazard has recurred through this whole project. A gate was
+written for it and it checks backticks inside CSS **comments** — the shape the bug had the time it
+was written.
+
+This turn the same character landed in CSS **content**: inside a declaration block, after I had
+mechanically converted comments to single quotes and missed one. All 24 gates passed. The built
+bundle still parsed — the stray text read as an identifier expression — so the failure was a
+silently truncated stylesheet, which is the worst version of this bug and exactly what the
+original gate was supposed to prevent.
+
+**The lesson.** A guard written from one occurrence encodes that occurrence's shape. When the same
+defect recurs in a different position, do not patch the guard's regex to include the new case —
+ask what invariant the two cases share. Here it is "the literal must close at the end of its own
+statement", which is one check for every position, rather than a growing list of places a backtick
+might hide. Both plants that reproduce the two known shapes now fail the same gate.
+
+## L82 — "Remove the gradient" would have passed the test and broken the feature
+
+The scrim exists so content scrolling under the composer fades out. Deleting it makes the dark
+band disappear — every pixel measurement would go green — and would leave a hard cut where a
+soft fade belongs.
+
+So the verification needed two claims, not one: the band is gone **and** the fade still works. The
+second is not measurable by screenshotting a static page the way I tried it (the content has to sit
+exactly under a sticky seat), so I checked it arithmetically instead: the ramp is 0 → 1 over 36px
+in both versions, and only the destination colour moved. The comparison table of host-fill versus
+card-fill over a red block is what made the difference obvious in one screen.
+
+**The lesson.** When fixing a visual defect that is *produced by* a mechanism serving a purpose,
+the verification has to assert both that the symptom is gone and that the purpose still holds.
+Otherwise the cheapest passing fix is to delete the mechanism.

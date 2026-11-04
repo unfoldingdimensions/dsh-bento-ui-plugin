@@ -2041,3 +2041,68 @@ button. So it lives in the stylesheet.
 
 **The owner chose circles over the host's squircles**, knowing the host's own round controls
 (Send, attach) are squircles too. Recorded because it is a deliberate departure.
+
+---
+
+## D64 — The dark band above the composer is the host's scrim, redirected to the card tone
+
+**Decision.** The host's sticky composer-seat gradient now fades to the card tone instead of the
+host's page background. Scoped to the centre column and gated on the host's own active phase, so
+with the theme off the host's paint is untouched.
+
+**What it actually was.** Not this theme's paint, and not a shadow. Once a conversation is
+active the host applies to its composer seat:
+
+```css
+.wSkVaW_root[data-phase=active] .wSkVaW_composerSeat {
+  position: sticky; bottom: 0; z-index: 7;
+  background: linear-gradient(180deg, transparent 0px, var(--dsw-alias-bg-base) 36px);
+}
+```
+
+A scrim so content scrolling under the composer fades instead of being cut off. It fades to
+`--dsw-alias-bg-base` — the host's flat page background — which assumes that is the surface
+behind it. Measured:
+
+| theme | bg-base | our canvas | our card |
+|---|---|---|---|
+| light | `rgb(255,255,255)` | `rgb(235,238,242)` | `rgb(255,255,255)` |
+| dark | `rgb(21,21,23)` | `rgb(27,27,28)` | `rgb(44,44,46)` |
+
+In **light** bg-base equals the card, so the scrim is invisible and there is nothing to fix. In
+**dark** it is 23 units darker than the card, and measured down the strip the card ran
+`44,44,46 → 21,21,23` over 36px. That is the band, and it is why it only appears in one theme.
+
+**`transparent` is not the same colour as the card.** The rule keeps the ramp and changes only
+its destination. Writing `linear-gradient(..., transparent, var(--dsh-bento-card))` would
+reintroduce the bug in miniature: CSS interpolates toward the `transparent` keyword as
+transparent *black*, so the ramp would darken on its way to the card tone. The first stop is
+therefore `color-mix(in srgb, var(--dsh-bento-card) 0%, transparent)` — transparent, but carrying
+the card's colour — so the ramp is purely in alpha.
+
+**The fade still works.** Checked arithmetically rather than by hoping: the ramp is 0 → 1 over
+36px in both the host's version and ours, so a contrasting block under the seat is still fully
+visible at the top of the ramp and fully hidden at its bottom. Only the destination colour moved.
+Removing the gradient would have "fixed" the band by breaking the reason it exists.
+
+**Why this took several probes.** An empty conversation never enters `data-phase=active` — it
+stays in `hero` — so the gradient does not exist in a clean profile, and the first three probes
+found nothing because nothing was there. The band only renders with real content. Forcing the
+phase was the step that exposed it.
+
+## D65 — Gate 25: a backtick in CSS *content* escaped all 24 existing checks
+
+Not a feature decision, recorded because it is a guard defect.
+
+The project has a gate for backticks inside CSS **comments**, written after that bug recurred
+several times. It does not cover CSS **content**. This turn a backtick written in prose that had
+already been converted to single quotes ended up inside a declaration block, terminated the
+template literal, and **all 24 gates passed**: the bundle still parsed, because the remainder
+read as an identifier expression, and the stylesheet was silently truncated. The truncation was
+only caught because the build also reported a parse error in that same run — by luck of where the
+stray text landed.
+
+Gate 25 closes it: it locates every `*_CSS` template literal, finds the first closing backtick
+after the opening one, and requires a semicolon immediately after it. A literal that closes
+mid-statement fails. Proved on two plants — a backtick in a comment inside the literal, and one
+in a CSS declaration — and both were seen red before the gate was trusted.

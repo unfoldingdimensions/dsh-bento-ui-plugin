@@ -50,7 +50,7 @@ src/99-footer.js           translator, apply(), exports
 assets/*.woff2             Inter + JetBrains Mono, latin subset, OFL 1.1
 tools/make-fontdata.mjs    assets/*.woff2 -> src/14-fontdata.js
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 23 pre-install checks
+verify.mjs                 25 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`. If you touched
@@ -151,6 +151,13 @@ see A12 and Pass 4.
   tinted for a while and read as a blue-grey slab across 861px (D61).
 - The composer's surface claim costs nothing in layout: the hairline is an inset shadow, not
   a border, because a border would move a control the host has already sized (D14).
+- A host scrim that fades to its own page background will not match a card the theme painted
+  differently. The composer seat's sticky gradient fades to `--dsw-alias-bg-base`, which equals
+  the card in light but is 23 units darker in dark — that was the dark band above the composer
+  (D64). Redirect the destination, never delete the fade: it exists to hide scrolling content.
+- `transparent` in a gradient is transparent BLACK, not "no colour". Fading a token toward the
+  `transparent` keyword darkens on the way; mix the token with itself at 0% instead, so the ramp
+  is purely in alpha.
 - An accent is **two** host tokens, not one: the selection tint/ink read
   `--dsw-alias-state-business-primary` and the Send button reads
   `--dsw-alias-button-info-fill`. Overriding one gives a visibly half-applied accent (D63).
@@ -517,7 +524,7 @@ half now imports and exports exactly as the working themes do, and
 
 ### Regression guard
 
-`node verify.mjs` runs 23 checks before any install and exits non-zero on
+`node verify.mjs` runs 25 checks before any install and exits non-zero on
 failure. Both original failure modes were proved by planting them: a missing
 `main` is reported, and a host half that throws on import is reported cleanly
 instead of crashing the checker itself.

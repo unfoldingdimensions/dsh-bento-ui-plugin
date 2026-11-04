@@ -158,6 +158,50 @@ check('source: no backtick inside a CSS comment', () => {
   return 'none';
 });
 
+check('source: no backtick inside a CSS template literal at all', () => {
+  // The check above only looks inside /* */ comments. It misses the same bug in ordinary CSS
+  // CONTENT, and that is not hypothetical: a backtick written into a CSS comment that had
+  // already been converted to single quotes - "fading the card token to the `transparent`
+  // keyword" - sat inside a declaration block, terminated the template literal, and every gate
+  // passed. The bundle still parsed, because the remainder read as an identifier expression,
+  // and the stylesheet was silently truncated.
+  //
+  // The direct test is a brace/paren balance one on the CSS that ACTUALLY reaches the page, so
+  // the check reads the BUILT bundle rather than the sources: concatenate what each literal
+  // produced and verify every block closes. A literal cut short leaves an unterminated rule.
+  //
+  // Implementation: take each `const NAME_CSS = ...` region out of the SOURCE and require that
+  // the region between the opening backtick and the first following backtick is followed by a
+  // semicolon - i.e. the opening quote closed on the assignment, not somewhere in the middle.
+  const offenders = [];
+  for (const name of readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort()) {
+    const text = readFileSync(join(root, 'src', name), 'utf8');
+    const openRe = /(?:const|let|var)\s+\w*_CSS\s*=\s*`/g;
+    for (const open of text.matchAll(openRe)) {
+      const startLine = text.slice(0, open.index).split('\n').length;
+      const bodyStart = open.index + open[0].length;
+      const close = text.indexOf('`', bodyStart);
+      if (close === -1) {
+        offenders.push(`${name}:${startLine}: literal never closes`);
+        continue;
+      }
+      // the character(s) right after the closing backtick must be the statement end
+      const tail = text.slice(close + 1, close + 3);
+      if (!/^\s*;/.test(tail)) {
+        offenders.push(`${name}:${startLine}: closes mid-statement, before ${JSON.stringify(text.slice(close + 1, close + 40).trim().slice(0, 30))}`);
+      }
+    }
+  }
+  if (offenders.length > 0) {
+    throw new Error(
+      'a CSS template literal is terminated early by a stray backtick —\n    ' +
+        offenders.join('\n    ') +
+        '\n    Use quotes inside CSS comments and content; a backtick closes the literal.',
+    );
+  }
+  return 'every CSS literal closes on its own statement';
+});
+
 check('source: every fragment compiles on its own', () => {
   // The strongest available check on the backtick hazard, and the one the earlier
   // checks could not give: parse each fragment AS SOURCE instead of reasoning about
