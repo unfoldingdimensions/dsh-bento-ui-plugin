@@ -1492,3 +1492,79 @@ defect in the CSS; all three were defects in the assertions, and each was a diff
 predicting the number. The third failure was solvable on sight (`129.61 × 16/12 = 172.81`)
 because a *ratio* appeared where a match was expected. A failure that is a clean ratio is
 almost always a unit or a size, not behaviour.
+
+## L72 — Two false test failures, and both were the harness assuming state it never set
+
+The full regression went from all-pass to `p2-regression: FAIL (4)` — canvas tone, centre
+card, sidebar card and settings card all "changed". Nothing in the product had changed. The
+suite was measuring the wrong theme.
+
+`p2-regression` has a `light` and a `dark` pass. The dark pass did this:
+
+```js
+if (mode === 'dark') document.body.setAttribute('data-ds-dark-theme', '');
+```
+
+It only ever ADDS the dark attribute. The light pass never removes it. And appearance is
+persisted **in the profile, server-side**, not in `localStorage`, so a new browser context
+inherits whatever mode the previous test left behind. Run first: PASS. Run after any test
+that ends dark: FAIL (4), every failure a light-mode colour compared against a dark one.
+
+`font-chips-verify` failed the same way and for the same reason, with a different symptom:
+it pinned Send's accent to the light literal `rgb(65, 118, 230)`, and dark uses
+`rgb(122, 170, 255)`.
+
+**Two fixes, and they are different kinds.** For `p2-regression`, force the mode instead of
+inferring it — then *verify it took* by reading the body tone, and push a harness error if it
+did not. For `font-chips-verify`, assert the property instead of the number: Send must keep
+a *saturated accent fill*, which is true of both theme accents and false of greyscale.
+
+**The lesson.** A test that reads persistent global state must SET that state and then
+confirm it, or its result depends on run order. The failure mode is especially bad here
+because it is order-dependent: the suite passes in isolation, so the first thing you check is
+"what did I just change", which is the wrong suspect. Two of my own probes had the same hole
+— a "light" screenshot pass that was actually dark, which I only caught by rendering the
+pixels instead of trusting the label.
+
+## L73 — A gate with two bugs, found by the gate firing on a legitimate rule
+
+Gate 18 ("no position on a host-owned element") refused the new Settings-nav card. The
+refusal was correct — the `position: relative` I had added was unnecessary, and removing it
+was the right fix. But investigating produced two defects in the gate itself:
+
+1. **A dead exclusion.** The regex carried `(?!nav)` to permit `> nav`, and it could never
+   fire: `\s*` matches zero characters, so on `" > nav"` the lookahead is evaluated before the
+   space and reads `" nav"`. Proving it took one line — `/ >\s*(?!nav)/` matches `">"` with the
+   lookahead seeing `" "`. It had never excluded anything since it was written.
+2. **A tracker that never closed.** The rule scanner reset `current` only on a *bare* `}`,
+   but every fragment ends as `});` from `FEATURES.push(...)`. So the last selector stayed
+   live for the rest of the file, and a `position:` declaration appended at the end was
+   attributed to `FEATURES.push({` — which the host-owned pattern does not match. A planted
+   violation passed. The proof that found this was planting one and watching it survive; a
+   green run would never have shown it.
+
+**The lesson.** "The gate went red on my change" and "the gate is correct" are independent
+claims. Here the gate was right about the change AND wrong about itself, and only pulling the
+thread found both. Every gate needs its own planted-violation proof, and needs it again after
+it is edited — an exemption added for a good reason can quietly widen to cover a bad one.
+
+## L74 — Two measurement bugs of my own, both of the same species
+
+While verifying the composer's surface, two assertions failed and both were the *measuring
+code*, not the thing measured:
+
+1. **Counting shadow layers by splitting on `"),"`.** The theme's ink resolves to
+   `color(srgb ...)`, whose commas are inside parentheses, so the split found one layer where
+   there were three and reported "no soft shadow" for a shadow that was visibly painted.
+   Layers are comma-separated at top-level only; splitting needs paren depth, not string
+   matches.
+2. **Comparing a colour against the pseudo-element of a dialog that was open.** The card tone
+   was read from the centre column's `::after` while the Settings dialog covered the screen;
+   it returned `rgba(0, 0, 0, 0)` and the comparison failed against a real colour. The token
+   was the correct source all along.
+
+**The lesson.** Both bugs produced a *plausible* failure — a missing shadow, a tone mismatch —
+so both looked like product defects. What separated them from real defects was checking the
+number prediction: the shadow string visibly contained two `0px 8px 24px` terms, and the
+composer's computed fill was byte-identical to the card's. When the evidence contradicts the
+assertion, suspect the assertion.

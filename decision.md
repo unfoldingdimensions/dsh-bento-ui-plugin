@@ -1799,3 +1799,93 @@ label's 500) rather than by washing the ink out.
 - **No webfont for the host's own UI.** `--dsw-font-family-brand` keeps Montserrat: a theme
   plugin re-fonting the product wordmark is the scope violation D58 was right about.
 - **No size change to any control.** Touch targets stay exactly as the host set them.
+---
+
+## D60 — The Settings navigation gets a card, and it is the same element as the content card
+
+**Decision.** Settings is a two-region dialog: a navigation column and a content column.
+The content column has been a raised card since the Settings board shipped; the
+navigation column was left bare on the canvas. It now has a card too, and the two are
+the same element in the same composition — same inset, same radius, same tone, same
+top and bottom edges.
+
+**This reverses an earlier note, and the earlier note was the wrong argument.** It said
+"a list of destinations is not a unit of content, and one surface per region is what keeps
+the composition from reading as boxes inside boxes". The second clause is a real principle
+and it is still held: there is no nesting here, the two cards are siblings on one canvas.
+The first clause is what fails. The main page's sidebar is a list of destinations and it is
+carded; the Settings sidebar is the same kind of object, and carding one of the two makes
+the other read as leftover background rather than as a peer.
+
+**Geometry is copied from the sidebar, then adjusted by measurement.** Measured on the main
+page: card inset 12px from the column edge, radius 20px, 1px edge. The Settings panel is
+28px, so the nested tier applies: inset 12px, radius 16px — the same values the content
+card already uses. Measured after: top delta 0, bottom delta 0, 24px between the cards.
+
+**The nav padding is 14px, and that number is forced.** The column is 188px, so the card is
+164px, and each px of padding narrows every button by 2px. Measured against this machine's
+**actual 13 Settings tabs** — not the 6 the test profile has, which made the first two
+attempts look safe:
+
+| nav padding | button | px inside card | truncates |
+|---|---|---|---|
+| 12 (host) | 164 | 0 | Archived sessions |
+| **14** | **160** | **2** | Archived sessions *(already, at the host's own padding)* |
+| 16 | 156 | 4 | + Usage Statistics |
+
+"Archived sessions" needs 120px of text and has 112px even before this change, so it is the
+host's existing overflow and not this theme's. 14 is the widest card margin that does not
+cost a second label. The 2px reads as sufficient because the card's border plus the
+button's own 16px radius separate the fill from the edge.
+
+**No `position` is declared.** The card needs a positioned ancestor and the host already
+supplies one: measured with the theme off, the nav is `position: relative`, `flex: 0 0 auto`,
+188x800. Declaring it ourselves was the first attempt and it changed nothing (every button
+stayed 160x40 at the same y) — and gate 18 correctly flagged it as a needless claim on a
+host-owned box. Only `z-index: 0` is added, which is what the `z-index: -1` pseudo needs.
+
+### The gate that caught it had two bugs of its own
+
+Gate 18 refused the first version, and the refusal was right — but investigating it turned
+up two defects in the gate that had been hiding violations:
+
+1. **Its `(?!nav)` exclusion could never fire.** `\s*` can match zero characters, so on
+   `" > nav"` the lookahead runs *before* the space and tests `" nav"` — never `"nav"`.
+   Proven directly: `/ >\s*(?!nav)/` matches `">"` and the lookahead sees `" "`. The
+   exclusion was also the wrong shape; `> div` is exactly as host-owned as `> nav`.
+2. **Its rule tracker never closed at end of file.** It reset only on a *bare* `}`, but
+   every fragment ends its last CSS block as `});` (the `FEATURES.push` call). So `current`
+   stayed on the previous selector, a `position:` declaration added after it was attributed
+   to `FEATURES.push({`, and a real violation passed silently. Found by planting one and
+   watching it survive.
+
+Both are fixed, and the check now has an explicit, narrow exemption for **our own
+`::before`/`::after`** — a pseudo we create has no host-solved box to collapse, which is the
+card mechanism's whole premise. Four proofs now pin the repaired behaviour: a position on the
+host nav fails, on our own pseudo passes, on a class-fragment element fails, and a clean tree
+passes.
+
+## D61 — The composer is raised, not recessed
+
+**Decision.** The composer's surface is the card tone plus the hairline plus the theme's
+soft shadow. It is no longer painted with the canvas tint.
+
+**What was wrong.** It was `--dsh-bento-canvas` (#ebeef2) with an inset hairline, described
+as "a panel recessed into the card". Measured, that tone is **1.16:1** against the card — a
+real but very slight step, and across an 861px-wide surface it reads as a blue-grey slab laid
+over the conversation rather than as a control. The owner's report was correct.
+
+**What the reference actually says, and what it does not.** The reference corpus is a
+dashboard and contains **no composer**, so it does not specify this control. What it specifies
+is the relationship between its surfaces: `--surface` is `#FFFFFF` everywhere, separation
+comes from `--border` (#E3E7EE) plus a shadow, and `--panel` (#F3F6FC) is the calm tone used
+*behind* a card. Applying that relationship puts a control that sits *on* a card in the
+raised family, not the recessed one. Saying "the design says the composer is white" would be
+overclaiming; this is the design's rule applied to a control the design does not contain.
+
+**The shadow is the existing token**, so it follows the theme ink and is visible in dark mode
+(matched 2 outer layers in both themes, measured). It stays an **inset** hairline rather than
+a border, because a border adds 2px to a control the host has already sized (D14).
+
+**Answered, for the owner's second question:** no, the design does not call for a blue text
+box. The blue was this theme's own canvas token, not the design's, and it is now gone.

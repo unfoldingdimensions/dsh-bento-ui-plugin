@@ -764,11 +764,12 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > butto
  *
  * TWO THINGS ARE DIFFERENT FROM THE SIDEBAR.
  *
- * 1. The composer needs a tone of its own. Once the conversation sits on a white
- *    card, the composer - which the host also paints white - becomes invisible
- *    against it (measured contrast 1.0). It takes the canvas tone, so it reads as
- *    a panel recessed into the card. That is the reference design's nested-panel
- *    move: card, then a tonal panel inside it.
+ * 1. The composer needs a surface of its own. Once the conversation sits on a white
+ *    card, the composer - which the host also paints white - has no edge at all
+ *    (measured contrast 1.0). It is now white with a hairline and the theme's soft
+ *    shadow: a raised control on the card, not a recessed panel. That reverses an
+ *    earlier decision that tinted it with the canvas, which read as a blue-grey slab
+ *    on a wide surface (D61).
  *
  * 2. The composer's edge is an inset shadow, not a border. A border would add 2px
  *    to a control the host has already sized, and this project has broken a
@@ -836,14 +837,35 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-slot="main"] [data-slot
   box-sizing: border-box;
 }
 
-/* The composer, recessed. It sits on a card of the same tone the host paints it,
-   so without this it is invisible. The canvas tone is one step below the card in
-   both themes (measured 1.164 light, 1.453 dark). */
+/* The composer, RAISED rather than recessed (D61).
+ *
+ * The previous version painted it the canvas tone (#ebeef2) and called it a panel
+ * recessed into the card. Measured, that tone is 1.16:1 against the card - a real but
+ * very slight step, and on a 861px-wide surface it reads as a blue-grey slab laid over
+ * the conversation rather than as a control. The owner's report was the right one.
+ *
+ * It is now the same white as the card, edged with the hairline, and lifted with the
+ * theme's own soft shadow. That is what the reference actually does with its raised
+ * surfaces: --surface is #FFFFFF everywhere and separation comes from the border
+ * (#E3E7EE) and the shadow, with --panel (#F3F6FC) reserved for the CALM surfaces
+ * behind a card, not for a control sitting on one.
+ *
+ * NOTE ON PROVENANCE: the reference is a dashboard and contains no composer, so it does
+ * not specify this control. What it does specify is the relationship, and that is what is
+ * applied here - raised surface = white + hairline + shadow, recessed surface = tint.
+ * Calling this "what the design says" would be overclaiming; it is the design's rule
+ * applied to a control the design does not contain.
+ *
+ * The shadow is the token card-shadow already uses, so it follows the theme ink and is
+ * visible in dark mode; off means the composer still gets the hairline, which is what
+ * carries the edge at that point.
+ *
+ * Still an inset shadow, never a border: a border would add 2px to a control the host has
+ * already sized, and this project has broken a host-sized control once by nudging its box
+ * (D14). */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-composer-card] {
-  background: var(--dsh-bento-canvas);
-  /* Hairline as an inset shadow, never as a border: the host solved this
-     control's box and a border would move it by 2px. */
-  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge);
+  background: var(--dsh-bento-card);
+  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge), var(--dsh-bento-shadow);
 }
 `;
 
@@ -1160,11 +1182,60 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] {
   background: var(--dsh-bento-canvas);
 }
 
-/* Navigation sits directly on the canvas rather than in a card of its own: a list
-   of destinations is not a unit of content, and one surface per region is what
-   keeps the composition from reading as boxes inside boxes. */
+/* Navigation sits on its own card, inside the same enclosing element as the content
+   card (D60).
+   
+   This was bare on the canvas, and the reason it was bare was wrong. The earlier note
+   said "a list of destinations is not a unit of content", which justified one surface
+   per region. The owner's report is the better reading: the Settings panel is a
+   two-region dialog, and carding only one of the two makes the navigation read as
+   left-over background rather than as a peer. The main page's sidebar is carded; the
+   Settings sidebar is the same kind of object and now matches it.
+   
+   GEOMETRY IS COPIED, NOT INVENTED. Measured on the main page sidebar: card inset 12px
+   from the column edge, radius 20px, 1px edge. The Settings panel's content card already
+   uses the same inset at the nested radius (16px, because the panel is 28px). The nav
+   card uses the same inset and the same nested radius, so the two cards in the dialog are
+   siblings: measured top delta 0, bottom delta 0, and 24px between them.
+   
+   PAINTED ON ::before, z-index -1, exactly like the content card: the column keeps the
+   box the host solved, so no control moves and no scrollbar appears.
+   
+   NO "position" HERE, DELIBERATELY. The card needs a positioned ancestor; the host
+   already supplies one. Measured with the theme off: the nav is "position: relative"
+   and "flex: 0 0 auto", so its 800px height comes from flex, not from anchoring.
+   Declaring it ourselves was the first attempt: it changed nothing (nav stayed 188x800
+   and every button stayed 160x40 at the same y), and gate 18 correctly flagged it as a
+   needless claim on a host-owned element. The z-index below is what the -1 pseudo
+   needs; the position comes from the host. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav {
-  padding-inline: var(--dsh-bento-gutter);
+  z-index: 0;
+  /* 14px, not 12px. The card is inset 12px, so a 12px padding would leave the buttons
+     flush with the card edge and the fill would touch the border. Each extra px of
+     padding narrows the button by 2px, and the nav column is only 188px wide with real
+     labels as long as "Archived sessions" (120px of text in a 112px box - it already
+     truncates at the host's own padding).
+     
+     MEASURED, against this machine's ACTUAL 13 Settings tabs rather than the 6 the test
+     profile has:
+       pad 12 -> button 164px, 0px inside the card,  truncates "Archived sessions"
+       pad 14 -> button 160px, 2px inside the card,  truncates "Archived sessions"
+       pad 16 -> button 156px, 4px inside the card,  ALSO truncates "Usage Statistics"
+     So 14 is the widest card margin that does not cost a second label. The 2px is enough
+     because the card's own 1px border plus the button's 16px radius already separate the
+     fill from the edge. */
+  padding-inline: 14px;
+}
+
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: var(--dsh-bento-gutter);
+  border-radius: var(--dsh-bento-radius-nested);
+  background: var(--dsh-bento-card);
+  border: 1px solid var(--dsh-bento-edge);
+  pointer-events: none;
 }
 
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button {

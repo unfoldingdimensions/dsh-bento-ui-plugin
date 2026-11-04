@@ -137,6 +137,15 @@ see A12 and Pass 4.
   31 that look like they own a family each. Those 31 are derived; measured, one token
   moves 62 of them (D59). The host's full fallback chain is reproduced after the new
   faces, because the subsets are latin-only and CJK must keep its platform face.
+- Two surfaces of the same kind get the same treatment. The Settings navigation is a list
+  of destinations exactly as the main page's sidebar is, so both are cards, inset and
+  rounded the same way, sitting on the same canvas (D60). A rule that cards one and leaves
+  the other bare is not a composition, it is an oversight.
+- A control that sits ON a card is raised, not recessed. Raised means white + hairline +
+  shadow; the tinted "panel" tone belongs to the canvas a card sits on. The composer was
+  tinted for a while and read as a blue-grey slab across 861px (D61).
+- The composer's surface claim costs nothing in layout: the hairline is an inset shadow, not
+  a border, because a border would move a control the host has already sized (D14).
 - A generated file is checked against its source, never trusted. `src/14-fontdata.js`
   must decode to the same bytes as `assets/*.woff2` and carry a `wOF2` header, or the
   build fails (gate 20).
@@ -171,10 +180,10 @@ Eleven features ship:
 |---|---|---|---|
 | `sidebar-card` | Sidebar card | on | insets the sidebar column onto its own rounded card |
 | `row-tiles` | Sidebar tiles | on | rounds sidebar rows (sessions and nav destinations), adds spacing, a hover edge and the accent edge on keyboard focus |
-| `center-card` | Conversation card | on | insets the conversation column onto its own card and recesses the composer into it |
+| `center-card` | Conversation card | on | insets the conversation column onto its own card and raises the composer onto it as a white, edged, softly shadowed surface |
 | `page-rows` | Page rows | on | gives the rows of full pages mounted in that column (Plugins, MCP) the same tile treatment |
 | `rightbar-card` | Right panel card | on | insets the docked right panel onto its own card |
-| `settings-bento` | Settings board | on | lays the Settings dialog out as a bento board: navigation on the canvas, content on one raised card, row rules removed |
+| `settings-bento` | Settings board | on | lays the Settings dialog out as two sibling cards on one canvas — navigation and content — with the row rules removed |
 | `card-shadow` | Card shadow | **off** | lifts the four card surfaces with a soft two-layer shadow; off keeps the flat board |
 | `card-corners` | Card corners | on | clips scrolling content to the card's rounded corners, so the bottom edge stays curved once a conversation fills it |
 | `composer-spacing` | Composer spacing | on | gives the composer and its statistics strip one spacing scale, so the numbers group instead of crowding |

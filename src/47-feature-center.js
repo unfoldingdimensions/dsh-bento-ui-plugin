@@ -13,11 +13,12 @@
  *
  * TWO THINGS ARE DIFFERENT FROM THE SIDEBAR.
  *
- * 1. The composer needs a tone of its own. Once the conversation sits on a white
- *    card, the composer - which the host also paints white - becomes invisible
- *    against it (measured contrast 1.0). It takes the canvas tone, so it reads as
- *    a panel recessed into the card. That is the reference design's nested-panel
- *    move: card, then a tonal panel inside it.
+ * 1. The composer needs a surface of its own. Once the conversation sits on a white
+ *    card, the composer - which the host also paints white - has no edge at all
+ *    (measured contrast 1.0). It is now white with a hairline and the theme's soft
+ *    shadow: a raised control on the card, not a recessed panel. That reverses an
+ *    earlier decision that tinted it with the canvas, which read as a blue-grey slab
+ *    on a wide surface (D61).
  *
  * 2. The composer's edge is an inset shadow, not a border. A border would add 2px
  *    to a control the host has already sized, and this project has broken a
@@ -85,14 +86,35 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-slot="main"] [data-slot
   box-sizing: border-box;
 }
 
-/* The composer, recessed. It sits on a card of the same tone the host paints it,
-   so without this it is invisible. The canvas tone is one step below the card in
-   both themes (measured 1.164 light, 1.453 dark). */
+/* The composer, RAISED rather than recessed (D61).
+ *
+ * The previous version painted it the canvas tone (#ebeef2) and called it a panel
+ * recessed into the card. Measured, that tone is 1.16:1 against the card - a real but
+ * very slight step, and on a 861px-wide surface it reads as a blue-grey slab laid over
+ * the conversation rather than as a control. The owner's report was the right one.
+ *
+ * It is now the same white as the card, edged with the hairline, and lifted with the
+ * theme's own soft shadow. That is what the reference actually does with its raised
+ * surfaces: --surface is #FFFFFF everywhere and separation comes from the border
+ * (#E3E7EE) and the shadow, with --panel (#F3F6FC) reserved for the CALM surfaces
+ * behind a card, not for a control sitting on one.
+ *
+ * NOTE ON PROVENANCE: the reference is a dashboard and contains no composer, so it does
+ * not specify this control. What it does specify is the relationship, and that is what is
+ * applied here - raised surface = white + hairline + shadow, recessed surface = tint.
+ * Calling this "what the design says" would be overclaiming; it is the design's rule
+ * applied to a control the design does not contain.
+ *
+ * The shadow is the token card-shadow already uses, so it follows the theme ink and is
+ * visible in dark mode; off means the composer still gets the hairline, which is what
+ * carries the edge at that point.
+ *
+ * Still an inset shadow, never a border: a border would add 2px to a control the host has
+ * already sized, and this project has broken a host-sized control once by nudging its box
+ * (D14). */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-composer-card] {
-  background: var(--dsh-bento-canvas);
-  /* Hairline as an inset shadow, never as a border: the host solved this
-     control's box and a border would move it by 2px. */
-  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge);
+  background: var(--dsh-bento-card);
+  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge), var(--dsh-bento-shadow);
 }
 `;
 

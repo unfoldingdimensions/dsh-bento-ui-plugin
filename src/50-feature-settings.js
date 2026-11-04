@@ -37,11 +37,60 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] {
   background: var(--dsh-bento-canvas);
 }
 
-/* Navigation sits directly on the canvas rather than in a card of its own: a list
-   of destinations is not a unit of content, and one surface per region is what
-   keeps the composition from reading as boxes inside boxes. */
+/* Navigation sits on its own card, inside the same enclosing element as the content
+   card (D60).
+   
+   This was bare on the canvas, and the reason it was bare was wrong. The earlier note
+   said "a list of destinations is not a unit of content", which justified one surface
+   per region. The owner's report is the better reading: the Settings panel is a
+   two-region dialog, and carding only one of the two makes the navigation read as
+   left-over background rather than as a peer. The main page's sidebar is carded; the
+   Settings sidebar is the same kind of object and now matches it.
+   
+   GEOMETRY IS COPIED, NOT INVENTED. Measured on the main page sidebar: card inset 12px
+   from the column edge, radius 20px, 1px edge. The Settings panel's content card already
+   uses the same inset at the nested radius (16px, because the panel is 28px). The nav
+   card uses the same inset and the same nested radius, so the two cards in the dialog are
+   siblings: measured top delta 0, bottom delta 0, and 24px between them.
+   
+   PAINTED ON ::before, z-index -1, exactly like the content card: the column keeps the
+   box the host solved, so no control moves and no scrollbar appears.
+   
+   NO "position" HERE, DELIBERATELY. The card needs a positioned ancestor; the host
+   already supplies one. Measured with the theme off: the nav is "position: relative"
+   and "flex: 0 0 auto", so its 800px height comes from flex, not from anchoring.
+   Declaring it ourselves was the first attempt: it changed nothing (nav stayed 188x800
+   and every button stayed 160x40 at the same y), and gate 18 correctly flagged it as a
+   needless claim on a host-owned element. The z-index below is what the -1 pseudo
+   needs; the position comes from the host. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav {
-  padding-inline: var(--dsh-bento-gutter);
+  z-index: 0;
+  /* 14px, not 12px. The card is inset 12px, so a 12px padding would leave the buttons
+     flush with the card edge and the fill would touch the border. Each extra px of
+     padding narrows the button by 2px, and the nav column is only 188px wide with real
+     labels as long as "Archived sessions" (120px of text in a 112px box - it already
+     truncates at the host's own padding).
+     
+     MEASURED, against this machine's ACTUAL 13 Settings tabs rather than the 6 the test
+     profile has:
+       pad 12 -> button 164px, 0px inside the card,  truncates "Archived sessions"
+       pad 14 -> button 160px, 2px inside the card,  truncates "Archived sessions"
+       pad 16 -> button 156px, 4px inside the card,  ALSO truncates "Usage Statistics"
+     So 14 is the widest card margin that does not cost a second label. The 2px is enough
+     because the card's own 1px border plus the button's 16px radius already separate the
+     fill from the edge. */
+  padding-inline: 14px;
+}
+
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: var(--dsh-bento-gutter);
+  border-radius: var(--dsh-bento-radius-nested);
+  background: var(--dsh-bento-card);
+  border: 1px solid var(--dsh-bento-edge);
+  pointer-events: none;
 }
 
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button {

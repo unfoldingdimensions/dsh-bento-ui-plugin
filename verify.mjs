@@ -290,9 +290,19 @@ check('source: no position on a HOST descendant (layout contract)', () => {
   // settings-modal child, or a host class fragment. Reaching into our own column's
   // children (`[part="center"] > * > *`) is still ours: the kernel stamped that column,
   // and its children are the host's CONTENT, which we are allowed to lift.
-  const HOST_OWNED = /\[data-slot\]\s*>|\[data-shortcut-modal[^\]]*\]\s*>\s*(?!nav)|\[class\*="/;
+  //
+  // THE (?!nav) EXCLUSION WAS DEAD CODE, and it was found by the gate firing on a nav rule
+  // that was legitimate. `\s*` is greedy but can match ZERO characters, so on the string
+  // " > nav" the engine takes no spaces and runs the lookahead at offset 0 — where the next
+  // character is a space, not "nav", so the exclusion never applies. Demonstrated directly:
+  // / >\s*(?!nav)/ matches ">" at index 0 of " > nav " and its lookahead sees " ".
+  //
+  // The exclusion is gone rather than repaired with a lookahead that skips whitespace,
+  // because excluding one tag name was the wrong shape anyway: `> div` is exactly as
+  // host-owned as `> nav`. What is genuinely safe is narrower, and is stated below.
+  const HOST_OWNED = /\[data-slot\]\s*>|\[data-shortcut-modal[^\]]*\]\s*>|\[class\*="/;
 
-  // VERIFIED SAFE EXEMPTION. The Settings content column is `position: static` in the
+  // VERIFIED SAFE EXEMPTION 1. The Settings content column is `position: static` in the
   // host (measured with the theme off), so `position: relative` on it does not detach
   // anything — it only makes the column the containing block for the card painted on
   // its ::before. Measured both states: content 612x800, fills the panel, the real
@@ -300,11 +310,38 @@ check('source: no position on a HOST descendant (layout contract)', () => {
   // silently, so the next reader knows it was checked.
   const SAFE = /\[data-shortcut-modal="settings"\] > div:has\(\[data-slot="settings\.section"\]\)/;
 
+  // VERIFIED SAFE EXEMPTION 2: OUR OWN PSEUDO-ELEMENTS.
+  //
+  // The card technique paints on a ::before/::after that we create. Declaring
+  // `position: absolute` on it is the whole mechanism — the pseudo has no box of its own
+  // until we give it one, so there is no host-solved size to collapse. The host-owned
+  // element underneath is untouched; the rule selects a box that does not exist without
+  // this declaration.
+  //
+  // This is not a hole in the rule: it is the rule's actual boundary. "Never declare
+  // position on a host element" means the host's own boxes, and a pseudo-element of ours
+  // is not one. The card technique has always depended on this (sidebar ::after, center
+  // ::after, rightbar ::after), and the check only missed it because those selectors
+  // reach through `[data-dsh-bento-part]`, which HOST_OWNED does not match.
+  const OUR_PSEUDO = /::(before|after)\s*\{?\s*$/;
+
+  // Each exemption must also stay narrow: SAFE is one exact selector, and OUR_PSEUDO
+  // requires the position declaration to be inside a ::before/::after rule, so it cannot
+  // excuse a position on the host element itself.
+
   for (const name of readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort()) {
     const lines = readFileSync(join(root, 'src', name), 'utf8').split('\n');
-    // Track the rule properly: open on a line ending with `{`, close on a bare `}`.
-    // The first version never reset, so every later declaration inherited the first
-    // selector and six legitimate declarations were flagged on a clean tree.
+    // Track the rule properly: open on a line ending with `{`, close on `}`.
+    //
+    // THE CLOSE CONDITION BIT TWICE, and the second time was worse. First it never reset at
+    // all, so six legitimate declarations were flagged. The fix then matched only a BARE
+    // `}` — but the last CSS block in every fragment ends its file as `});` (the
+    // FEATURES.push call), which is not bare, so `depth` never returned to 0 and `current`
+    // stayed on the previous selector. A `position:` declaration added after the closing
+    // rule was therefore attributed to `FEATURES.push({`, which HOST_OWNED does not match,
+    // and a real violation passed silently. Found by planting one and watching it survive.
+    //
+    // The counter now tracks nesting depth so a `}` on any line closes the innermost rule.
     let current = null;
     let depth = 0;
     for (let i = 0; i < lines.length; i++) {
@@ -317,10 +354,14 @@ check('source: no position on a HOST descendant (layout contract)', () => {
         continue;
       }
       if (depth > 0) {
-        if (trimmed === '}') { depth = 0; current = null; continue; }
+        // A closing brace on any line ends the innermost rule. Testing only for a bare
+        // `}` is what let the final `});` of a fragment keep the previous selector live.
+        if (/\}/.test(trimmed)) { depth = 0; current = null; continue; }
         if (!/^position:\s*(relative|absolute|fixed);/.test(trimmed)) continue;
         if (!current) continue;
         if (SAFE.test(current)) continue;
+        // A pseudo-element we create has no host-solved box to collapse.
+        if (OUR_PSEUDO.test(current)) continue;
         if (!HOST_OWNED.test(current)) continue;
         offenders.push(`${name}:${i + 1}: ${trimmed}  [${current.slice(0, 70)}]`);
       }
