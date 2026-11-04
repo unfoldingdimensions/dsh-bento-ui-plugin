@@ -1812,3 +1812,52 @@ measured âˆ’1px and the width mismatch was the only real problem left.
 **The lesson.** A simulated DOM node is only as good as its position. Mount it where the real one
 lives â€” same parent, same sibling order â€” or the layout you measure is the layout you invented.
 Three of the candidate screenshots in this task were discarded for exactly this reason.
+## L89 — Two selectors that disagree make both of them worthless
+
+Two of my own probes reported the text inset as 16 and as 28 for the same element on the same build.
+Neither number could be trusted until the disagreement was explained, and the explanation was
+arithmetic, not CSS: one probe measured from the card's left edge (`content.x + inset`) and the other
+from the column's left edge (`content.x`). The gap between those two origins IS the card inset, so
+they differed by exactly 12.
+
+The fix was to print both origin candidates and both leaves in one dump, so the discrepancy has to
+appear as a number — `insetFromCard` and `insetFromColumn` side by side — instead of as a
+contradiction between two runs. Once both are in one row, the arithmetic is obvious and the probe is
+trustworthy again.
+
+A second instance of the same failure in the same task: a sweep reported the header rule matching 2
+elements when it matched 1. The probe counted descendants (`[class*="header"]`) while the stylesheet
+used a direct-child combinator. **A verification must measure the selector the code actually uses**,
+not a broader one that looks equivalent — otherwise it reports a leak that does not exist, and the
+next fix is made against a defect the probe invented.
+
+**The lesson.** When two measurements disagree, do not pick the one that fits the narrative. Put both
+origins in one output and let the difference show itself. And when checking a selector, reproduce its
+exact combinators; a descendant search standing in for a child selector will find neighbouring
+elements and call them leaks.
+
+## L90 — A "cramped" report can be horizontal while you keep measuring vertical
+
+The report was "the spacing feels kind of congested". My first instinct was the vertical rhythm: row
+heights, text-to-text gaps, padding-block. All of it measured fine — 16px block padding on a 4px
+rhythm, 32-39px between a description and the next label — and none of it was the problem.
+
+The actual defect was one number doing two jobs. Because the row rule used the gutter for both the
+fill bleed and the text inset, the text sat 12px inside a card whose corner radius is 16px: every
+label started inside the arc. That is horizontal, structural, and invisible to any measurement of
+vertical rhythm.
+
+**The lesson.** When someone says "spacing", read every edge before choosing an axis. The check that
+found it was comparing the text's left edge against the CARD radius — a comparison across two
+different properties that nobody had thought to make, because each property was individually correct.
+
+## L91 — Verify a spacing change against the un-themed host before blaming the theme
+
+Raising the cell inset to 16px made the Appearance control wrap at 826px, and my verify suite flagged
+it as a failure of the change. It was not: the un-themed host row is 542px against 556px needed at that
+width, so "System" wraps with no theme loaded at all.
+
+The lesson generalises to every layout change. A regression check that runs only against the modified
+build cannot tell "my change caused this" from "this was already true". The three-way probe — theme
+off, theme before the change, theme after — costs one extra browser context and converts a suspicion
+into a fact. Without it, the honest options are to revert a correct fix or to ship an unverified one.

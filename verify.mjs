@@ -686,6 +686,64 @@ check('fonts: the override reaches the token chain, not just one property', () =
   return 'UI family and code family are both redirected';
 });
 
+check('spacing: the cell inset separates from the gutter and clears the card radius', () => {
+  // The measured defect this pins (D68): the settings row rule used the GUTTER for both jobs —
+  // `margin-inline: -gutter` (how far the hover fill bleeds) and `padding-inline: gutter` (where
+  // the text starts). With one number doing both, the text sat 12px inside a card whose corner
+  // radius is 16px, so the first glyph of every label began INSIDE the arc. That is invisible to
+  // the two gates that already exist: the colour gate sees a token, the position gate sees no
+  // `position`, and both are satisfied by the broken rule.
+  //
+  // Three invariants, each of which a future "tidy-up" could break silently:
+  //   1. the row's padding-inline resolves through the cell inset, not the gutter
+  //   2. the cell inset is >= the nested radius (content clears the arc)
+  //   3. the fill still bleeds to the card edge (margin stays on the gutter)
+  const tokens = readFileSync(join(root, 'src', '15-tokens.js'), 'utf8');
+  const settings = readFileSync(join(root, 'src', '50-feature-settings.js'), 'utf8');
+
+  const insetMatch = /--dsh-bento-cell-inset:\s*(\d+)px/.exec(tokens);
+  if (!insetMatch) throw new Error('--dsh-bento-cell-inset is not declared (the inset is back to sharing the gutter)');
+  const cellInset = Number(insetMatch[1]);
+  const nested = Number((/--dsh-bento-radius-nested:\s*(\d+)px/.exec(tokens) || [])[1]);
+  if (!Number.isFinite(nested)) throw new Error('--dsh-bento-radius-nested is not declared');
+  if (cellInset < nested) {
+    throw new Error(
+      `cell inset ${cellInset}px is below the nested radius ${nested}px, so content starts inside the corner arc`,
+    );
+  }
+
+  // The settings row rule must use the inset for padding and the gutter for margin. Searching the
+  // whole rule body rather than one line, because a formatter could reorder the declarations.
+  //
+  // THE SOURCE IS NORMALISED FIRST. These selectors are built as JS template literals, so the
+  // literal text contains `${ROOT_ATTR}` and `${ROW_ATTR}` — and the `{` inside an interpolation
+  // is indistinguishable from a rule's opening brace to a naive regex. The first version of this
+  // check matched `${ROOT_ATTR}` as the block opener, captured "ROOT_ATTR}" as the body, and FAILED
+  // ON CORRECT CODE. Collapsing every interpolation to a placeholder first makes the brace
+  // structure of the CSS the only braces the regex can see.
+  const flat = settings.replace(/\$\{[^}]*\}/g, 'X');
+  const rowRule = /\[data-slot="settings\.general\.item"\] > \*:has\(\*\),[\s\S]{0,400}?\{([\s\S]*?)\n\}/.exec(flat);
+  if (!rowRule) throw new Error('the settings row rule could not be located, so this contract is unverified');
+  const body = rowRule[1];
+  if (!/padding-inline:\s*var\(--dsh-bento-cell-inset\)/.test(body)) {
+    throw new Error('the row padding-inline does not resolve through the cell inset');
+  }
+  if (!/margin-inline:\s*calc\(-1 \* var\(--dsh-bento-gutter\)\)/.test(body)) {
+    throw new Error('the row margin-inline no longer bleeds the fill to the card edge');
+  }
+
+  // The header strip must be compensated for the card inset, and scoped to a direct child —
+  // a descendant match also hit a plugin card's inner "headerEnd" on another tab (D68).
+  if (!/> \[class\*="header"\]/.test(settings)) {
+    throw new Error('the header rule is not scoped to a direct child, so it can pad a plugin card header');
+  }
+  if (!/padding:\s*calc\(var\(--dsh-bento-gutter\) \+ var\(--dsh-bento-cell-inset\)\)/.test(settings)) {
+    throw new Error('the header padding is not compensated for the card inset');
+  }
+
+  return `inset ${cellInset}px >= radius ${nested}px; fill bleed intact; header compensated`;
+});
+
 
 const results = await runAll();
 

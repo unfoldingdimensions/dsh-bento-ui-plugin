@@ -66,6 +66,29 @@ html[${ROOT_ATTR}] {
   /* 28px host panel - 12px gutter. Used where a surface is flush inside a panel. */
   --dsh-bento-radius-nested: 16px;
 
+  /* CELL INSET: how far content sits inside a card, as distinct from the gutter.
+   *
+   * The gutter is the space BETWEEN two boxes. The inset is the space INSIDE one. They are
+   * different jobs and must not share a value, which is what this token exists to prevent -
+   * see the settings row rule, where one number was doing both and the text ended up 12px
+   * inside a card whose own corner curve is 16px.
+   *
+   * THE VALUE IS DERIVED, NOT CHOSEN (D68). The bento cell rule is "padding inside a cell
+   * sits close to the gap between cells, or slightly above it". The gap between our cards is
+   * 24px, but the Settings content column cannot afford 24: the host's Appearance control is
+   * three buttons with a 180px flex basis, so 3x180 + 2x8 = 556px must fit inside the row.
+   * Measured at 1600 the row's inner width is 564, and every 2px of inset costs 2px of it:
+   *
+   *   inset 12 -> 564px available, tiles 183px, 8px slack
+   *   inset 14 -> 560px available, tiles 181px, 4px slack
+   *   inset 16 -> 556px available, tiles 180px, 0px slack   <- the cap
+   *   inset 18 -> 552px available, 2 lines: "System" wraps
+   *
+   * So 16 is the largest inset that keeps the widest control on one line, and it is the same
+   * number as --dsh-bento-radius-nested, which is the other half of the rule: content must
+   * not start inside the arc of the corner it sits in. */
+  --dsh-bento-cell-inset: 16px;
+
   /* Motion: one duration, one curve, shared by every feature. */
   --dsh-bento-motion: 160ms;
   --dsh-bento-ease: cubic-bezier(0.2, 0, 0, 1);

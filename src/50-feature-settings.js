@@ -169,12 +169,37 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settin
    rows in its sections (reached through its slot anchors) and this plugin's rows
    in its own tab (reached through the attribute the plugin writes). A row that
    only one of these matched would read as a stylesheet bug from the other side. */
+/* THE FILL BLEEDS TO THE CARD EDGE; THE TEXT INSETS FROM IT (D68).
+ *
+ * This rule used ONE number for two jobs, and that was the congestion:
+ *
+ *   margin-inline: -gutter    how far the hover fill reaches  -> wants the card edge
+ *   padding-inline: gutter    where the text starts            -> wants a real inset
+ *
+ * With both at 12px the text inset could never be anything but the gutter, so the label sat
+ * 12px inside a card whose own nested corner is 16px - the first character started inside the
+ * corner arc. Measured at 826 and 1600, light and dark: text inset 12 vs card radius 16, every
+ * time. That is the concentric law read backwards: not "inner rounder than outer", but
+ * "content closer to the edge than the edge's own curve".
+ *
+ * They are now separate numbers. The fill still bleeds exactly to the card edge (margin stays
+ * at the gutter, so the hover state is unchanged), and the text insets by the cell inset.
+ *
+ * 16, NOT 20. The cap is the Appearance control, measured at both widths: 3x180 + 2x8 = 556
+ * inside the row, so 16px is the largest inset that keeps the third cube on its line (18px
+ * wraps "System"). It is also exactly the card's radius, which is what makes the label clear
+ * the arc rather than graze it.
+ *
+ * THIS DOES NOT MOVE THE CARD OR THE CONTROLS' RIGHT EDGE. The row keeps its box (margin and
+ * padding cancel), and the control column is right-aligned inside the same box, so only the
+ * text's left edge shifts in. Measured: control right-edge distance from the card is 16 on
+ * both sides, symmetric. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*),
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
   border-bottom: 0;
   border-radius: var(--dsh-bento-radius-nested);
   margin-inline: calc(-1 * var(--dsh-bento-gutter));
-  padding-inline: var(--dsh-bento-gutter);
+  padding-inline: var(--dsh-bento-cell-inset);
   transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
 }
 
@@ -183,6 +208,46 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
   border-top: 0;
 }
+
+/* THE HEADER STRIP IS NOT COMPENSATED FOR THE CARD INSET (D68).
+ *
+ * The content column is two stacked regions: a fixed header strip (the "Open configuration
+ * file" button and the close X) and the scrolling options area under it. The card is painted
+ * on a pseudo-element inset 12px inside that column, so anything whose padding was written
+ * against the COLUMN edge lands 12px closer to the card edge than it reads.
+ *
+ * Measured before this rule, at 826 and 1600, light and dark: the close button sat 2px from
+ * the card's right edge and 8px from its top edge, inside a card whose corner radius is 16px.
+ * The panel's tightest space, and the first one the eye reads as cramped.
+ *
+ * The host's own header padding is 20px / 14px / 8px / 10px, which is correct against the
+ * column and wrong against the card. It is replaced with 12 (the card inset) + 16 (the cell
+ * inset) on the top and right, so both controls clear the corner arc by the same amount the
+ * rows now clear it horizontally.
+ *
+ * The bottom padding goes 8 -> 4, because the top grew by 8 and the options area below should
+ * not lose a whole extra row of height to this fix. Measured: the header grows 54 -> 58px, so
+ * one row still fits where it did.
+ *
+ * Reached as a DIRECT CHILD of the content column, with a class substring only to name it.
+ * The substring is not enough on its own: walking every tab found a second element matching
+ * "header" on the Built-in plugins tab ("headerEnd", inside a plugin card), so a descendant
+ * match would have padded a card's inner header as if it were the dialog's own strip. The
+ * direct-child combinator is what makes this rule select exactly one element on every tab -
+ * verified across all 6 tabs, one match each. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settings.section"]) > [class*="header"] {
+  padding: calc(var(--dsh-bento-gutter) + var(--dsh-bento-cell-inset)) calc(var(--dsh-bento-gutter) + var(--dsh-bento-cell-inset)) 4px calc(var(--dsh-bento-gutter) + var(--dsh-bento-cell-inset));
+}
+
+/* THE OPTIONS AREA IS LEFT ALONE, ON PURPOSE.
+ *
+ * It carries 0 / 24px / 24px from the host, and that 24 is load-bearing: the rows
+ * cancel it with a -12px margin, so the row box lands exactly on the card edge (24 - 12 = 12
+ * = the card inset). Changing it to the cell inset would put the row box 8px OUTSIDE the card,
+ * and the hover fill would bleed onto the canvas past the card it belongs to.
+ *
+ * So the inset is expressed on the row (padding-inline), never on this box. Recorded because
+ * "make the paddings agree" looks like the obvious tidy-up and is wrong. */
 
 /* ACCENT SWATCHES, DARK THEME.
  *

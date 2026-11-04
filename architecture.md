@@ -303,10 +303,18 @@ Values the theme ships after pass 1, read from a rendered page in both themes.
 | `--dsh-bento-canvas` | `#ebeef2` | `#1b1b1c` | different host token per theme (D17) |
 | `--dsh-bento-card` | `#ffffff` | `#2c2c2e` | `bg-layer-2` |
 | `--dsh-bento-edge` | `rgba(0,0,0,0.1)` | `rgba(255,255,255,0.12)` | `border-l2` |
-| `--dsh-bento-gutter` | 12px | 12px | 14px breaks all 13 rows (D18) |
+| `--dsh-bento-gutter` | 12px | 12px | Space **between** boxes. 14px breaks all 13 rows (D18) |
+| `--dsh-bento-cell-inset` | 16px | 16px | Space **inside** one box (D68). Capped by the 556px Appearance control |
 | `--dsh-bento-radius` | 20px | 20px | host `--dsw-radius-xl` (D9) |
 | `--dsh-bento-radius-inner` | 12px | 12px | host `--dsw-radius-md`; was 14px until D45 |
 | `--dsh-bento-radius-rail` | 10px | 10px | collapsed rail keeps a 4px gutter |
+
+**Two spacing tokens, because they answer two different questions** (D68). The gutter is the space
+between two boxes and is fixed by the sidebar's width budget. The cell inset is the space inside one
+box and is capped by the widest control a card has to hold. They were one number until D68, which
+forced the Settings text to sit at the gutter — 12px inside a card whose corner radius is 16px, so
+every label began inside the arc. Measured after: text inset 16, control right edge 16, card radius
+16, symmetric, both themes, at 826 and 1600.
 
 Canvas-to-card contrast: **1.164 light**, **1.235 dark** (was 1.045 light).
 

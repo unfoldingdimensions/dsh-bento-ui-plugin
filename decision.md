@@ -2211,3 +2211,74 @@ visibly tighter on the same silhouette, so the tab reads the same host token.
 header button with its own 12px radius and a chevron. That header keeps its radius â€” it is a
 control inside the panel, not the panel's curve â€” and the panel's `overflow: hidden` still clips
 the list, verified with three rows.
+## D68 — The cell inset is a separate number from the gutter, and the header is compensated for it
+
+Reported as "the spacing feels kind of congested". Congested is not a number, so the first job was
+to find the number — and the measurement that mattered was not the vertical rhythm at all.
+
+**The finding.** The settings row rule used ONE number for two different jobs:
+
+```css
+margin-inline: calc(-1 * var(--dsh-bento-gutter));   /* how far the hover fill reaches */
+padding-inline: var(--dsh-bento-gutter);             /* where the text starts */
+```
+
+With both at 12px the text inset could never be anything but the gutter. Measured at 826x810 (the
+owner's own viewport) and at 1600, light and dark, on the shipped build: **text inset 12px against a
+card radius of 16px**. The first glyph of every label started inside the corner arc of the card it
+sits in. That is the concentric law read backwards — not "inner rounder than outer", which is the
+defect the theme had already fixed once (D54), but "content closer to the edge than the edge's own
+curve", which nobody had checked.
+
+**The decision: two numbers, one token.**
+
+```
+--dsh-bento-gutter:      12px   space BETWEEN two boxes
+--dsh-bento-cell-inset:  16px   space INSIDE one box
+```
+
+The fill still bleeds exactly to the card edge (the margin stays at the gutter, so hover is
+unchanged); the text insets by the cell inset. Measured after: text 16, control right-edge 16,
+symmetric, card radius 16.
+
+**16 is derived, not chosen.** The bento cell rule is "padding inside a cell sits close to the gap
+between cells, or slightly above it", and the gap between our cards is 24 — but the Settings content
+column cannot afford 24. The host's Appearance control is three buttons with a 180px flex basis, so
+3x180 + 2x8 = 556px must fit inside the row. Measured at 1600:
+
+| inset | row inner width | tile width | slack |
+|---|---|---|---|
+| 12 | 564px | 183px | 8px |
+| 14 | 560px | 181px | 4px |
+| **16** | **556px** | **180px** | **0px** |
+| 18 | 552px | 272px, 2 lines | wraps |
+
+So 16 is the largest inset that keeps the widest control on one line, and it happens to equal
+`--dsh-bento-radius-nested` — the other half of the same rule, since content must not start inside
+the arc of the corner it sits in.
+
+**The second defect, found while measuring the first.** The content column is two stacked regions: a
+fixed header strip (the "Open configuration file" button and the close X) and the scrolling options
+area. The card is painted on a pseudo-element inset 12px inside that column, so anything whose
+padding was written against the COLUMN edge lands 12px closer to the card edge than it reads. The
+host's header padding is 20/14/8/10. Measured: **the close button sat 2px from the card's right edge
+and 8px from its top**, inside a 16px-radius card — the tightest space in the panel and the first
+one the eye reads as cramped. It is now 12 + 16 = 28 on the top and right, and 4 on the bottom so the
+header grows only 54 -> 58px and the options area does not lose a row.
+
+**The first attempt at the header rule leaked, and the sweep caught it.** Written as a descendant
+match on `[class*="header"]`, it matched **two** elements on the Built-in plugins tab: the dialog's
+own header, and a plugin card's inner `headerEnd`. Walking all 6 tabs is what found it — the General
+tab looked perfect. The rule is now a direct-child combinator, verified at exactly one match per tab.
+
+**What is NOT claimed.** The vertical rhythm (16px block padding, 32-39px text-to-text) was measured
+and is not below the 4px rhythm; it was left alone. "Congested" was horizontal, and moving a vertical
+number that measures fine would have been taste dressed as a fix.
+
+**The Appearance wrap at 826px is the host's own defect, proven, not introduced here.** At that width
+the un-themed host row is 542px against 556px needed, so "System" wraps with **no theme loaded**.
+Measured three ways at the same viewport — theme off, theme with the old 12px inset, theme with the
+new 16px inset — and all three wrap. The theme narrows the row by 8px there (542 -> 534); it does not
+create the wrap. Recorded rather than fixed: the fix is a host change (a smaller flex basis or a
+2-up breakpoint), and clamping the inset responsively to chase it would trade a real inset at every
+normal width for a cosmetic gain at one narrow width.

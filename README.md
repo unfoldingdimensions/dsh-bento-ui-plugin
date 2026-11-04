@@ -181,6 +181,51 @@ see A12 and Pass 4.
 - A generated file is checked against its source, never trusted. `src/14-fontdata.js`
   must decode to the same bytes as `assets/*.woff2` and carry a `wOF2` header, or the
   build fails (gate 20).
+- **Space between boxes and space inside one are two different numbers.** The gutter (12px) is
+  the gap between two cards and is fixed by the sidebar's width budget; the cell inset (16px) is
+  the padding inside a card and is capped by the widest control it must hold. One number cannot do
+  both: with both at 12, every Settings label started 12px inside a card whose corner radius is
+  16px — inside the arc (D68).
+- **Content must not start inside the corner arc of the box it sits in.** The concentric rule is
+  usually stated as "inner radius = outer minus the gap", but it has a second half that is easier
+  to violate: the inset from a card's edge must be at least the card's radius, or the first glyph
+  is drawn where the corner is still curving away. Compare the text's edge against the *radius*,
+  a comparison across two properties that are each individually correct.
+- **A region inset from a panel is not automatically compensated for it.** The Settings header's
+  padding was written against the content *column*, but the card is painted 12px inside that
+  column, so a 14px right padding put the close button 2px from the card edge (D68). Every box
+  whose padding was authored against a parent needs the card inset added, not assumed.
+- **A "cramped" report may be horizontal while every vertical measurement is fine.** Row heights
+  and text-to-text gaps can all sit on the grid while the left edge is wrong. Read every edge
+  before choosing an axis (L90).
+
+## The spacing rules
+
+The rules above are the ones the code enforces. This is the same set stated as values, because
+that is what a layout question actually needs. All of them are measured on the shipped build, both
+themes.
+
+| Property | Value | Why that value |
+|---|---|---|
+| Canvas gutter (outside a card) | 12px | Widest the sidebar survives — 14px overflows all 13 session rows (D18) |
+| Gap between two cards | 24px | Two gutters, one from each card (gap ÷ radius = 1.5, inside bento's 0.5–1× band) |
+| Card padding / cell inset | 16px | Capped by the 556px Appearance control: 18px wraps a tile (D68) |
+| Card radius | 20px | The host's own `--dsw-radius-xl` |
+| Nested card radius | 16px | 28px panel − 12px gutter, so the two curves stay concentric (D54) |
+| Control radius inside a card | 12px | Host's own `--dsw-radius-md`; every row it draws already uses it (D45) |
+| Row block padding | 16px | 4px rhythm; gives 32–39px between a description and the next label |
+| Label → description | 4px | The host's own gap, kept |
+| Section → section | same as row → row | The rules separate with space, not extra margins |
+| Motion | 160ms, `cubic-bezier(0.2, 0, 0, 1)` | One duration and one curve for every feature |
+
+Two rules are worth stating in words because a table cannot carry them:
+
+1. **Outer margin ≥ inner gap is a bento rule the theme does not follow, deliberately.** Bento
+   guidance puts the space outside a card above the gap between cards. This theme keeps the
+   app's outer 12px and a 24px gap, because widening the frame's padding would compress
+   host-solved columns and move every drag handle (D41). Recorded, not silently broken.
+2. **The innermost inset is always at least the innermost radius.** 16px inset against a 16px
+   radius is the equality case, and equality is enough — the glyph clears the arc.
 
 ## Install
 
