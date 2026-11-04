@@ -39,6 +39,7 @@ src/40-feature-sidebar.js  feature: sidebar card
 src/45-feature-rows.js     feature: session row tiles
 src/47-feature-center.js   feature: the conversation card
 src/48-feature-pages.js    feature: rows of full pages in that column
+src/48b-feature-detail.js  feature: the plugin detail page as a board
 src/49-feature-rightbar.js feature: the right panel card
 src/50-feature-settings.js feature: the Settings dialog as a bento board
 src/51-feature-shadow.js   feature: opt-in card shadow
@@ -199,6 +200,20 @@ see A12 and Pass 4.
 - **A "cramped" report may be horizontal while every vertical measurement is fine.** Row heights
   and text-to-text gaps can all sit on the grid while the left edge is wrong. Read every edge
   before choosing an axis (L90).
+- **A radius is paint, so a radius change must move nothing.** The card moved 20 → 24 (D69) with zero
+  control movement, verified by measuring row heights (34), nav rows (38) and the composer (28)
+  before and after. If a radius change moves something, the radius was not the only change.
+- **A derived tier is derived from its own inputs, and the gate must recompute it.** The nested tier
+  reads `28 − 12 = 16`, not `card − gutter`. A range check (`nested < card`) let an 18px
+  "correction" pass while breaking the only relationship that token exists to express (D69).
+- **Computed styles cannot see composition.** The detail-page hero passed every value assertion —
+  correct radius, background, border — while holding an icon and a switch with the plugin's name
+  outside the box. Containers need a *relationship* assertion (does the panel contain the title?),
+  never a solo-property one (L98).
+- **"Replace the margin with padding" is only equivalent on a border-box element.** The hero was
+  1000px in a 960px column from a negative margin; swapping to padding made it 1002px, because the
+  host's reset leaves that element content-box. Two attempts, two mechanisms, same 2px-shaped bug
+  (L99).
 
 ## The spacing rules
 
@@ -211,9 +226,10 @@ themes.
 | Canvas gutter (outside a card) | 12px | Widest the sidebar survives — 14px overflows all 13 session rows (D18) |
 | Gap between two cards | 24px | Two gutters, one from each card (gap ÷ radius = 1.5, inside bento's 0.5–1× band) |
 | Card padding / cell inset | 16px | Capped by the 556px Appearance control: 18px wraps a tile (D68) |
-| Card radius | 20px | The host's own `--dsw-radius-xl` |
-| Nested card radius | 16px | 28px panel − 12px gutter, so the two curves stay concentric (D54) |
+| Card radius | 24px | Bento tray value (Apple/Arc ~24); the first time this theme overrides the host's top scale (D69) |
+| Nested card radius | 16px | 28px **host panel** − 12px gutter, so the two curves stay concentric (D54). Deliberately NOT derived from our own card |
 | Control radius inside a card | 12px | Host's own `--dsw-radius-md`; every row it draws already uses it (D45) |
+| Pill (chips, badges, counts) | 999px | A tier, not a literal — a bare `999px` at a call site fails the build (D69) |
 | Row block padding | 16px | 4px rhythm; gives 32–39px between a description and the next label |
 | Label → description | 4px | The host's own gap, kept |
 | Section → section | same as row → row | The rules separate with space, not extra margins |
@@ -252,14 +268,15 @@ See `decision.md` D23–D25 and `flow.md` §7.
 
 ## Status
 
-Eleven features and two colour choices ship:
+Twelve features and two colour choices ship:
 
 | id | title | default | what it does |
 |---|---|---|---|
 | `sidebar-card` | Sidebar card | on | insets the sidebar column onto its own rounded card |
-| `row-tiles` | Sidebar tiles | on | rounds sidebar rows (sessions and nav destinations), adds spacing, a hover edge and the accent edge on keyboard focus |
+| `row-tiles` | Sidebar tiles | on | rounds sidebar rows (sessions and nav destinations), adds spacing, a hover edge and the accent edge on keyboard focus; turns the session age into a pill (D69) |
 | `center-card` | Conversation card | on | insets the conversation column onto its own card and raises the composer onto it as a white, edged, softly shadowed surface |
 | `page-rows` | Page rows | on | gives the rows of full pages mounted in that column (Plugins, MCP) the same tile treatment |
+| `detail-board` | Plugin detail board | on | lays the plugin detail page out as a board: a raised hero panel with an accent hairline, a pill breadcrumb, and section cells on a two-track grid with the list section spanning both (D69) |
 | `rightbar-card` | Right panel card | on | insets the docked right panel onto its own card |
 | `settings-bento` | Settings board | on | lays the Settings dialog out as two sibling cards on one canvas — navigation and content — with the row rules removed |
 | `card-shadow` | Card shadow | **off** | lifts the four card surfaces with a soft two-layer shadow; off keeps the flat board |

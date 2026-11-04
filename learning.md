@@ -1959,3 +1959,68 @@ that needs a data source that does not exist.
 styling, DOM, data. The 22 achievable items grouped cleanly into "change values" (8), "write CSS" (6)
 and "mount a component into a free slot" (3) -- and only the last group carried real risk. The
 impossible one was impossible for a data reason no amount of CSS or slot work would fix.
+## L98 — Computed styles cannot see composition, and the screenshot caught what they missed
+
+The hero panel passed every assertion I wrote: radius 16, background set, accent border set. It was
+also visibly wrong. The screenshot showed a small box holding an icon and a switch, with the plugin's
+name floating underneath it, outside the panel.
+
+The cause was structural, not stylistic. The host renders the hero as TWO SIBLINGS - `_detailTop`
+(crumb, icon, actions) and `_detailMain` (title, tags, package, description) - and I had painted only
+the first. Every property I measured was on an element that was correctly styled and wrongly scoped.
+
+The fix was one selector change plus one new assertion class: the verify harness now checks that the
+panel CONTAINS the title's rect, not just that the panel has a border. That is a geometry check, and
+it is the only kind that could have failed here.
+
+**The lesson.** Assertions about an element's own properties cannot detect that the element holds the
+wrong content. For any container, assert a RELATIONSHIP - containment, ordering, alignment with a
+sibling - not a solo property. And when a value check passes on something that looks broken, the
+check is measuring the wrong thing rather than the code being fine.
+
+## L99 — The same wrong box can be made wrong twice, by two different mechanisms
+
+The hero panel was 1000px wide inside a 960px column. Cause: `margin-inline: -20px`, a technique that
+is correct for the Settings rows (where the row must bleed past its parent's padding) and wrong here
+(where the parent is already the full column).
+
+I removed the margin and added padding instead. It measured 1002px. Different mechanism, same
+mistake: the host's reset does not apply `box-sizing: border-box` to that element, so padding adds to
+the width rather than coming out of it.
+
+**The lesson.** "Replace the margin with padding" is only an equivalent fix when the box is
+border-box. On a content-box element both techniques widen the box by the same amount, so the second
+attempt reproduces the first failure with a different declaration and looks like a new bug. Check
+`box-sizing` before treating padding and margin as interchangeable, and re-measure rather than
+assuming the swap fixed it - the two attempts differed by 2px, which is exactly the kind of number
+that reads as noise.
+
+## L100 — A toast-shaped failure in the doc: I quoted `root: ""` as "theme off"
+
+While capturing the Phase 1 baseline I read `root: ""` from `document.documentElement.getAttribute(
+'data-dsh-bento')` and briefly concluded the theme was disabled. It is not: the attribute is present
+with an empty value, which is exactly what `setAttribute(ROOT_ATTR, '')` writes. The theme was on for
+every measurement.
+
+No measurement was wrong, because I checked the flag again before trusting it - but the near-miss is
+worth recording. `getAttribute` returns `""` for "present but empty" and `null` for "absent", and the
+difference matters for every boolean attribute this theme uses: `data-dsh-bento`, `aria-selected`,
+`data-ds-dark-theme`.
+
+**The lesson.** For a presence attribute, test `hasAttribute`, never the truthiness of
+`getAttribute`. The two disagree on exactly the case the theme uses everywhere, and the failure mode
+is a correct measurement plus a wrong label on it.
+
+## L101 — One harness bug produced 66 false failures, and the identical count with the theme off was the tell
+
+My overflow check reported 66 violating elements in both themes. Before touching the CSS I ran the
+same check with every feature disabled: it reported **66 again, with identical elements**. That
+number is the signature of a broken instrument, not a broken theme.
+
+The bug: the reference box was `[data-slot="main"]`, which is a zero-width wrapper, so every child
+"overflowed" it by its full width. The reference is now the nearest clipping scroller, and the check
+skips itself (rather than passing) when that box is not real.
+
+**The lesson.** A failure count that does not change when the feature under test is removed is
+measuring the harness. Run every new check once with the change disabled before believing it: it
+costs one browser context and it is the difference between a defect and a false alarm.

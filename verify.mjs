@@ -744,6 +744,73 @@ check('spacing: the cell inset separates from the gutter and clears the card rad
   return `inset ${cellInset}px >= radius ${nested}px; fill bleed intact; header compensated`;
 });
 
+check('radii: the card tier is above the inner tier and the pill tier is a token', () => {
+  // The card radius moved 20 -> 24 in D69, which is the first time this theme has overridden the
+  // host's own top-of-scale value (--dsw-radius-xl is 20). That makes three invariants worth
+  // pinning, because each fails silently:
+  //
+  //   1. card > inner, or every control inside a card is rounder than the card holding it - the
+  //      defect D54 fixed in the other direction
+  //   2. the nested tier is DERIVED from the 28px host panel, not from our own card, so it must
+  //      never be "fixed" to follow the card. When this check was written, 24 - 12 = 12 and the
+  //      nested tier is 16; a future reader seeing 12 != 16 could "correct" it and break the
+  //      Settings dialog, where the real outer curve is the host's 28.
+  //   3. a pill is the largest tier and is tokenised rather than written as 999 at call sites -
+  //      the property D45 established for every other radius.
+  const tokens = readFileSync(join(root, 'src', '15-tokens.js'), 'utf8');
+  const read = (name) => {
+    const m = new RegExp(`--dsh-bento-${name}:\\s*(\\d+)px`).exec(tokens);
+    return m ? Number(m[1]) : null;
+  };
+  const card = read('radius');
+  const inner = read('radius-inner');
+  const nested = read('radius-nested');
+  const pill = (() => {
+    const m = /--dsh-bento-radius-pill:\s*(\d+)px/.exec(tokens);
+    return m ? Number(m[1]) : null;
+  })();
+
+  if (card === null) throw new Error('--dsh-bento-radius is not declared');
+  if (inner === null) throw new Error('--dsh-bento-radius-inner is not declared');
+  if (nested === null) throw new Error('--dsh-bento-radius-nested is not declared');
+  if (pill === null) throw new Error('--dsh-bento-radius-pill is not declared (a pill tier was reverted to raw 999)');
+
+  if (inner >= card) {
+    throw new Error(`inner tier ${inner}px is not below the card tier ${card}px, so controls out-curve their card`);
+  }
+  if (pill < card) {
+    throw new Error(`pill tier ${pill}px is below the card tier ${card}px, so a pill would not read as a pill`);
+  }
+
+  // THE NESTED TIER IS PINNED TO ITS DERIVATION, NOT TO A RANGE. An earlier version of this
+  // check only asserted `nested < card`, and a planted "correction" of 16 -> 18 passed it. That
+  // is exactly the silent failure this check exists to prevent: 18 is still below 24, so a range
+  // test cannot see it, while the Settings dialog's card would no longer be concentric with the
+  // 28px host panel it sits in. The value is therefore recomputed from its two inputs.
+  const HOST_PANEL = 28; // measured, both themes; the host's Settings dialog radius
+  const gutter = Number((/--dsh-bento-gutter:\s*(\d+)px/.exec(tokens) || [])[1]);
+  if (!Number.isFinite(gutter)) throw new Error('--dsh-bento-gutter is not declared');
+  const expectedNested = HOST_PANEL - gutter;
+  if (nested !== expectedNested) {
+    throw new Error(
+      `nested tier is ${nested}px but ${HOST_PANEL} (host panel) - ${gutter} (gutter) = ${expectedNested}px. ` +
+        `It is derived from the HOST panel, not from our own card radius, so it must not follow the card.`,
+    );
+  }
+
+  // No call site may write a raw radius for the pill; it must come from the token.
+  const fragments = readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js') && f !== '16-palette.js');
+  for (const f of fragments) {
+    const src = readFileSync(join(root, 'src', f), 'utf8');
+    // a bare 999 in a border-radius is the signal that the tier was bypassed
+    if (/border-radius:\s*999px/.test(src)) {
+      throw new Error(`${f} writes border-radius: 999px instead of var(--dsh-bento-radius-pill)`);
+    }
+  }
+
+  return `card ${card} > inner ${inner}, nested ${nested} (derived from the 28px host panel), pill ${pill}`;
+});
+
 
 const results = await runAll();
 

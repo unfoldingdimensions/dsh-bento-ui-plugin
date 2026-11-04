@@ -2282,3 +2282,67 @@ new 16px inset — and all three wrap. The theme narrows the row by 8px there (542
 create the wrap. Recorded rather than fixed: the fix is a host change (a smaller flex basis or a
 2-up breakpoint), and clamping the inset responsively to chase it would trade a real inset at every
 normal width for a cosmetic gain at one narrow width.
+## D69 — The card tier is 24, the pill is a tier, and the detail page becomes a board
+
+Phase 1 of the plugin-detail reference. Three changes, one of which reverses a value this file
+argued for.
+
+**1. The card radius is 24, not 20.**
+
+D9 chose 20 because it is the host's own top-of-scale value (`--dsw-radius-xl`), on the reasoning
+that a card should agree with the shells around it. The reference settles it the other way: its tray
+is 24 and its nested cell 18, and the board reads calmer for it. 24 is also the published bento value
+(Apple ~24, Arc ~24) rather than an app-panel value.
+
+This is the first time the theme has overridden the host's top radius, so it gets a gate: card must
+exceed inner, the pill must exceed card, and the nested tier must still equal 28 (host panel) - 12
+(gutter) = 16. That last one is the trap. `24 - 12 = 12` looks like it should be the new nested
+value, and it is wrong: the nested tier is derived from the **28px host Settings panel**, not from
+our own card. A planted "correction" of 16 -> 18 passed the first version of the gate, which only
+asserted `nested < card`; the gate now recomputes the derivation and fails on it (proofs in §gate).
+
+**2. The pill is a tier, not a literal.**
+
+The reference uses 999px on every chip, badge and count. The host's own version and status tags
+already compute to 999, so this is mostly a naming job - but it belongs in the token layer for the
+reason D45 established: no untokenised radius at a call site. A gate fails the build on a bare
+`border-radius: 999px` anywhere in `src/`.
+
+**3. The plugin detail page becomes a board (`detail-board`, order 17).**
+
+The page exists in the host already. It renders `_detailTop` (crumb + icon + actions),
+`_detailMain` (title, tags, package, description) and `_detailSections` as three siblings in a flex
+column at 960px. The feature turns `_detailSections` into a two-track grid, gives each section a
+cell, lets the list section span both tracks, and paints the hero.
+
+**THE HERO COST TWO ATTEMPTS AND THE FIRST ONE TAUGHT THE REAL LESSON.** The hero is not one box:
+the icon row is `_detailTop` and the title is `_detailMain`, and they are SIBLINGS. The first draft
+painted `_detailTop` only. Every computed value was correct - radius 16, background set, accent
+border set - and the result was a small panel holding an icon and a switch, with the plugin's name
+floating underneath it outside the box. The numbers could not see it; the screenshot could. The panel
+is now painted on `_detail` (selected with `:has(> _detailSections)` so it cannot leak), and the
+verify harness gained a **geometry** assertion - the panel must CONTAIN the title - because value
+assertions passed on a visibly broken result.
+
+**Width needed two fixes.** A negative inline margin pushed the panel to 1000px inside a 960 column
+(clipped by the page). Replacing it with padding produced 1002px, because the host's reset does not
+apply `box-sizing: border-box` to this element. It now declares `box-sizing` explicitly, which is
+the difference between "the padding is inside the box" and "the padding is added to the box".
+
+**Two structural traps, both measured.** `[class*="_detailSection"]` also matches
+`_detailSections` - the substring contains it - so the board would have received a cell's padding;
+the board is addressed by its own name and sections as its direct children. And `[class*="_row "]`
+with a trailing space matched **0** elements, because the host's row class has nothing after it in
+the class list; rows are reached through the `_rows` wrapper instead.
+
+**What was NOT changed, and why.** The section-count chip, version tag and status tag were already
+999px pills from the host - they are re-declared through the token for ownership, not re-styled. The
+list page is untouched: it already has its tile treatment from `page-rows`, and a grid there would
+reflow every card. And the account-settings "Running/Stopped" pill from the reference is not built:
+that is a per-plugin enabled state, and the host already renders an "Off" label beside each row.
+
+**Verified** (both themes, 1600x1000): every painted card reads 24; the session age is a 14px pill
+with a chip background and inverts correctly on the selected row; the detail hero contains the title
+and is exactly 960 wide; the board is a 2-track grid with 16px cells and a full-width list section;
+the crumb is a 30px pill; and nothing moved - session rows 34, nav rows 38, composer radius 28,
+Settings cards still 16, collapsed rail still 10, zero overflow on sidebar or centre.

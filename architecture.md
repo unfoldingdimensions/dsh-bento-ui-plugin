@@ -305,9 +305,11 @@ Values the theme ships after pass 1, read from a rendered page in both themes.
 | `--dsh-bento-edge` | `rgba(0,0,0,0.1)` | `rgba(255,255,255,0.12)` | `border-l2` |
 | `--dsh-bento-gutter` | 12px | 12px | Space **between** boxes. 14px breaks all 13 rows (D18) |
 | `--dsh-bento-cell-inset` | 16px | 16px | Space **inside** one box (D68). Capped by the 556px Appearance control |
-| `--dsh-bento-radius` | 20px | 20px | host `--dsw-radius-xl` (D9) |
+| `--dsh-bento-radius` | 24px | 24px | Bento tray value; overrides host `-xl` (D69) |
 | `--dsh-bento-radius-inner` | 12px | 12px | host `--dsw-radius-md`; was 14px until D45 |
 | `--dsh-bento-radius-rail` | 10px | 10px | collapsed rail keeps a 4px gutter |
+| `--dsh-bento-radius-pill` | 999px | 999px | chips, badges, counts; a tier so no call site writes 999 (D69) |
+| `--dsh-bento-accent-edge` | derived | derived | 22% accent over the card — accent hairline, measured 1.24:1 (D69) |
 
 **Two spacing tokens, because they answer two different questions** (D68). The gutter is the space
 between two boxes and is fixed by the sidebar's width budget. The cell inset is the space inside one
@@ -315,6 +317,11 @@ box and is capped by the widest control a card has to hold. They were one number
 forced the Settings text to sit at the gutter — 12px inside a card whose corner radius is 16px, so
 every label began inside the arc. Measured after: text inset 16, control right edge 16, card radius
 16, symmetric, both themes, at 826 and 1600.
+
+**The nested tier is derived from the HOST panel, not from our card** (D69). With the card at 24,
+`24 - 12 = 12` looks like the new nested value and is wrong: `--dsh-bento-radius-nested` exists to be
+concentric with the host's 28px Settings dialog, so it stays `28 - 12 = 16`. Gate 28 recomputes that
+derivation and fails if the value drifts, because a plain `nested < card` test lets 18 through.
 
 Canvas-to-card contrast: **1.164 light**, **1.235 dark** (was 1.045 light).
 

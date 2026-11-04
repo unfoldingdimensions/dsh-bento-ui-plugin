@@ -22,11 +22,19 @@ html[${ROOT_ATTR}] {
   --dsh-bento-gutter: 12px;
   --dsh-bento-gap: 8px;
 
-  /* Radii: card, inner, rail, and the derived tiers.
+  /* Radii: card, inner, rail, pill, and the derived tiers.
    *
-   * The card is 20px, the host's own --dsw-radius-xl, so a card matches the shells
-   * around it. The inner tier is 12px, the host's --dsw-radius-md, for three reasons
-   * that all point the same way:
+   * THE CARD IS 24px (D69). It was 20px, the host's own --dsw-radius-xl, on the reasoning
+   * that a card should match the shells around it. The reference settles it differently: its
+   * tray is 24 and its nested cell 18, and the whole board reads calmer for it. 24 is also a
+   * published bento value (Apple ~24, Arc ~24) rather than an app-panel value.
+   *
+   * Raising it is free in layout terms - border-radius paints inside the border box and
+   * changes no dimension - so no control moves. What it does change is the concentric
+   * derivation below, which is why --dsh-bento-radius-nested moves with it.
+   *
+   * The inner tier stays 12px, the host's --dsw-radius-md, for three reasons that all point
+   * the same way:
    *
    *   1. The host uses 12px on every row in this column. Measured with the whole
    *      plugin switched off: New Session 12, nav destinations 12, workspace headings
@@ -53,16 +61,19 @@ html[${ROOT_ATTR}] {
    * --dsh-bento-radius-nested is that derivation, applied to the Settings dialog:
    * the host's panel is 28px in both themes (measured; it is NOT on its own 8/12/16/20
    * scale, which tops out at 20), our content card sits 12px inside it, so the card and
-   * anything flush with it must be 28 - 12 = 16px. Measured before: card 12px, which put
-   * the two arc centres 4px out of alignment in both axes.
+   * anything flush with it must be 28 - 12 = 16px.
    *
-   * Note this contradicts the earlier reasoning above, deliberately: the host's rows are
-   * 12px because the host never nests them under a 28px panel. Our card does, so it
-   * follows the outer curve instead of the row scale. The 12px inner tier still owns
-   * every control INSIDE a card, where the outer curve is the card's own 20px. */
-  --dsh-bento-radius: 20px;
+   * When the card tier moved to 24 (D69), this tier did NOT follow, and that is
+   * deliberate: it is derived from the 28px HOST PANEL, not from our own card radius.
+   * Changing it to 18 would break the one relationship it exists to express. */
+  --dsh-bento-radius: 24px;
   --dsh-bento-radius-inner: 12px;
   --dsh-bento-radius-rail: 10px;
+  /* The pill: chips, status badges, counts, the breadcrumb. Taken from the reference, which
+     uses 999px on every chip and badge - measured in the host's own markup too, where its
+     version and status tags already compute to 999px. Using a tier rather than writing 999
+     at each call site keeps the "no untokenised radius" property D45 established. */
+  --dsh-bento-radius-pill: 999px;
   /* 28px host panel - 12px gutter. Used where a surface is flush inside a panel. */
   --dsh-bento-radius-nested: 16px;
 
@@ -144,6 +155,25 @@ html[${ROOT_ATTR}] body {
   /* On the canvas rather than a card, the same tint must be mixed against the canvas or
      the selected cell sits a shade off the surface it is pretending to share. */
   --dsh-bento-selected-fill-canvas: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, var(--dsw-specific-sidebar-nav-item-active));
+
+  /* THE ACCENT HAIRLINE, AND WHY IT IS NOT --dsh-bento-edge (D69).
+   *
+   * The reference draws a faint accent-tinted line around its raised cells (hero panel, version
+   * chip, source pill) rather than the neutral grey edge the rest of the board uses. It is the
+   * visual difference between "a card on a canvas" and "a card the accent is involved in".
+   *
+   * It cannot be the edge token: that one is a host border alias, neutral by design, and the
+   * whole point here is that it carries the accent. It cannot be a literal either - gate 15
+   * forbids that, and a hardcoded pale blue is wrong the moment the user picks teal.
+   *
+   * So it is the same derivation used for the selection tint: an accent mix over the CARD.
+   *
+   * 22%, and the number is measured rather than matched to the fill's 12%. A hairline needs to
+   * be stronger than a fill to read as a line at 1px: at 12% it measured 1.09:1 against the
+   * card and was invisible; at 22% it measures 1.24:1, which is the same weight the host's own
+   * neutral edge carries (1.254:1 light). Matching the fill percentage would have produced a
+   * token that exists and paints nothing, which is the failure D41 and L62 both record. */
+  --dsh-bento-accent-edge: color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, var(--dsw-alias-bg-layer-2));
 
   /* CARD SHADOW, DERIVED (D57).
    *

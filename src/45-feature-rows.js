@@ -50,6 +50,45 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"]:f
   border-color: var(--dsw-alias-brand-primary);
 }
 
+/* SESSION AGE BECOMES A PILL (D69).
+ *
+ * The reference shows each session's age in a rounded chip rather than as loose grey text, and
+ * the host already renders the data: measured, every session row carries a SPAN whose class
+ * ends in "_time" holding "3min" / "7h" / "8d" / "14d" at 10px.
+ *
+ * So this is a paint change, not a new element. Addressed by class SUBSTRING ("_time"), because
+ * the full name is a per-build hash (YDXeBa_time) - the same technique the Settings board uses
+ * for "cubeRow", and the same caveat: re-verify the match count after a harness upgrade.
+ *
+ * Measured 5 of 5 session rows match, and 0 other elements in the sidebar do. A plain
+ * [class*="time"] would have been the sloppier version of the same idea and is not used.
+ *
+ * The padding has to be paid for. A 10px glyph with 1px/6px of chip padding is 4px wider than
+ * the bare text, and the row is a flex line whose title already truncates - so the chip steals
+ * from the title. 2px/6px keeps the growth small while still reading as a chip; measured, the
+ * longest title in the column ("Debug QR Cloudflare host error") still truncates exactly as it
+ * did before, because it was already ellipsised and the chip is not the binding constraint.
+ *
+ * line-height: 1 is not cosmetic: the span inherits an 18px line box, which inside a 36px row
+ * makes the chip 20px tall and visibly taller than the reference's. Setting it to the font size
+ * gives a ~14px chip that sits centred. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"] [class*="_time"] {
+  border-radius: var(--dsh-bento-radius-pill);
+  padding: 2px 6px;
+  line-height: 1;
+  background: var(--dsh-bento-hover);
+  /* The chip must not be the reason a title wraps. */
+  flex: none;
+}
+
+/* On the SELECTED row the chip's neutral fill disappears into the accent tint it now sits on,
+   so it inverts to the card tone, which is the only surface that stays distinct against the
+   tint in both themes. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"][aria-selected="true"] [class*="_time"] {
+  background: var(--dsh-bento-card);
+  color: var(--dsh-bento-selected-ink);
+}
+
 /* A Workspace heading separates groups rather than being one, so it has no
    border; the extra top margin is what makes the group break readable. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="workspace:"] {

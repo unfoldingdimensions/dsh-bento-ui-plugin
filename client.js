@@ -93,11 +93,19 @@ html[${ROOT_ATTR}] {
   --dsh-bento-gutter: 12px;
   --dsh-bento-gap: 8px;
 
-  /* Radii: card, inner, rail, and the derived tiers.
+  /* Radii: card, inner, rail, pill, and the derived tiers.
    *
-   * The card is 20px, the host's own --dsw-radius-xl, so a card matches the shells
-   * around it. The inner tier is 12px, the host's --dsw-radius-md, for three reasons
-   * that all point the same way:
+   * THE CARD IS 24px (D69). It was 20px, the host's own --dsw-radius-xl, on the reasoning
+   * that a card should match the shells around it. The reference settles it differently: its
+   * tray is 24 and its nested cell 18, and the whole board reads calmer for it. 24 is also a
+   * published bento value (Apple ~24, Arc ~24) rather than an app-panel value.
+   *
+   * Raising it is free in layout terms - border-radius paints inside the border box and
+   * changes no dimension - so no control moves. What it does change is the concentric
+   * derivation below, which is why --dsh-bento-radius-nested moves with it.
+   *
+   * The inner tier stays 12px, the host's --dsw-radius-md, for three reasons that all point
+   * the same way:
    *
    *   1. The host uses 12px on every row in this column. Measured with the whole
    *      plugin switched off: New Session 12, nav destinations 12, workspace headings
@@ -124,16 +132,19 @@ html[${ROOT_ATTR}] {
    * --dsh-bento-radius-nested is that derivation, applied to the Settings dialog:
    * the host's panel is 28px in both themes (measured; it is NOT on its own 8/12/16/20
    * scale, which tops out at 20), our content card sits 12px inside it, so the card and
-   * anything flush with it must be 28 - 12 = 16px. Measured before: card 12px, which put
-   * the two arc centres 4px out of alignment in both axes.
+   * anything flush with it must be 28 - 12 = 16px.
    *
-   * Note this contradicts the earlier reasoning above, deliberately: the host's rows are
-   * 12px because the host never nests them under a 28px panel. Our card does, so it
-   * follows the outer curve instead of the row scale. The 12px inner tier still owns
-   * every control INSIDE a card, where the outer curve is the card's own 20px. */
-  --dsh-bento-radius: 20px;
+   * When the card tier moved to 24 (D69), this tier did NOT follow, and that is
+   * deliberate: it is derived from the 28px HOST PANEL, not from our own card radius.
+   * Changing it to 18 would break the one relationship it exists to express. */
+  --dsh-bento-radius: 24px;
   --dsh-bento-radius-inner: 12px;
   --dsh-bento-radius-rail: 10px;
+  /* The pill: chips, status badges, counts, the breadcrumb. Taken from the reference, which
+     uses 999px on every chip and badge - measured in the host's own markup too, where its
+     version and status tags already compute to 999px. Using a tier rather than writing 999
+     at each call site keeps the "no untokenised radius" property D45 established. */
+  --dsh-bento-radius-pill: 999px;
   /* 28px host panel - 12px gutter. Used where a surface is flush inside a panel. */
   --dsh-bento-radius-nested: 16px;
 
@@ -215,6 +226,25 @@ html[${ROOT_ATTR}] body {
   /* On the canvas rather than a card, the same tint must be mixed against the canvas or
      the selected cell sits a shade off the surface it is pretending to share. */
   --dsh-bento-selected-fill-canvas: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, var(--dsw-specific-sidebar-nav-item-active));
+
+  /* THE ACCENT HAIRLINE, AND WHY IT IS NOT --dsh-bento-edge (D69).
+   *
+   * The reference draws a faint accent-tinted line around its raised cells (hero panel, version
+   * chip, source pill) rather than the neutral grey edge the rest of the board uses. It is the
+   * visual difference between "a card on a canvas" and "a card the accent is involved in".
+   *
+   * It cannot be the edge token: that one is a host border alias, neutral by design, and the
+   * whole point here is that it carries the accent. It cannot be a literal either - gate 15
+   * forbids that, and a hardcoded pale blue is wrong the moment the user picks teal.
+   *
+   * So it is the same derivation used for the selection tint: an accent mix over the CARD.
+   *
+   * 22%, and the number is measured rather than matched to the fill's 12%. A hairline needs to
+   * be stronger than a fill to read as a line at 1px: at 12% it measured 1.09:1 against the
+   * card and was invisible; at 22% it measures 1.24:1, which is the same weight the host's own
+   * neutral edge carries (1.254:1 light). Matching the fill percentage would have produced a
+   * token that exists and paints nothing, which is the failure D41 and L62 both record. */
+  --dsh-bento-accent-edge: color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, var(--dsw-alias-bg-layer-2));
 
   /* CARD SHADOW, DERIVED (D57).
    *
@@ -847,6 +877,45 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"]:f
   border-color: var(--dsw-alias-brand-primary);
 }
 
+/* SESSION AGE BECOMES A PILL (D69).
+ *
+ * The reference shows each session's age in a rounded chip rather than as loose grey text, and
+ * the host already renders the data: measured, every session row carries a SPAN whose class
+ * ends in "_time" holding "3min" / "7h" / "8d" / "14d" at 10px.
+ *
+ * So this is a paint change, not a new element. Addressed by class SUBSTRING ("_time"), because
+ * the full name is a per-build hash (YDXeBa_time) - the same technique the Settings board uses
+ * for "cubeRow", and the same caveat: re-verify the match count after a harness upgrade.
+ *
+ * Measured 5 of 5 session rows match, and 0 other elements in the sidebar do. A plain
+ * [class*="time"] would have been the sloppier version of the same idea and is not used.
+ *
+ * The padding has to be paid for. A 10px glyph with 1px/6px of chip padding is 4px wider than
+ * the bare text, and the row is a flex line whose title already truncates - so the chip steals
+ * from the title. 2px/6px keeps the growth small while still reading as a chip; measured, the
+ * longest title in the column ("Debug QR Cloudflare host error") still truncates exactly as it
+ * did before, because it was already ellipsised and the chip is not the binding constraint.
+ *
+ * line-height: 1 is not cosmetic: the span inherits an 18px line box, which inside a 36px row
+ * makes the chip 20px tall and visibly taller than the reference's. Setting it to the font size
+ * gives a ~14px chip that sits centred. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"] [class*="_time"] {
+  border-radius: var(--dsh-bento-radius-pill);
+  padding: 2px 6px;
+  line-height: 1;
+  background: var(--dsh-bento-hover);
+  /* The chip must not be the reason a title wraps. */
+  flex: none;
+}
+
+/* On the SELECTED row the chip's neutral fill disappears into the accent tint it now sits on,
+   so it inverts to the card tone, which is the only surface that stays distinct against the
+   tint in both themes. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"][aria-selected="true"] [class*="_time"] {
+  background: var(--dsh-bento-card);
+  color: var(--dsh-bento-selected-ink);
+}
+
 /* A Workspace heading separates groups rather than being one, so it has no
    border; the extra top margin is what makes the group break readable. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="workspace:"] {
@@ -1163,6 +1232,204 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section h3 {
       order: 16,
       enabled: true,
       css: PAGE_CSS,
+    });
+//#endregion
+
+//#region src/48b-feature-detail.js
+/**
+ * Feature: the plugin detail page as a bento board (D69).
+ *
+ * The Plugins page has two levels. The LIST is a column of cards. Clicking a card's TITLE (not
+ * its body - that distinction cost an hour, see L95) opens a detail page for that plugin, and
+ * that page is where the reference's composition belongs: a hero, then a board of tiles.
+ *
+ * WHAT THE HOST RENDERS, measured on the live detail page (all class names are per-build hashes,
+ * so every rule below reaches them by SUBSTRING, never by full name):
+ *
+ *   section._page                  flex column, gap 32, 1296 wide, pad 0 48px 48px
+ *     div._detail                  flex column, NO gap, 960 wide  <- the hero's real container
+ *       div._detailTop             crumb + head (icon, actions)
+ *       div._detailMain            titleRow (h3 + version tag), name, desc
+ *       div._detailSections        flex column gap 32  -> becomes the board
+ *         section._detailSection   head (title + count) + rows
+ *
+ * Two structural traps, both measured rather than assumed:
+ *
+ *   1. [class*="_detailSection"] ALSO MATCHES "_detailSections", because the latter contains the
+ *      former. A rule written that way hits both the board and its children, and the board would
+ *      get a cell's padding. The board is addressed as "_detailSections" and the section as a
+ *      DIRECT CHILD of it, which is unambiguous.
+ *   2. [class*="_row "] with a trailing space matched 0 elements - the host's row class is
+ *      "X_2TxG_row" with nothing after it in the class list. The UL wrapper ("_rows") is the
+ *      reliable anchor instead, so rows are reached through "_rows > *".
+ *
+ * SCOPE. Only the detail page. The list page is untouched - it already has its own tile
+ * treatment from page-rows, and a grid there would reflow every card.
+ */
+    const DETAIL_CSS = `
+/* THE HERO BECOMES A RAISED INSET PANEL (D69).
+ *
+ * THE PANEL HAS TO COVER TWO SIBLINGS, AND THAT IS THE WHOLE TRICK.
+ *
+ * The host does not render the hero as one box. It renders:
+ *
+ *   div._detail              the container (flex column, no gap)
+ *     div._detailTop         crumb + head: the icon and the actions   <- one sibling
+ *     div._detailMain        title, tags, package name, description   <- the next sibling
+ *     div._detailSections    the board
+ *
+ * The first draft painted only _detailTop. Every computed value was right - radius 16,
+ * background set, accent border set - and the RESULT was wrong: a small panel holding an icon
+ * and a switch, with the plugin's own name floating underneath it, outside the box. The numbers
+ * could not see it; the screenshot could.
+ *
+ * So the panel is painted on _detail instead, and the two children become its content. _detail
+ * is selected with :has(> _detailSections) so the rule cannot leak onto any other _detail
+ * element the host may add elsewhere.
+ *
+ * THE WIDTH MUST NOT GROW, AND PADDING ALONE DOES NOT ENSURE THAT. _detail is 960 wide inside a
+ * page padded 0 48px 48px. A negative inline margin pushes the panel 40px past its column - the
+ * first attempt did exactly that (1000px in a 960px column, clipped by the page). Adding padding
+ * WITHOUT box-sizing does the same thing by a different route: measured 1002px, because the
+ * host's own reset does not apply border-box to this element. So the panel declares
+ * box-sizing explicitly; the padding then comes out of the 960 rather than adding to it.
+ *
+ * THE RADIUS IS 16. The strict concentric derivation is 24 (page card) - 8 (panel inset) = 16,
+ * and an earlier draft used 18 on the reasoning that 16 looked tight at the corners. That was an
+ * impression with nothing behind it: the panel sits 20px inside the page, so the tight bound for
+ * this inset is 24 - 20 = 4 and 16 is comfortably inside the correct range. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detail"]:has(> [class*="_detailSections"]) {
+  box-sizing: border-box;
+  padding: 20px;
+  border-radius: var(--dsh-bento-radius-nested);
+  background: var(--dsh-bento-card);
+  border: 1px solid var(--dsh-bento-accent-edge);
+}
+
+/* The top strip no longer carries its own padding now that the panel owns the inset. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detail"]:has(> [class*="_detailSections"]) > [class*="_detailTop"] {
+  padding: 0;
+}
+
+/* The title block keeps the panel's rhythm: 16px under the icon row, 20px above the board.
+   The host's own 20px separation was a bottom margin on the top strip, which is now zero. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detail"]:has(> [class*="_detailSections"]) > [class*="_detailMain"] {
+  margin-block: 16px 20px;
+}
+
+/* THE CRUMB BECOMES A PILL.
+ *
+ * The host renders it as a bare text button with a chevron: measured 960x15, radius 0, no
+ * background. The reference makes it a pill you can see and hit. Its current height is 15px -
+ * below anyone's minimum target - so this also fixes a real hit-target problem rather than only
+ * matching a picture.
+ *
+ * align-self keeps the pill hugging its text instead of stretching across the 960px column,
+ * which is the failure a naive version of this rule produces. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detailTop"] > [class*="_crumb"] {
+  align-self: flex-start;
+  min-height: 30px;
+  padding: 0 14px 0 9px;
+  border-radius: var(--dsh-bento-radius-pill);
+  background: var(--dsh-bento-hover);
+  transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
+}
+
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detailTop"] > [class*="_crumb"]:hover {
+  background: var(--dsh-bento-edge);
+}
+
+/* THE BOARD ITSELF: a two-column grid instead of one column of strips.
+ *
+ * Measured before: detailSections is flex/column/gap 32 holding the sections stacked at 960 wide
+ * each. The reference puts the Components section wide and tiles beside each other.
+ *
+ * grid-template-columns, not a fixed 12-track template. The host's section count varies (this
+ * build renders 1-3), and a 12-track grid would leave most tracks empty and shrink every cell.
+ * Two equal tracks with minmax(0, 1fr) keeps children from overflowing their track (the 0
+ * minimum) and degrades to one column when the page is narrow, which a 12-track template would
+ * not do without a media query.
+ *
+ * The 32px gap drops to the bento gutter: the board is a set of cells, and 32px between cells
+ * reads as separate pages rather than one board. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detailSections"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--dsh-bento-gutter);
+  align-items: start;
+}
+
+/* The section is a cell on that board: card tone, nested radius, its own padding. It keeps its
+   internal flex column, so its heading and rows are untouched. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detailSections"] > section {
+  border-radius: var(--dsh-bento-radius-nested);
+  background: var(--dsh-bento-card);
+  border: 1px solid var(--dsh-bento-edge);
+  padding: var(--dsh-bento-cell-inset);
+}
+
+/* THE WIDE SECTION SPANS BOTH TRACKS.
+ *
+ * The Components section is a list of plugins; at half width its rows wrap their descriptions to
+ * three lines and the switch crowds the text. The build that has a _rows child is the list one,
+ * so it is detected structurally rather than by position - a future build that reorders the
+ * sections still gets the right one wide. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detailSections"] > section:has([class*="_rows"]) {
+  grid-column: 1 / -1;
+}
+
+/* THE HOST'S ROW LIST LOSES ITS CARD-IN-CARD LOOK.
+ *
+ * Inside a section, the host draws each plugin row as its own white card with its own radius and
+ * a border. A bordered box inside a bordered cell inside a bordered page is three concentric
+ * rectangles for one idea - the exact language this theme exists to remove.
+ *
+ * The rows keep their box (no display or width change) and lose only the paint, then gain the
+ * pointer fill the rest of the theme uses. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_rows"] > * {
+  border-radius: var(--dsh-bento-radius-inner);
+  transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
+}
+
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_rows"] > *:hover {
+  background: var(--dsh-bento-hover);
+}
+
+/* THE VERSION AND STATUS TAGS MATCH THE PILL TIER.
+ *
+ * Measured: both already compute to 999px from the host. They are re-declared through the token
+ * so the pill tier has a single owner, and so a future change to the tier reaches them. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_versionTag"],
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_statusTag"] {
+  border-radius: var(--dsh-bento-radius-pill);
+}
+
+/* The section count is a chip in the reference rather than loose text. Same tier. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_sectionCount"] {
+  border-radius: var(--dsh-bento-radius-pill);
+  padding: 2px 8px;
+  background: var(--dsh-bento-hover);
+}
+
+/* Reduced motion: the fills appear at once. */
+@media (prefers-reduced-motion: reduce) {
+  html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detailTop"] > [class*="_crumb"],
+  html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_rows"] > * {
+    transition: none;
+  }
+}
+`;
+
+    FEATURES.push({
+      id: 'detail-board',
+      title: { en: 'Plugin detail board', zh: '插件详情版面' },
+      about: {
+        en: 'Lay the plugin detail page out as a bento board: a raised hero panel, a pill breadcrumb, and section cells instead of one column of strips.',
+        zh: '把插件详情页排成便当式版面：抬起的标题面板、胶囊式面包屑，以及分区卡片而不是一列长条。',
+      },
+      order: 17,
+      enabled: true,
+      css: DETAIL_CSS,
     });
 //#endregion
 
