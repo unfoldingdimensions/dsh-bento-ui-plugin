@@ -1719,3 +1719,48 @@ card-fill over a red block is what made the difference obvious in one screen.
 **The lesson.** When fixing a visual defect that is *produced by* a mechanism serving a purpose,
 the verification has to assert both that the symptom is gone and that the purpose still holds.
 Otherwise the cheapest passing fix is to delete the mechanism.
+
+## L83 — "Overlapping" was the user's honest description of a truncation
+
+The report was "the mode selectors are overlapping". Nothing overlapped: every pair of header
+elements was disjoint in all four cards, both themes, both widths. The title was being ellipsised
+to "Standar…", and the badge sat immediately after the ellipsis, so the two read as one collision.
+
+Taking the word literally would have sent me looking for a z-index or a negative margin — neither
+of which exists. Measuring the row immediately showed a 38px shortfall.
+
+**The lesson.** A visual report describes what it LOOKS like, not the mechanism, and the words can
+name a symptom that has a different cause. The translation step is not pedantry: "overlap" implies
+stacking, "truncated beside a badge" implies flex sizing, and they lead to different files. Measure
+before choosing which one you were told.
+
+## L84 — Checking whether it was already broken changed the fix, not just the blame
+
+The instinct was to find what the theme did to break this card. Measured with the theme OFF,
+the name is still truncated — 75px of 104px needed — so the host's own layout does it, and the
+theme's 24px of extra width does not close the gap.
+
+That mattered beyond assigning blame: a fix premised on "the theme narrowed this card" would have
+been to give width back, which was both impossible (the grid caps the card at any viewport) and
+pointless (24px against a 38px shortfall). Knowing the defect was pre-existing is what made
+"let the row wrap" the obvious answer.
+
+**The lesson.** Before fixing a layout complaint, measure the same element with the change switched
+off. It separates "I broke this" from "this was always broken and I made it visible", and those two
+have different fixes. The theme-off measurement costs one line and had already settled several
+earlier questions in this project (D50, D60).
+
+## L85 — Gate 25 caught the same bug within seconds, and that is the point of a gate
+
+Writing the fix's comment, I typed a backtick around an identifier — the exact hazard this project
+has hit more than ten times, and the one that got through all 24 gates last turn.
+
+This time gate 25 (added hours earlier) failed immediately, alongside the compile error: both named
+the file and the line, and the literal was caught before a build could ship a truncated stylesheet.
+No investigation, no guessing which rule had gone missing.
+
+**The lesson.** A gate earns its cost the first time it turns a silent corruption into a one-line
+error. Compare the two incidents: last turn the same mistake produced a bundle that *parsed*, a
+stylesheet that was silently short, and a suite of green checks; this turn it produced "literal
+terminated early at 50-feature-settings.js:420". Same bug, minutes apart, and the only difference
+is that a guard now exists for the shape it actually takes.

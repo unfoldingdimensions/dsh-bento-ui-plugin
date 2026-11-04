@@ -1713,6 +1713,46 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section
     transition: none;
   }
 }
+
+/* THE PRESET-CARD HEADER WRAPS INSTEAD OF TRUNCATING (D66).
+ *
+ * Reported as "the mode selectors are overlapping in the settings". Nothing overlaps - measured,
+ * no pair of header elements intersects. What happens is that the card TITLE is ellipsised to
+ * "Standar..." because the row runs out of width.
+ *
+ * The host's header is one flex row: [ name | tag ] in a cardIdentity span, then a cardId
+ * code element. The identity is flex: 1, so it gets whatever is left after the id, and the tag
+ * is a sibling that does not shrink. Measured inside one card at 1600px:
+ *
+ *   identity available   184px
+ *   name needs           111px  ("Standard mode")
+ *   gap                    6px
+ *   tag needs            105px  ("New task default")
+ *   total needed         222px   -> 38px short, so the name ellipsises
+ *
+ * THIS IS NOT THEME-CAUSED, and the measurement matters because it changes the fix. With the
+ * theme switched off the name is STILL truncated (75px of 104px needed): the host's own layout
+ * does this. The theme merely widens the card from 276 to 300px, which is not enough to close a
+ * 38px gap. So this is a host defect the theme chooses to correct, not one it introduced - and
+ * the theme's correction must not depend on its own padding.
+ *
+ * WIDENING THE WINDOW DOES NOT HELP. The host's grid is
+ * repeat(auto-fill, minmax(268px, 1fr)), so a card is ~276-300px at any viewport. Measured at
+ * 2200px: still 184px for the identity, still truncated.
+ *
+ * THE FIX LETS THE ROW WRAP. flex-wrap: wrap puts the tag on its own line when the row cannot
+ * hold all three, so the name takes the full width. Measured: name 111 of 111 needed, no
+ * ellipsis, and only the two cards that carry a tag grow (189 -> 212px); the two without one are
+ * untouched. The alternative - letting the tag shrink and ellipsise - keeps one line but starts
+ * hiding tag text, which is the same defect moved rather than fixed.
+ *
+ * row-gap: 4px is the wrap's only new spacing: the host's existing gap: 6px becomes the
+ * column gap, and a wrapped row needs its own. 4 rather than 6 so the tag sits closer to the
+ * title it labels than to the description below. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li [class*="cardIdentity"] {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
 `;
 
     FEATURES.push({

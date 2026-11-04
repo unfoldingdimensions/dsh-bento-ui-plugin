@@ -151,6 +151,11 @@ see A12 and Pass 4.
   tinted for a while and read as a blue-grey slab across 861px (D61).
 - The composer's surface claim costs nothing in layout: the hairline is an inset shadow, not
   a border, because a border would move a control the host has already sized (D14).
+- A reported "overlap" may be a truncation. The preset-card header was a flex row with a
+  non-shrinking tag; the title ellipsised and the badge sat right after it. Measure for
+  intersecting rects before looking for z-index (D66).
+- A host grid that caps a card's width (`repeat(auto-fill, minmax(268px,1fr))`) means widening
+  the window will not fix a cramped row. Check the grid before concluding a layout is reachable.
 - A host scrim that fades to its own page background will not match a card the theme painted
   differently. The composer seat's sticky gradient fades to `--dsw-alias-bg-base`, which equals
   the card in light but is 23 units darker in dark — that was the dark band above the composer

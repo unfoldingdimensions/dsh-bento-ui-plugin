@@ -2106,3 +2106,59 @@ Gate 25 closes it: it locates every `*_CSS` template literal, finds the first cl
 after the opening one, and requires a semicolon immediately after it. A literal that closes
 mid-statement fails. Proved on two plants — a backtick in a comment inside the literal, and one
 in a CSS declaration — and both were seen red before the gate was trusted.
+
+---
+
+## D66 — The preset-card header wraps instead of truncating, and it was never an overlap
+
+**Reported as** "the mode selectors are overlapping in the settings". **Measured:** nothing
+overlaps. No pair of header elements intersects in any of the four cards, in either theme, at any
+width. What actually happens is the card TITLE ellipsises — "Standard mode" renders as
+"Standar…" — because the header row runs out of width.
+
+**The host's header is one flex row** inside each preset card:
+
+```
+span.cardIdentity  (flex: 1, gap: 6)  [ span.cardName  |  span.tag ]
+code.cardId        (flex-shrink: 0, max-width: 35%)
+```
+
+The identity gets whatever is left after the id, and the tag is a sibling that does not shrink.
+Measured inside one card at 1600px:
+
+| | px |
+|---|---|
+| identity available | **184** |
+| name needs ("Standard mode") | 111 |
+| gap | 6 |
+| tag needs ("New task default") | 105 |
+| **total needed** | **222** → 38 short |
+
+38px short, so the name ellipsises and the tag sits over the truncated remainder. It reads as
+overlap because the bold black tag lands right where the text stops.
+
+**This is the host's layout, not the theme's — and proving that changed the fix.** With the theme
+switched off the name is *still* truncated: 75px available, 104px needed. The theme widens the card
+from 276 to 300px, which does not close a 38px gap. So the theme is correcting a defect it did not
+introduce, and the correction must not depend on the theme's own padding.
+
+**Widening the window does not help.** The host's grid is
+`repeat(auto-fill, minmax(268px, 1fr))`, so a card is ~276–300px at any viewport. Measured at
+2200px: identity still 184px, still truncated. Anyone meeting this would reasonably try a bigger
+window first and find it does nothing.
+
+**Decision: let the row wrap.** `flex-wrap: wrap` drops the tag to its own line when the row cannot
+hold all three, so the name takes the full width. Measured: 111 of 111 needed, no ellipsis, at
+1600px and 2200px, light and dark.
+
+**The alternative was rejected for moving the defect, not fixing it.** Letting the tag shrink and
+ellipsise keeps one line but starts hiding tag text — the same problem relocated to the label that
+says which mode is the default.
+
+**Blast radius is two cards.** Only the cards carrying a tag grow (189 → 212px); Minimal and
+Creator are unchanged at 189px. A fix that grew all four would have been a layout regression
+traded for a truncation.
+
+**`row-gap: 4px` is the only new spacing.** The host's `gap: 6px` becomes the column gap when the
+row wraps, and a wrapped row needs its own line gap. 4 rather than 6 so the tag sits closer to the
+title it labels than to the description below it.
