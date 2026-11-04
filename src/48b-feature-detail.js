@@ -173,6 +173,43 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_sectionCount"] {
   background: var(--dsh-bento-hover);
 }
 
+/* OUR OWN SECTIONS FOLLOW THE SAME CELL RULE (D70).
+ *
+ * The plugins.detail.section entries draw their own chrome (the slot contract says so explicitly),
+ * so the two sections mounted by 61-detail-sections.js arrive as bare elements on the board and
+ * need the same treatment as the host's own cells. They carry the data-bento-detail attribute
+ * rather than a hashed class, because that attribute is ours and cannot drift with an upgrade.
+ *
+ * They are addressed by that attribute - not by a hashed class - so a future harness build cannot
+ * silently stop matching them. Both sections are short, so each takes a single track and they sit
+ * side by side. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-bento-detail] {
+  border-radius: var(--dsh-bento-radius-nested);
+  background: var(--dsh-bento-card);
+  border: 1px solid var(--dsh-bento-edge);
+  padding: var(--dsh-bento-cell-inset);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* The section heading matches the host's own section titles, which are 15px/500 in this build. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-bento-detail] > h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* The board section's rows draw a top rule each; the first one must not double up with the
+   heading's own spacing. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-bento-detail="board"] > div > div:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
 /* Reduced motion: the fills appear at once. */
 @media (prefers-reduced-motion: reduce) {
   html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detailTop"] > [class*="_crumb"],

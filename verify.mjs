@@ -811,6 +811,53 @@ check('radii: the card tier is above the inner tier and the pill tier is a token
   return `card ${card} > inner ${inner}, nested ${nested} (derived from the 28px host panel), pill ${pill}`;
 });
 
+check('detail sections: registered into the documented slot, guarded, and null-safe', () => {
+  // D70 mounts DOM into a host surface this plugin does not own, which is a new kind of claim for
+  // this bundle (every other feature is CSS). Three invariants make it survivable:
+  //
+  //   1. it registers into the slot the client runner's own contract catalog documents, using the
+  //      documented shape ({ name, id, order, label } + component)
+  //   2. it lives behind its own try/catch in apply(), LAST, so a host contract change costs a
+  //      section and not the theme's whole stylesheet
+  //   3. every component returns null for a subject it does not understand - the contract says so
+  //      explicitly ("renders null for a subject it has nothing for"), and a component that throws
+  //      on an unexpected subject would take the host's detail page down with it
+  const sections = readFileSync(join(root, 'src', '61-detail-sections.js'), 'utf8');
+  const footer = readFileSync(join(root, 'src', '99-footer.js'), 'utf8');
+
+  if (!/ctx\.slots\.inject\('plugins\.detail\.section'/.test(sections)) {
+    throw new Error("never injects 'plugins.detail.section' - the section will not mount");
+  }
+  if (!/name: 'plugins\.detail\.section'/.test(sections)) {
+    throw new Error('registers without the documented slot name, so the host cannot dispatch to it');
+  }
+  if (!/id: 'bento-facts'/.test(sections) || !/id: 'bento-board'/.test(sections)) {
+    throw new Error('a section registration is missing its id');
+  }
+  if (!/order:\s*\d+/.test(sections)) {
+    throw new Error('no registration declares an order, so its position is undefined');
+  }
+
+  const guards = (sections.match(/if \(!subject \|\| !subject\.kind\) return null;/g) || []).length;
+  if (guards < 2) {
+    throw new Error(`only ${guards} component(s) guard a missing subject; an unexpected subject would throw on the detail page`);
+  }
+
+  const mountIdx = footer.indexOf('mountDetailSections');
+  if (mountIdx < 0) throw new Error('apply() never calls mountDetailSections');
+  const afterMount = footer.slice(mountIdx);
+  if (!/catch \(error\)/.test(afterMount)) {
+    throw new Error('the detail-section mount is not wrapped in its own try/catch');
+  }
+  if (footer.indexOf('kernel.start()') > mountIdx) {
+    throw new Error('the detail-section mount runs before kernel.start(), so a slot failure would stop the theme painting');
+  }
+
+  return 'documented slot, 2 registrations with ids+orders, guarded per subject, mounted last in its own guard';
+});
+
+
+
 
 const results = await runAll();
 

@@ -48,11 +48,12 @@ src/53-feature-corners.js  feature: clip scrolling content to the card radius
 src/54-feature-font.js     feature: the two reference typefaces
 src/55-feature-composer-chips.js  feature: the control row as one toolbar
 src/60-settings.js         settings rows, derived from the registry
+src/61-detail-sections.js  the plugin detail page's two extra sections (slot-mounted)
 src/99-footer.js           translator, apply(), exports
 assets/*.woff2             Inter + JetBrains Mono, latin subset, OFL 1.1
 tools/make-fontdata.mjs    assets/*.woff2 -> src/14-fontdata.js
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 25 pre-install checks
+verify.mjs                 28 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`. If you touched
@@ -214,6 +215,23 @@ see A12 and Pass 4.
   1000px in a 960px column from a negative margin; swapping to padding made it 1002px, because the
   host's reset leaves that element content-box. Two attempts, two mechanisms, same 2px-shaped bug
   (L99).
+- **Read the platform's own contract catalog before reverse-engineering the contract.** The client
+  runner ships 111 machine-readable slot entries — kind, scope, prose doc, register options, and a
+  working example each. That catalog stated the obligation ("renders null for a subject it has
+  nothing for") that call-site inference had missed, and it shaped the whole implementation (L102).
+- **A slot-mounted component must be null-safe and separately guarded.** `plugins.detail.section`
+  renders inside the host's page: a component that throws on an unexpected subject takes the host's
+  detail page down, and a mount that is not in its own try/catch takes the theme's stylesheet with
+  it. The mount runs last, in its own guard, and every component returns null for a subject it does
+  not understand (D70, gate 29).
+- **Refusing a feature needs the same evidence as building one.** The reference's Update tile is not
+  built because the subject omits `pkg.installTarget` and `pkg.source` — exactly the fields the
+  host's own `updateAvailable()` reads. A button labelled "Check for updates" with no update data
+  behind it would render, look right and lie (D70, L103).
+- **`display: contents` is invisible to `:scope >` and to child counts.** The slot's mount point is
+  a contents wrapper, so a child walk reported our two sections as absent while they laid out
+  correctly as grid items. Expand contents wrappers before counting children — this is the third
+  place the trap has appeared (L104).
 
 ## The spacing rules
 
@@ -276,7 +294,7 @@ Twelve features and two colour choices ship:
 | `row-tiles` | Sidebar tiles | on | rounds sidebar rows (sessions and nav destinations), adds spacing, a hover edge and the accent edge on keyboard focus; turns the session age into a pill (D69) |
 | `center-card` | Conversation card | on | insets the conversation column onto its own card and raises the composer onto it as a white, edged, softly shadowed surface |
 | `page-rows` | Page rows | on | gives the rows of full pages mounted in that column (Plugins, MCP) the same tile treatment |
-| `detail-board` | Plugin detail board | on | lays the plugin detail page out as a board: a raised hero panel with an accent hairline, a pill breadcrumb, and section cells on a two-track grid with the list section spanning both (D69) |
+| `detail-board` | Plugin detail board | on | lays the plugin detail page out as a board: a raised hero panel with an accent hairline, a pill breadcrumb, and section cells on a two-track grid with the list section spanning both; also mounts two sections into `plugins.detail.section` — real package facts, and which of this theme's mechanisms are in effect (D69, D70) |
 | `rightbar-card` | Right panel card | on | insets the docked right panel onto its own card |
 | `settings-bento` | Settings board | on | lays the Settings dialog out as two sibling cards on one canvas — navigation and content — with the row rules removed |
 | `card-shadow` | Card shadow | **off** | lifts the four card surfaces with a soft two-layer shadow; off keeps the flat board |

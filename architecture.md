@@ -450,6 +450,43 @@ Settings row registers into `settings.general.item`, a list slot that renders
 only while the Settings panel is open — so its absence from `document.body` at
 boot proves nothing.
 
+### The one host surface this plugin mounts into (D70)
+
+Everything else in this bundle is CSS. The plugin detail page's two extra sections are the
+exception, and the boundary is worth stating precisely because it is the only one.
+
+```
+plugins.detail.section        kind: list, scope: root
+  "An entry draws its own section chrome and renders null for a subject it has nothing for."
+```
+
+The contract is not inferred: `dsh-cordis-client-runner` ships a catalog of 111 slot entries with
+`kind`, `scope`, a prose `doc`, register options and a working example for each. The obligation that
+shaped the implementation — *render null for a subject you have nothing for* — is stated there.
+
+What a renderer receives:
+
+```
+{ kind: 'bundle', pkg: { name, version?, installed, availability, official, enabled,
+                         rows: [{ rowId, moduleName, enabled }] } }
+{ kind: 'item',   id }          // official plugin pages: no package at all
+```
+
+`packageRef` projects that narrow face deliberately, and it is why the reference's Update tile and
+Source card are not built: `pkg.installTarget` and `pkg.source` are absent, and those are exactly
+what the host's own `updateAvailable()` and `SourceSection` read.
+
+Mount rules, each pinned by gate 29:
+
+| Rule | Why |
+|---|---|
+| Register with the documented slot name, an `id`, and an `order` | The host dispatches by name; the id makes the entry addressable; the order fixes its position |
+| Every component returns null for a missing/unknown subject | A throw here takes the host's detail page down, not just the section |
+| The mount runs **last** in `apply()`, in its own `try/catch` | A slot-contract change then costs two sections, not the theme's entire stylesheet |
+
+The slot's mount point is a `div` with `display: contents`, so the mounted `<section>` is a
+**grandchild** of the board: it is a grid item, and any `:scope >` child walk misses it.
+
 ---
 
 ## 6. Verification surface

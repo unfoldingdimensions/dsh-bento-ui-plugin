@@ -66,6 +66,19 @@
       } catch (error) {
         report(ctx, 'kernel.start', error);
       }
+
+      // 3. The plugin detail page's extra sections (D70).
+      //
+      // LAST, and in its own guard, for the same reason as the switch: this is the only part of
+      // the plugin that mounts DOM into a host surface it does not own. If the slot contract
+      // changes, or the host stops offering 'plugins.detail.section', that failure must not take
+      // the theme's stylesheets down with it - the theme would lose its whole look because a
+      // section could not be added.
+      try {
+        if (kernel !== null) mountDetailSections(ctx, kernel.api, translate);
+      } catch (error) {
+        report(ctx, 'detail sections', error);
+      }
     }
 
     return { inject: ['slots', 'locale'], apply };

@@ -2024,3 +2024,49 @@ skips itself (rather than passing) when that box is not real.
 **The lesson.** A failure count that does not change when the feature under test is removed is
 measuring the harness. Run every new check once with the change disabled before believing it: it
 costs one browser context and it is the difference between a defect and a false alarm.
+## L102 — The slot contract was documented in the bundle, and reading it beat inferring it
+
+Before writing a line of Phase 2 I spent three probes inferring the `plugins.detail.section`
+contract from how other packages used it, and got a partial answer. The client runner then turned
+out to ship **111 machine-readable slot entries**: key, kind, scope, a prose doc, register options,
+and a working example each.
+
+That catalog answered in one read what inference had not: the slot is `kind: list, scope: root`; an
+entry "draws its own section chrome"; and - the sentence that shaped the whole design - it "renders
+null for a subject it has nothing for". The last one is a contract obligation I would not have
+guessed at, and a component that throws on an unexpected subject would take down the host's page.
+
+**The lesson.** When integrating against a platform, look for the platform's own contract catalog
+before reverse-engineering the contract from call sites. `grep` for the slot name found the
+consumers; the consumers describe usage, and usage is not spec. The spec was 400KB away, in a file I
+had already opened twice.
+
+## L103 — Refusing a feature on evidence is a deliverable, and it needs the same rigour as building one
+
+The reference's Update tile and Source card are both in the mock, both look trivial, and both are
+impossible for the same reason: the subject a detail slot receives is `packageRef`'s narrow
+projection, which omits `pkg.installTarget` and `pkg.source` - precisely the two fields the host's
+own `updateAvailable()` and `SourceSection` read.
+
+I could have shipped a button. It would have rendered, looked right, and lied: "Check for updates"
+with no update data behind it. Instead the decision records which fields are missing, which host
+function reads them, and why a plugin therefore cannot answer the question.
+
+**The lesson.** "I can't build this" is only worth saying with a mechanism attached - the field that
+is absent, the API that is not exposed, the measurement that shows it. Without that it reads as
+effort-avoidance; with it, it is the most useful line in the report, because it stops the next
+person attempting the same thing.
+
+## L104 — `display: contents` breaks child probes, and this is the third place it has
+
+The Phase 2 verify reported "0 of our sections sit on the board" while both sections were on screen,
+correctly sized as grid items. The slot's mount point is a `div` with `display: contents`, so our
+`<section>` elements are grandchildren of the board and `:scope >` cannot see them.
+
+This is the third appearance of the same trap: the queue dock (L86) and the Settings content column
+both had contents wrappers the first probe walked past. It is now stated as a rule rather than a
+one-off: **when counting or querying children, expand any `display: contents` wrapper first**, or
+the count silently omits exactly the elements the extra wrapper was added to contain.
+
+**The lesson.** A bug that recurs in a third location was never a bug - it was an unstated rule
+about the DOM. The fix belongs in the probe helper, not in each probe.

@@ -2346,3 +2346,69 @@ with a chip background and inverts correctly on the selected row; the detail her
 and is exactly 960 wide; the board is a 2-track grid with 16px cells and a full-width list section;
 the crumb is a 30px pill; and nothing moved - session rows 34, nav rows 38, composer radius 28,
 Settings cards still 16, collapsed rail still 10, zero overflow on sidebar or centre.
+## D70 — The detail page gains two sections, and the reference's third tile is refused
+
+Phase 2 of the plugin-detail reference. This is the first part of this theme that **adds DOM** to a
+host surface it does not own - every feature before it only repainted the host's own elements - so
+the design is shaped by what the extension point actually guarantees.
+
+**The extension point, quoted from the client runner's own slot contract catalog** (111 entries
+ship inside `dsh-cordis-client-runner`, machine-readable, so this is documentation rather than
+inference):
+
+```
+plugins.detail.section   kind: list   scope: root
+"Sections under a detail page's own content: after the rows on a bundle's page, after the
+ configuration on a row's or an official plugin's page. An entry draws its own section chrome
+ and renders null for a subject it has nothing for."
+```
+
+Two things in that sentence decide the implementation. *"Draws its own section chrome"* means the
+section arrives bare and must style itself. *"Renders null for a subject it has nothing for"* is a
+contract obligation, not a suggestion: a component that throws on an unexpected subject would take
+the host's detail page down with it.
+
+**WHAT THE SUBJECT CARRIES, measured from the manager's `packageRef`:**
+
+```
+{ kind: 'bundle', pkg: { name, version?, installed, availability, official, enabled,
+                         rows: [{ rowId, moduleName, enabled }] } }
+{ kind: 'item',   id }                       // official plugin pages: no package at all
+```
+
+**THE REFERENCE'S UPDATE TILE IS REFUSED, ON EVIDENCE.** It shows "v0.1.0" with a "Check for
+updates" button. The host's own `updateAvailable(pkg)` reads `pkg.installTarget` and `pkg.source`;
+neither field is in the subject, because `packageRef` deliberately projects a narrow face. A plugin
+therefore cannot know whether an update exists. Mounting a button labelled "Check for updates" that
+cannot check anything would be a control that lies, which is worse than a missing feature. The same
+applies to the reference's Source card: `pkg.source` is absent, and the host's `SourceSection` did
+not render on any of three plugins measured, so there is nothing to restyle either.
+
+**WHAT IS BUILT: two sections, both from data the host actually hands over.**
+
+1. **Package facts** - kind, status, source (official/third-party), version, component count as
+   `enabled / total`, enabled state. Every value comes from the subject; nothing is invented. On an
+   official *item* page the subject has no `pkg`, so the section returns null rather than describing
+   a package it cannot see. Verified: 0 renders on the Shell item page, 1 on a bundle page.
+2. **Bento layout** - which of this theme's mechanisms are in effect on the page, read from the
+   kernel's own feature state, so it cannot claim a feature the user switched off. Verified by
+   switching `row-tiles` off: the marks went 4 On -> 3 On + 1 Off.
+
+**Registration order matters, and not for looks.** Both sections are mounted in `apply()` **after**
+`kernel.start()` and inside their **own** try/catch. If the slot contract changes in a future
+harness, the cost is two sections - not the theme's entire stylesheet. Gate 29 pins that ordering,
+the documented slot name, the ids and orders, the per-subject guard, and the guard itself; four
+planted defects all fail it.
+
+**THE LAYOUT TRAP, AGAIN IN A NEW PLACE.** The slot's mount point is a `div` with
+`display: contents`, so our sections are grandchildren of the board, not children. A `:scope >`
+walk reported "0 of our sections on the board" while both were laying out correctly as grid items
+at 453px of 918. The check now expands contents wrappers - the same correction L86 recorded for the
+queue dock, in a third location, which is the argument for stating it as a rule rather than a
+one-off: **a `display: contents` wrapper is invisible to `:scope >` and to every child-count probe.**
+
+**Verified** (bundle page, both themes, 1600x1200): both sections mount exactly once, render real
+subject data (Kind Bundle / Status Installed / Source Third-party / Version 0.1.16 / Components
+1 of 1 / Enabled Yes), sit as half-width cells in the 2-track board, and produce no page errors. The
+item page renders the facts section 0 times, as the contract requires. Phase 1's radii, Settings,
+rail and tab checks all still pass.
