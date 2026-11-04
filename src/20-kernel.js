@@ -81,17 +81,87 @@
       }
     }
 
+    /**
+     * A `choice` feature's stored value.
+     *
+     * Two shapes are supported, and they are distinguished by the feature, not guessed:
+     *   - `options` present  -> the value must be one of their ids (a fixed palette). A stale
+     *     id from an older version would otherwise paint nothing, with no visible error, so it
+     *     falls back to the default instead of trusting localStorage.
+     *   - `store` is 'json'  -> a free-form value (the label colour), parsed and shape-checked.
+     *     localStorage is user-writable; a malformed record must not be painted into the
+     *     stylesheet as a CSS value.
+     */
+    function readChoice(feature) {
+      const fallback = feature.defaultChoice;
+      try {
+        const raw = window.localStorage.getItem(`${STORAGE_KEY}:${feature.id}`);
+        if (raw === null) return fallback;
+        if (feature.store === 'json') {
+          let parsed;
+          try { parsed = JSON.parse(raw); } catch { return fallback; }
+          if (!parsed || typeof parsed !== 'object') return fallback;
+          // Only hex colours are accepted. A value that is not a colour would be emitted into
+          // the stylesheet verbatim, so the boundary validates rather than sanitising later.
+          const isColour = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
+          const light = isColour(parsed.light) ? parsed.light : null;
+          const dark = isColour(parsed.dark) ? parsed.dark : null;
+          if (parsed.id === 'auto') return 'auto';
+          if (!light && !dark) return fallback;
+          return { id: 'custom', light, dark };
+        }
+        if (raw === '0' || raw === '1') return fallback;
+        if (feature.options && feature.options.some((option) => option.id === raw)) return raw;
+        return fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function writeChoice(feature, value) {
+      try {
+        const payload = typeof value === 'object' && value !== null ? JSON.stringify(value) : value;
+        window.localStorage.setItem(`${STORAGE_KEY}:${feature.id}`, payload);
+      } catch {
+        /* Storage unavailable: the choice lasts for this page only. */
+      }
+    }
+
     function createKernel(ctx) {
       const state = new Map();
       const listeners = new Set();
       const cleanups = new Map();
+      /**
+       * Features whose value is a choice rather than a switch (`choice` in the contract).
+       * Stored separately from `state` because "which accent" is not a boolean and must not
+       * be coerced by `readStored`, which only ever answers true/false.
+       */
+      const choices = new Map();
       let revision = 0;
 
-      for (const feature of FEATURES) state.set(feature.id, readStored(feature));
+      for (const feature of FEATURES) {
+        if (feature.choice) choices.set(feature.id, readChoice(feature));
+        else state.set(feature.id, readStored(feature));
+      }
 
       const api = {
         isOn(id) {
           return state.get(id) === true;
+        },
+        /** The stored choice for a `choice` feature, or its declared default. */
+        choice(id) {
+          return choices.get(id);
+        },
+        /** Set a `choice` feature's value. Repaints; never touches the on/off state. */
+        setChoice(id, value) {
+          const feature = FEATURES.find((entry) => entry.id === id);
+          if (!feature || !feature.choice) return;
+          if (choices.get(id) === value) return;
+          choices.set(id, value);
+          writeChoice(feature, value);
+          api.paint();
+          revision += 1;
+          for (const listener of listeners) listener();
         },
         revision() {
           return revision;
@@ -119,13 +189,26 @@
         paint() {
           const existing = document.getElementById(STYLE_ID);
           if (existing) existing.remove();
-          const active = FEATURES.filter((feature) => api.isOn(feature.id) && feature.css);
-          if (active.length === 0) return;
+          // A `choice` feature has no on/off state: its css() is always painted, and what
+          // varies is which value it returns. A `css` string feature is painted only while
+          // its switch is on. The two contracts are kept separate rather than conflated into
+          // "the css is empty when off", so a genuinely empty choice cannot silently disable
+          // the whole token layer.
+          const blocks = [];
+          for (const feature of FEATURES) {
+            if (typeof feature.css === 'function') {
+              const out = feature.css(api.choice(feature.id));
+              if (out) blocks.push(out);
+            } else if (api.isOn(feature.id) && feature.css) {
+              blocks.push(feature.css);
+            }
+          }
+          if (blocks.length === 0) return;
           const tag = document.createElement('style');
           tag.id = STYLE_ID;
           // BASE_CSS carries the design tokens every feature reads; a feature's
           // own CSS is meaningless without it, so it is always prepended.
-          tag.textContent = [BASE_CSS, ...active.map((feature) => feature.css)].join('\n');
+          tag.textContent = [BASE_CSS, ...blocks].join('\n');
           document.head.appendChild(tag);
         },
         /** Apply or withdraw a feature's runtime half. */

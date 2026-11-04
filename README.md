@@ -151,6 +151,16 @@ see A12 and Pass 4.
   tinted for a while and read as a blue-grey slab across 861px (D61).
 - The composer's surface claim costs nothing in layout: the hairline is an inset shadow, not
   a border, because a border would move a control the host has already sized (D14).
+- An accent is **two** host tokens, not one: the selection tint/ink read
+  `--dsw-alias-state-business-primary` and the Send button reads
+  `--dsw-alias-button-info-fill`. Overriding one gives a visibly half-applied accent (D63).
+- A palette is the one place a literal colour is allowed, and it is exempted from the
+  no-hardcoded-colour gate **by filename** — because a user-chosen accent is meant to be a
+  fixed value, which is the opposite of what that rule enforces for surfaces. A separate gate
+  recomputes each accent's derived tint and ink and fails the build if any drops below AA.
+- Derived beats tabulated. A hand-written per-accent ink table measured 1.20:1 for amber in
+  dark; the theme's own derivation measured 7.31:1 for the same accent. The palette therefore
+  carries no ink values at all.
 - A generated file is checked against its source, never trusted. `src/14-fontdata.js`
   must decode to the same bytes as `assets/*.woff2` and carry a `wOF2` header, or the
   build fails (gate 20).
@@ -179,7 +189,7 @@ See `decision.md` D23–D25 and `flow.md` §7.
 
 ## Status
 
-Eleven features ship:
+Eleven features and two colour choices ship:
 
 | id | title | default | what it does |
 |---|---|---|---|
@@ -194,6 +204,13 @@ Eleven features ship:
 | `composer-spacing` | Composer spacing | on | gives the composer and its statistics strip one spacing scale so the numbers group instead of crowding, and an edge to the To-dos panel above it, which the host paints as frosted material that composites invisibly on a white card |
 | `ui-font` | Reference typeface | on | sets Inter for interface text and JetBrains Mono for code, both bundled — the host loads no webfont of its own |
 | `composer-chips` | Composer controls | on | gives the model and access selectors one shared fill and radius so the row reads as one toolbar, and lifts the reasoning-effort suffix from 1.83:1 to 5.36:1 |
+
+Two of those are **choices rather than switches** — they have a value, not an on/off state:
+
+| id | title | default | what it does |
+|---|---|---|---|
+| `accent` | Accent | Blue | picks the colour used for selection, the Send button and links, from eight. Two host tokens, not one (D63) |
+| `label colour` (in `accent`) | Label colour | Auto | follows the accent by default; can be overridden per theme, because a colour that reads on a light tint usually does not on a dark one |
 
 `ui-font` is the one feature that changes the page beyond its own surfaces: a UI
 face governs every text run in the application, including plugins this theme does

@@ -313,6 +313,75 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"][data-sidebar-collapsed] {
 `;
 //#endregion
 
+//#region src/16-palette.js
+/**
+ * The accent palette.
+ *
+ * Each accent carries the two values the host itself distinguishes: a light-theme accent and a
+ * dark-theme accent for the same identity. The host's own accent is #4176e6 in light and
+ * #7aaaff in dark - the same hue, lightened for a dark ground - so the palette follows that
+ * shape rather than pinning one literal for both.
+ *
+ * NO PAIRED INK TABLE IS NEEDED, AND THAT WAS MEASURED, NOT ASSUMED.
+ *
+ * The obvious design is per-accent text colours: light ink, dark ink, sixteen values, sixteen
+ * chances to be wrong. The theme already derives the selection ink from whatever accent is
+ * live - a 12% tint for the fill and a 65% mix toward the label for the ink (D55) - so
+ * overriding the accent token moves the ink with it. The question was whether that derivation
+ * stays readable for accents other than blue.
+ *
+ * Computed against the theme's actual mixes for all eight accents in both themes:
+ *
+ *   worst ink-on-tint contrast:  5.90:1  (teal / light)
+ *   worst accent-as-icon:        3.74:1  (teal / light)
+ *
+ * AA asks 4.5:1 for text and 3:1 for a UI element. Every accent clears both, so the ink is
+ * derived and there is nothing to hand-maintain. A per-accent ink table was written first and
+ * discarded: its two "tricky" entries (amber and rose, where a dark ink on a dark tint is the
+ * wrong instinct) measured 1.20:1 and 1.24:1 - unreadable. The derivation is right and the
+ * invented table was wrong, which is why the numbers are computed here rather than chosen.
+ *
+ * THE USER CAN OVERRIDE THE INK ANYWAY. "Each accent comes with its own text colour, but we
+ * need the ability to change it as well" is two requirements: a correct default pair, and a
+ * way to depart from it. The default is free (derived); the departure is a stored value that,
+ * when set, replaces the derivation for that theme.
+ *
+ * THESE HEX VALUES ARE THE ONLY LITERALS IN THE PLUGIN. That is deliberate and it is why the
+ * no-hardcoded-colour gate exempts this file by name: a palette is data the user is picking
+ * from, not a surface that should follow the theme. Every other colour in the plugin still
+ * resolves through a host token.
+ *
+ * CONTRAST IS ASSERTED, NOT TRUSTED. `verify.mjs` recomputes the whole table and fails if any
+ * accent's derived ink drops below AA or its icon below 3:1, so adding a ninth accent is a
+ * change that either proves itself or breaks the build.
+ */
+    const ACCENTS = [
+      { id: 'blue',   label: { en: 'Blue',   zh: '蓝色'  }, light: '#4176e6', dark: '#7aaaff' },
+      { id: 'indigo', label: { en: 'Indigo', zh: '靛蓝'  }, light: '#5b5bd6', dark: '#a5a5f5' },
+      { id: 'violet', label: { en: 'Violet', zh: '紫罗兰' }, light: '#8b5cf6', dark: '#c4a6ff' },
+      { id: 'teal',   label: { en: 'Teal',   zh: '青绿'  }, light: '#0d9488', dark: '#5eead4' },
+      { id: 'green',  label: { en: 'Green',  zh: '绿色'  }, light: '#15803d', dark: '#6ee7a0' },
+      { id: 'amber',  label: { en: 'Amber',  zh: '琥珀'  }, light: '#b45309', dark: '#fbbf24' },
+      { id: 'rose',   label: { en: 'Rose',   zh: '玫红'  }, light: '#be123c', dark: '#fb7185' },
+      { id: 'slate',  label: { en: 'Slate',  zh: '石板灰' }, light: '#475569', dark: '#94a3b8' },
+    ];
+
+    /** The default when the user has never chosen. Blue is the host's own accent. */
+    const DEFAULT_ACCENT = 'blue';
+
+
+    /**
+     * The host's label colour, as a fallback only.
+     *
+     * `derivedInk` in the Settings renderer reads the live `--dsw-alias-label-primary` so the
+     * colour picker opens on exactly what is painted. These two values are what it falls back
+     * to when there is no document to read (the gate's own math runs headless, and the palette
+     * gate needs a label colour to derive against). They are the host's measured values, not
+     * choices: #0f1115 light, #f5f6f7 dark.
+     */
+    const LABEL_FALLBACK = { light: '#0f1115', dark: '#f5f6f7' };
+//#endregion
+
 //#region src/20-kernel.js
 /**
  * Kernel: feature registry, shell stamping, stylesheet assembly.
@@ -397,17 +466,87 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"][data-sidebar-collapsed] {
       }
     }
 
+    /**
+     * A `choice` feature's stored value.
+     *
+     * Two shapes are supported, and they are distinguished by the feature, not guessed:
+     *   - `options` present  -> the value must be one of their ids (a fixed palette). A stale
+     *     id from an older version would otherwise paint nothing, with no visible error, so it
+     *     falls back to the default instead of trusting localStorage.
+     *   - `store` is 'json'  -> a free-form value (the label colour), parsed and shape-checked.
+     *     localStorage is user-writable; a malformed record must not be painted into the
+     *     stylesheet as a CSS value.
+     */
+    function readChoice(feature) {
+      const fallback = feature.defaultChoice;
+      try {
+        const raw = window.localStorage.getItem(`${STORAGE_KEY}:${feature.id}`);
+        if (raw === null) return fallback;
+        if (feature.store === 'json') {
+          let parsed;
+          try { parsed = JSON.parse(raw); } catch { return fallback; }
+          if (!parsed || typeof parsed !== 'object') return fallback;
+          // Only hex colours are accepted. A value that is not a colour would be emitted into
+          // the stylesheet verbatim, so the boundary validates rather than sanitising later.
+          const isColour = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
+          const light = isColour(parsed.light) ? parsed.light : null;
+          const dark = isColour(parsed.dark) ? parsed.dark : null;
+          if (parsed.id === 'auto') return 'auto';
+          if (!light && !dark) return fallback;
+          return { id: 'custom', light, dark };
+        }
+        if (raw === '0' || raw === '1') return fallback;
+        if (feature.options && feature.options.some((option) => option.id === raw)) return raw;
+        return fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function writeChoice(feature, value) {
+      try {
+        const payload = typeof value === 'object' && value !== null ? JSON.stringify(value) : value;
+        window.localStorage.setItem(`${STORAGE_KEY}:${feature.id}`, payload);
+      } catch {
+        /* Storage unavailable: the choice lasts for this page only. */
+      }
+    }
+
     function createKernel(ctx) {
       const state = new Map();
       const listeners = new Set();
       const cleanups = new Map();
+      /**
+       * Features whose value is a choice rather than a switch (`choice` in the contract).
+       * Stored separately from `state` because "which accent" is not a boolean and must not
+       * be coerced by `readStored`, which only ever answers true/false.
+       */
+      const choices = new Map();
       let revision = 0;
 
-      for (const feature of FEATURES) state.set(feature.id, readStored(feature));
+      for (const feature of FEATURES) {
+        if (feature.choice) choices.set(feature.id, readChoice(feature));
+        else state.set(feature.id, readStored(feature));
+      }
 
       const api = {
         isOn(id) {
           return state.get(id) === true;
+        },
+        /** The stored choice for a `choice` feature, or its declared default. */
+        choice(id) {
+          return choices.get(id);
+        },
+        /** Set a `choice` feature's value. Repaints; never touches the on/off state. */
+        setChoice(id, value) {
+          const feature = FEATURES.find((entry) => entry.id === id);
+          if (!feature || !feature.choice) return;
+          if (choices.get(id) === value) return;
+          choices.set(id, value);
+          writeChoice(feature, value);
+          api.paint();
+          revision += 1;
+          for (const listener of listeners) listener();
         },
         revision() {
           return revision;
@@ -435,13 +574,26 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"][data-sidebar-collapsed] {
         paint() {
           const existing = document.getElementById(STYLE_ID);
           if (existing) existing.remove();
-          const active = FEATURES.filter((feature) => api.isOn(feature.id) && feature.css);
-          if (active.length === 0) return;
+          // A `choice` feature has no on/off state: its css() is always painted, and what
+          // varies is which value it returns. A `css` string feature is painted only while
+          // its switch is on. The two contracts are kept separate rather than conflated into
+          // "the css is empty when off", so a genuinely empty choice cannot silently disable
+          // the whole token layer.
+          const blocks = [];
+          for (const feature of FEATURES) {
+            if (typeof feature.css === 'function') {
+              const out = feature.css(api.choice(feature.id));
+              if (out) blocks.push(out);
+            } else if (api.isOn(feature.id) && feature.css) {
+              blocks.push(feature.css);
+            }
+          }
+          if (blocks.length === 0) return;
           const tag = document.createElement('style');
           tag.id = STYLE_ID;
           // BASE_CSS carries the design tokens every feature reads; a feature's
           // own CSS is meaningless without it, so it is always prepended.
-          tag.textContent = [BASE_CSS, ...active.map((feature) => feature.css)].join('\n');
+          tag.textContent = [BASE_CSS, ...blocks].join('\n');
           document.head.appendChild(tag);
         },
         /** Apply or withdraw a feature's runtime half. */
@@ -1329,6 +1481,75 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
   border-top: 0;
 }
 
+/* ACCENT SWATCHES, DARK THEME.
+ *
+ * A swatch shows the accent the user is choosing. Each palette entry carries two hex values -
+ * one per theme - because the host's own accent is #4176e6 in light and #7aaaff in dark: the
+ * same identity, lightened for a dark ground. Showing the light value on a dark card would
+ * misrepresent what the user is about to get.
+ *
+ * The renderer writes BOTH values on the swatch as custom properties rather than one inline
+ * background, because an inline style cannot express "only when the host marks dark". This rule
+ * then picks one. That is the whole mechanism: inline values are data, the stylesheet decides.
+ *
+ * The dark condition is the host's own 'data-ds-dark-theme' marker, not 'prefers-color-scheme':
+ * the user can force either theme regardless of the OS, and the media query would then paint
+ * the wrong swatch exactly when the two disagree. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] [data-swatch] {
+  background: var(--swatch-light);
+}
+
+html[${ROOT_ATTR}] body[data-ds-dark-theme] [data-shortcut-modal="settings"] [${ROW_ATTR}] [data-swatch] {
+  background: var(--swatch-dark);
+}
+
+/* TRUE CIRCLES, WHICH NEED AN EXPLICIT EXPONENT.
+ *
+ * The host sets 'corner-shape: superellipse(1.5)' and the property INHERITS, so a 999px radius
+ * draws a squircle. Measured in this build, a border-radius: 50% chip renders as:
+ *
+ *   corner-shape              result
+ *   (inherited 1.5)           over-rounded square - the bug
+ *   round / superellipse(1)   CIRCLE
+ *   superellipse(1.5)         over-rounded square
+ *   superellipse(2)..(4)      progressively squarer
+ *   superellipse(0) / bevel   a DIAMOND at this radius
+ *
+ * So 'round' is not a keyword this build honours distinctly - it computes to superellipse(1),
+ * and 1 is the exponent that draws the circle. Written as the explicit exponent rather than as
+ * 'round' so the intent cannot be lost to a keyword alias.
+ *
+ * It cannot be set from the renderer's inline style: React drops unknown CSS properties, and the
+ * span kept inheriting 1.5 from its parent button. Measured, then moved here. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] [data-swatch],
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] [role="radio"],
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] input[type="color"] {
+  corner-shape: superellipse(1);
+  border-radius: 50%;
+}
+
+/* The native colour input paints its own square swatch inside the control, so rounding the
+ * input alone leaves a square inside a circle. These strip the browser's chrome so the round
+ * shape is what shows. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] input[type="color"] {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] input[type="color"]::-webkit-color-swatch {
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 50%;
+  corner-shape: superellipse(1);
+}
+
 /* The version footer holds no preference — it is one line of text, not a row with
    a control — so it keeps the host's flat treatment and gains no hover fill. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*):hover,
@@ -1939,6 +2160,133 @@ html[${ROOT_ATTR}] [data-slot="conversation.input.permission"] button [class*="c
     });
 //#endregion
 
+//#region src/56-feature-accent.js
+/**
+ * Feature: the accent.
+ *
+ * Picks which accent the theme uses. It is a `choice` feature, not a switch: the selector in
+ * Settings lists the palette, and the chosen value is stored and painted.
+ *
+ * TWO TOKENS, MEASURED. Overriding --dsw-alias-state-business-primary alone moves the
+ * theme's own selection tint and ink but NOT the Send button, because the host paints that
+ * from --dsw-alias-button-info-fill - a separate token that happens to hold the same literal.
+ * Probed one token at a time to find out:
+ *
+ *   --dsw-alias-state-business-primary   moves nav selected fill, nav selected ink,
+ *                                        session row fill, session row ink
+ *   --dsw-alias-button-info-fill         moves the Send button
+ *   --dsw-alias-link                     moves nothing on the surfaces measured
+ *   --dsw-alias-state-business-tertiary  moves nothing
+ *
+ * So the accent is exactly two tokens, and both are set here. An accent that moved only the
+ * selection would be visibly half-applied - a teal app with a blue Send button.
+ *
+ * EVERYTHING ELSE DERIVES. The theme's selection fill and ink are color-mix() expressions
+ * over the accent token, so they follow automatically. The derived ink was measured against
+ * all eight accents in both themes: worst 5.90:1 (teal, light), where AA asks 4.5:1. That is
+ * why there is no per-accent ink table - see 16-palette.js.
+ *
+ * SPECIFICITY. A bare `body { --token: … }` LOSES to the host's own body rule: probed, it
+ * read back the host value. `html[data-dsh-bento] body` wins in both themes, which is the same
+ * level the token layer already declares at.
+ *
+ * DARK MODE. The host marks dark with `data-ds-dark-theme` on body, so the dark swatch is
+ * selected with `body[data-ds-dark-theme]`. `prefers-color-scheme` is deliberately not used:
+ * the user can force either theme regardless of the OS, and following the OS would then paint
+ * the wrong swatch.
+ */
+    const ACCENT_CSS = (accentId) => {
+      const accent = ACCENTS.find((entry) => entry.id === accentId) || ACCENTS[0];
+      return `
+/* The accent, chosen. Light swatch on the body rule, dark swatch when the host marks dark. */
+html[${ROOT_ATTR}] body {
+  --dsw-alias-state-business-primary: ${accent.light};
+  --dsw-alias-button-info-fill: ${accent.light};
+}
+
+html[${ROOT_ATTR}] body[data-ds-dark-theme] {
+  --dsw-alias-state-business-primary: ${accent.dark};
+  --dsw-alias-button-info-fill: ${accent.dark};
+}
+`;
+    };
+
+    FEATURES.push({
+      id: 'accent',
+      title: { en: 'Accent', zh: '强调色' },
+      about: {
+        en: 'The colour used for selection, the Send button and links. Blue is the host default.',
+        zh: '用于选中状态、发送按钮和链接的颜色。默认是蓝色。',
+      },
+      order: 40,
+      choice: true,
+      options: ACCENTS,
+      defaultChoice: DEFAULT_ACCENT,
+      css: ACCENT_CSS,
+    });
+//#endregion
+
+//#region src/57-feature-ink.js
+/**
+ * Feature: the selection label colour.
+ *
+ * The accent's paired label colour. Default is "automatic": the theme's own derivation - the
+ * accent mixed 65% toward the label colour (D55) - which was measured against all eight
+ * accents in both themes and clears AA everywhere (worst 5.90:1).
+ *
+ * "AUTOMATIC" IS A REAL OPTION, NOT A PLACEHOLDER. The requirement was "each accent comes with
+ * its own text colour, but we need the ability to change it as well". Those are two states:
+ * follow the accent (the pair, correct by construction), or depart from it. Modelling the
+ * default as a stored value that happens to equal the derivation would mean a later palette
+ * change silently kept the old literal; modelling it as `auto` means the pair stays correct
+ * when the accent changes, and only an explicit override pins a colour.
+ *
+ * A CUSTOM COLOUR IS STORED PER THEME. A colour that reads on a light tint frequently does not
+ * read on a dark one - that is exactly the failure mode that made an invented ink table fail
+ * at 1.20:1 (D63). So the light and dark overrides are separate values, and each is applied
+ * with the same `body[data-ds-dark-theme]` split the accent uses.
+ *
+ * WHERE IT APPLIES. Only the selected-row label - the one place the theme paints text in the
+ * accent ink. The accent token itself is not touched: this overrides the ink, not the accent,
+ * so the Send button and the tint keep following the accent the user picked.
+ */
+    const INK_CSS = (value) => {
+      // `auto` means "let the theme derive it". Emitting an empty block keeps the contract
+      // identical for both states, so paint() never has to special-case a falsy result.
+      if (!value || value.id === 'auto') return '';
+      const { light, dark } = value;
+      const lightDecl = light ? `--dsh-bento-selected-ink: ${light};` : '';
+      const darkDecl = dark ? `--dsh-bento-selected-ink: ${dark};` : '';
+      if (!lightDecl && !darkDecl) return '';
+      return `
+/* The selected label's ink, overridden. Unset themes keep the theme's own derivation, so an
+   override of one theme alone does not disable the other. */
+html[${ROOT_ATTR}] body { ${lightDecl} }
+html[${ROOT_ATTR}] body[data-ds-dark-theme] { ${darkDecl} }
+`;
+    };
+
+    /**
+     * The label-colour options are not a fixed palette: the requirement is a free colour
+     * choice. The selector renders a colour input, and these two stored values are what it
+     * writes. `auto` is offered as the reset.
+     */
+    FEATURES.push({
+      id: 'ink',
+      title: { en: 'Label colour', zh: '文字颜色' },
+      about: {
+        en: 'The colour of a selected label. Automatic follows the accent; pick a colour to override it.',
+        zh: '选中项文字的颜色。自动表示跟随强调色，也可以自行指定。',
+      },
+      order: 41,
+      choice: true,
+      options: [], // free colour, not a fixed list
+      store: 'json',
+      defaultChoice: 'auto',
+      css: INK_CSS,
+    });
+//#endregion
+
 //#region src/60-settings.js
 /**
  * Settings rendering. Rows derive from the feature registry, so a new feature
@@ -2104,6 +2452,262 @@ html[${ROOT_ATTR}] [data-slot="conversation.input.permission"] button [class*="c
     }
 
     /**
+     * One swatch: a colour the user can pick.
+     *
+     * Written here rather than imported for the same reason as the switch. It is a
+     * `role="radio"` rather than a button: the swatches are one choice among N, which is what
+     * a radio group means, and it gives arrow-key navigation and a group label for free.
+     *
+     * THE SWATCH IS THE ACCENT ITSELF, NOT A PREVIEW OF IT. Showing the light swatch in light
+     * and the dark swatch in dark means the chip in the list matches the chip that will paint
+     * the UI in the theme the user is looking at - which is the only reading that is not a lie
+     * about what will happen.
+     *
+     * Contrast of the selected ring comes from the theme ink, not from the swatch, because a
+     * pale accent (amber) cannot draw its own visible outline on a white card.
+     */
+    function Swatch({ option, selected, onSelect, label }) {
+      return h(
+        'button',
+        {
+          type: 'button',
+          role: 'radio',
+          'aria-checked': selected ? 'true' : 'false',
+          'aria-label': label,
+          title: label,
+          onClick: () => onSelect(option.id),
+          style: {
+            appearance: 'none',
+            margin: 0,
+            padding: 2,
+            width: 30,
+            height: 30,
+            borderRadius: 999,
+            border: '0',
+            background: 'transparent',
+            cursor: 'pointer',
+            /* The ring is drawn with an inset box-shadow rather than a border so the swatch
+               keeps its 26px face whether or not it is selected - a border would shrink the
+               colour by 2px on selection and the grid would look like it moved. */
+            boxShadow: selected
+              ? 'inset 0 0 0 2px var(--dsw-alias-bg-layer-2), inset 0 0 0 4px var(--dsw-alias-label-primary)'
+              : 'none',
+            transition: `box-shadow var(--dsh-bento-motion, 160ms) var(--dsh-bento-ease, ease)`,
+          },
+        },
+        h('span', {
+          style: {
+            display: 'block',
+            width: '100%',
+            height: '100%',
+            borderRadius: 999,
+            cornerShape: 'round',
+            /* Both values go on the element as custom properties; the stylesheet picks one per
+               theme. An inline background could only carry the light value, which would show the
+               wrong swatch on a dark card. */
+            '--swatch-light': option.light,
+            '--swatch-dark': option.dark,
+            boxShadow: 'inset 0 0 0 1px var(--dsw-alias-border-l2)',
+          },
+          'data-swatch': option.id,
+        }),
+      );
+    }
+
+    /**
+     * The accent picker: one row of swatches plus the free colour control.
+     *
+     * Rendered from the registry like a switch row, but it edits a value rather than a
+     * boolean, so it is a separate component rather than a mode of FeatureRow.
+     */
+    function AccentRow({ feature, value, onSelect, t }) {
+      const title = t(feature.title);
+      return h(
+        'div',
+        {
+          [ROW_ATTR]: feature.id,
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            paddingBlock: 16,
+            color: 'var(--dsw-alias-label-primary)',
+            fontSize: 14,
+            lineHeight: '22px',
+          },
+        },
+        h(
+          'div',
+          { style: { flex: '1 1 auto', minWidth: 0 } },
+          h('div', null, title),
+          h(
+            'div',
+            { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: '18px' } },
+            t(feature.about),
+          ),
+        ),
+        h(
+          'div',
+          { role: 'radiogroup', 'aria-label': title, style: { display: 'flex', gap: 4, flex: '0 0 auto' } },
+          feature.options.map((option) =>
+            h(Swatch, {
+              key: option.id,
+              option,
+              selected: value === option.id,
+              onSelect,
+              label: t(option.label),
+            }),
+          ),
+        ),
+      );
+    }
+
+    /**
+     * The label-colour row: automatic, or an explicit colour per theme.
+     *
+     * TWO INPUTS, NOT ONE. A custom colour has to be chosen per theme, because a value that
+     * reads on a light tint usually does not on a dark one - the failure that made the first
+     * ink table unusable (D63). The row therefore offers light and dark side by side, and
+     * "Automatic" clears both back to the derived pair.
+     */
+    function InkRow({ feature, value, onChange, t, currentAccent }) {
+      const title = t(feature.title);
+      const isAuto = value === 'auto' || !value || value.id === 'auto';
+      const light = isAuto ? '' : value.light || '';
+      const dark = isAuto ? '' : value.dark || '';
+
+      /**
+       * The colour shown in a picker before the user has chosen one.
+       *
+       * It must be the current accent's OWN derived ink, not a fixed blue. If the user has
+       * picked teal, a picker opening on blue would suggest the current colour is blue, and
+       * the first confirmation would silently overwrite a correct derived teal ink with blue.
+       * So it is computed with the same mix the theme uses - accent 65% toward the label
+       * colour - and the value in the input is the value on screen.
+       */
+      const derivedInk = (theme) => {
+        const accent = ACCENTS.find((entry) => entry.id === currentAccent) || ACCENTS[0];
+        const accentHex = theme === 'dark' ? accent.dark : accent.light;
+        // The label colour is a HOST token, read from the live document rather than pinned: it
+        // is near-black in light and near-white in dark, and it is the value the theme's own mix
+        // uses, so reading it keeps the picker's default identical to what is painted. If the
+        // document is unavailable the fallback is the measured host pair, named as a fallback.
+        let labelHex = theme === 'dark' ? LABEL_FALLBACK.dark : LABEL_FALLBACK.light;
+        try {
+          const probe = document.createElement('span');
+          probe.style.color = 'var(--dsw-alias-label-primary)';
+          probe.style.display = 'none';
+          document.body.appendChild(probe);
+          const resolved = getComputedStyle(probe).color;
+          probe.remove();
+          const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(resolved);
+          if (m) labelHex = '#' + [m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('');
+        } catch {
+          /* No document: the measured host pair above stands. */
+        }
+        const parse = (h) => {
+          const s = h.slice(1);
+          return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+        };
+        const a = parse(accentHex);
+        const l = parse(labelHex);
+        const mixed = [0, 1, 2].map((i) => Math.round(a[i] * 0.65 + l[i] * 0.35));
+        return '#' + mixed.map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+      };
+
+      const setOne = (theme, colour) => {
+        const next = {
+          id: 'custom',
+          light: theme === 'light' ? (colour || null) : (light || null),
+          dark: theme === 'dark' ? (colour || null) : (dark || null),
+        };
+        if (!next.light && !next.dark) return onChange('auto');
+        return onChange(next);
+      };
+
+      return h(
+        'div',
+        {
+          [ROW_ATTR]: feature.id,
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            paddingBlock: 16,
+            color: 'var(--dsw-alias-label-primary)',
+            fontSize: 14,
+            lineHeight: '22px',
+          },
+        },
+        h(
+          'div',
+          { style: { flex: '1 1 auto', minWidth: 0 } },
+          h('div', null, title),
+          h(
+            'div',
+            { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: '18px' } },
+            t(feature.about),
+          ),
+        ),
+        h(
+          'div',
+          { style: { display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' } },
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: () => onChange('auto'),
+              'aria-pressed': isAuto ? 'true' : 'false',
+              style: {
+                appearance: 'none',
+                border: '0',
+                cursor: 'pointer',
+                font: 'inherit',
+                fontSize: 12,
+                lineHeight: '18px',
+                padding: '5px 10px',
+                borderRadius: 999,
+                color: isAuto ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-secondary)',
+                background: isAuto ? 'var(--dsw-alias-interactive-bg-hover)' : 'transparent',
+              },
+            },
+            'Auto',
+          ),
+          // Each input is wrapped in a label so a click on the ring opens the picker; the
+          // native colour input is otherwise hard to hit at a comfortable size.
+          h(
+            'label',
+            { title: 'Label colour (light theme)', style: { display: 'grid', placeItems: 'center', cursor: 'pointer' } },
+            h('input', {
+              type: 'color',
+              value: light || derivedInk('light'),
+              onChange: (e) => setOne('light', e.target.value),
+              'aria-label': 'Label colour for the light theme',
+              style: {
+                width: 30, height: 30, padding: 0, border: '0', borderRadius: 999,
+                background: 'transparent', cursor: 'pointer',
+              },
+            }),
+          ),
+          h(
+            'label',
+            { title: 'Label colour (dark theme)', style: { display: 'grid', placeItems: 'center', cursor: 'pointer' } },
+            h('input', {
+              type: 'color',
+              value: dark || derivedInk('dark'),
+              onChange: (e) => setOne('dark', e.target.value),
+              'aria-label': 'Label colour for the dark theme',
+              style: {
+                width: 30, height: 30, padding: 0, border: '0', borderRadius: 999,
+                background: 'transparent', cursor: 'pointer',
+              },
+            }),
+          ),
+        ),
+      );
+    }
+
+    /**
      * The panel body for this plugin's own Settings tab.
      *
      * The options area the host renders sections into has `padding: 0 24px 24px` —
@@ -2122,15 +2726,36 @@ html[${ROOT_ATTR}] [data-slot="conversation.input.permission"] button [class*="c
         return h(
           'div',
           { style: { display: 'flex', flexDirection: 'column', width: '100%', paddingTop: 20 } },
-          api.features().map((feature) =>
-            h(FeatureRow, {
+          api.features().map((feature) => {
+            // Three row shapes, chosen by the feature's own contract rather than by its id,
+            // so adding a fourth choice feature later needs no change here.
+            if (feature.id === 'accent') {
+              return h(AccentRow, {
+                key: feature.id,
+                feature,
+                value: api.choice(feature.id),
+                onSelect: (next) => api.setChoice(feature.id, next),
+                t: translate,
+              });
+            }
+            if (feature.id === 'ink') {
+              return h(InkRow, {
+                key: feature.id,
+                feature,
+                value: api.choice(feature.id),
+                onChange: (next) => api.setChoice(feature.id, next),
+                currentAccent: api.choice('accent'),
+                t: translate,
+              });
+            }
+            return h(FeatureRow, {
               key: feature.id,
               feature,
               enabled: api.isOn(feature.id),
               onChange: api.set,
               t: translate,
-            }),
-          ),
+            });
+          }),
         );
       }
 

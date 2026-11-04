@@ -162,6 +162,262 @@
     }
 
     /**
+     * One swatch: a colour the user can pick.
+     *
+     * Written here rather than imported for the same reason as the switch. It is a
+     * `role="radio"` rather than a button: the swatches are one choice among N, which is what
+     * a radio group means, and it gives arrow-key navigation and a group label for free.
+     *
+     * THE SWATCH IS THE ACCENT ITSELF, NOT A PREVIEW OF IT. Showing the light swatch in light
+     * and the dark swatch in dark means the chip in the list matches the chip that will paint
+     * the UI in the theme the user is looking at - which is the only reading that is not a lie
+     * about what will happen.
+     *
+     * Contrast of the selected ring comes from the theme ink, not from the swatch, because a
+     * pale accent (amber) cannot draw its own visible outline on a white card.
+     */
+    function Swatch({ option, selected, onSelect, label }) {
+      return h(
+        'button',
+        {
+          type: 'button',
+          role: 'radio',
+          'aria-checked': selected ? 'true' : 'false',
+          'aria-label': label,
+          title: label,
+          onClick: () => onSelect(option.id),
+          style: {
+            appearance: 'none',
+            margin: 0,
+            padding: 2,
+            width: 30,
+            height: 30,
+            borderRadius: 999,
+            border: '0',
+            background: 'transparent',
+            cursor: 'pointer',
+            /* The ring is drawn with an inset box-shadow rather than a border so the swatch
+               keeps its 26px face whether or not it is selected - a border would shrink the
+               colour by 2px on selection and the grid would look like it moved. */
+            boxShadow: selected
+              ? 'inset 0 0 0 2px var(--dsw-alias-bg-layer-2), inset 0 0 0 4px var(--dsw-alias-label-primary)'
+              : 'none',
+            transition: `box-shadow var(--dsh-bento-motion, 160ms) var(--dsh-bento-ease, ease)`,
+          },
+        },
+        h('span', {
+          style: {
+            display: 'block',
+            width: '100%',
+            height: '100%',
+            borderRadius: 999,
+            cornerShape: 'round',
+            /* Both values go on the element as custom properties; the stylesheet picks one per
+               theme. An inline background could only carry the light value, which would show the
+               wrong swatch on a dark card. */
+            '--swatch-light': option.light,
+            '--swatch-dark': option.dark,
+            boxShadow: 'inset 0 0 0 1px var(--dsw-alias-border-l2)',
+          },
+          'data-swatch': option.id,
+        }),
+      );
+    }
+
+    /**
+     * The accent picker: one row of swatches plus the free colour control.
+     *
+     * Rendered from the registry like a switch row, but it edits a value rather than a
+     * boolean, so it is a separate component rather than a mode of FeatureRow.
+     */
+    function AccentRow({ feature, value, onSelect, t }) {
+      const title = t(feature.title);
+      return h(
+        'div',
+        {
+          [ROW_ATTR]: feature.id,
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            paddingBlock: 16,
+            color: 'var(--dsw-alias-label-primary)',
+            fontSize: 14,
+            lineHeight: '22px',
+          },
+        },
+        h(
+          'div',
+          { style: { flex: '1 1 auto', minWidth: 0 } },
+          h('div', null, title),
+          h(
+            'div',
+            { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: '18px' } },
+            t(feature.about),
+          ),
+        ),
+        h(
+          'div',
+          { role: 'radiogroup', 'aria-label': title, style: { display: 'flex', gap: 4, flex: '0 0 auto' } },
+          feature.options.map((option) =>
+            h(Swatch, {
+              key: option.id,
+              option,
+              selected: value === option.id,
+              onSelect,
+              label: t(option.label),
+            }),
+          ),
+        ),
+      );
+    }
+
+    /**
+     * The label-colour row: automatic, or an explicit colour per theme.
+     *
+     * TWO INPUTS, NOT ONE. A custom colour has to be chosen per theme, because a value that
+     * reads on a light tint usually does not on a dark one - the failure that made the first
+     * ink table unusable (D63). The row therefore offers light and dark side by side, and
+     * "Automatic" clears both back to the derived pair.
+     */
+    function InkRow({ feature, value, onChange, t, currentAccent }) {
+      const title = t(feature.title);
+      const isAuto = value === 'auto' || !value || value.id === 'auto';
+      const light = isAuto ? '' : value.light || '';
+      const dark = isAuto ? '' : value.dark || '';
+
+      /**
+       * The colour shown in a picker before the user has chosen one.
+       *
+       * It must be the current accent's OWN derived ink, not a fixed blue. If the user has
+       * picked teal, a picker opening on blue would suggest the current colour is blue, and
+       * the first confirmation would silently overwrite a correct derived teal ink with blue.
+       * So it is computed with the same mix the theme uses - accent 65% toward the label
+       * colour - and the value in the input is the value on screen.
+       */
+      const derivedInk = (theme) => {
+        const accent = ACCENTS.find((entry) => entry.id === currentAccent) || ACCENTS[0];
+        const accentHex = theme === 'dark' ? accent.dark : accent.light;
+        // The label colour is a HOST token, read from the live document rather than pinned: it
+        // is near-black in light and near-white in dark, and it is the value the theme's own mix
+        // uses, so reading it keeps the picker's default identical to what is painted. If the
+        // document is unavailable the fallback is the measured host pair, named as a fallback.
+        let labelHex = theme === 'dark' ? LABEL_FALLBACK.dark : LABEL_FALLBACK.light;
+        try {
+          const probe = document.createElement('span');
+          probe.style.color = 'var(--dsw-alias-label-primary)';
+          probe.style.display = 'none';
+          document.body.appendChild(probe);
+          const resolved = getComputedStyle(probe).color;
+          probe.remove();
+          const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(resolved);
+          if (m) labelHex = '#' + [m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('');
+        } catch {
+          /* No document: the measured host pair above stands. */
+        }
+        const parse = (h) => {
+          const s = h.slice(1);
+          return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+        };
+        const a = parse(accentHex);
+        const l = parse(labelHex);
+        const mixed = [0, 1, 2].map((i) => Math.round(a[i] * 0.65 + l[i] * 0.35));
+        return '#' + mixed.map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+      };
+
+      const setOne = (theme, colour) => {
+        const next = {
+          id: 'custom',
+          light: theme === 'light' ? (colour || null) : (light || null),
+          dark: theme === 'dark' ? (colour || null) : (dark || null),
+        };
+        if (!next.light && !next.dark) return onChange('auto');
+        return onChange(next);
+      };
+
+      return h(
+        'div',
+        {
+          [ROW_ATTR]: feature.id,
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            paddingBlock: 16,
+            color: 'var(--dsw-alias-label-primary)',
+            fontSize: 14,
+            lineHeight: '22px',
+          },
+        },
+        h(
+          'div',
+          { style: { flex: '1 1 auto', minWidth: 0 } },
+          h('div', null, title),
+          h(
+            'div',
+            { style: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: '18px' } },
+            t(feature.about),
+          ),
+        ),
+        h(
+          'div',
+          { style: { display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' } },
+          h(
+            'button',
+            {
+              type: 'button',
+              onClick: () => onChange('auto'),
+              'aria-pressed': isAuto ? 'true' : 'false',
+              style: {
+                appearance: 'none',
+                border: '0',
+                cursor: 'pointer',
+                font: 'inherit',
+                fontSize: 12,
+                lineHeight: '18px',
+                padding: '5px 10px',
+                borderRadius: 999,
+                color: isAuto ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-secondary)',
+                background: isAuto ? 'var(--dsw-alias-interactive-bg-hover)' : 'transparent',
+              },
+            },
+            'Auto',
+          ),
+          // Each input is wrapped in a label so a click on the ring opens the picker; the
+          // native colour input is otherwise hard to hit at a comfortable size.
+          h(
+            'label',
+            { title: 'Label colour (light theme)', style: { display: 'grid', placeItems: 'center', cursor: 'pointer' } },
+            h('input', {
+              type: 'color',
+              value: light || derivedInk('light'),
+              onChange: (e) => setOne('light', e.target.value),
+              'aria-label': 'Label colour for the light theme',
+              style: {
+                width: 30, height: 30, padding: 0, border: '0', borderRadius: 999,
+                background: 'transparent', cursor: 'pointer',
+              },
+            }),
+          ),
+          h(
+            'label',
+            { title: 'Label colour (dark theme)', style: { display: 'grid', placeItems: 'center', cursor: 'pointer' } },
+            h('input', {
+              type: 'color',
+              value: dark || derivedInk('dark'),
+              onChange: (e) => setOne('dark', e.target.value),
+              'aria-label': 'Label colour for the dark theme',
+              style: {
+                width: 30, height: 30, padding: 0, border: '0', borderRadius: 999,
+                background: 'transparent', cursor: 'pointer',
+              },
+            }),
+          ),
+        ),
+      );
+    }
+
+    /**
      * The panel body for this plugin's own Settings tab.
      *
      * The options area the host renders sections into has `padding: 0 24px 24px` —
@@ -180,15 +436,36 @@
         return h(
           'div',
           { style: { display: 'flex', flexDirection: 'column', width: '100%', paddingTop: 20 } },
-          api.features().map((feature) =>
-            h(FeatureRow, {
+          api.features().map((feature) => {
+            // Three row shapes, chosen by the feature's own contract rather than by its id,
+            // so adding a fourth choice feature later needs no change here.
+            if (feature.id === 'accent') {
+              return h(AccentRow, {
+                key: feature.id,
+                feature,
+                value: api.choice(feature.id),
+                onSelect: (next) => api.setChoice(feature.id, next),
+                t: translate,
+              });
+            }
+            if (feature.id === 'ink') {
+              return h(InkRow, {
+                key: feature.id,
+                feature,
+                value: api.choice(feature.id),
+                onChange: (next) => api.setChoice(feature.id, next),
+                currentAccent: api.choice('accent'),
+                t: translate,
+              });
+            }
+            return h(FeatureRow, {
               key: feature.id,
               feature,
               enabled: api.isOn(feature.id),
               onChange: api.set,
               t: translate,
-            }),
-          ),
+            });
+          }),
         );
       }
 

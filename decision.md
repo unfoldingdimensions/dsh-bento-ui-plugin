@@ -1939,3 +1939,105 @@ panel and the region screenshotted before and after, then compared pixel by pixe
 pixels changed in light, 66% in dark.** Computed style says what was applied; only pixels say
 what is on screen, and both were needed here because the "before" state *had* a fill and a
 shadow that simply could not be seen.
+
+---
+
+## D63 — Accent and label colour become choices, not switches
+
+**Decision.** Two new selectors in the Bento layout tab. **Accent** picks one of eight, blue by
+default. **Label colour** follows that accent by default and can be overridden per theme.
+
+### The accent is exactly two host tokens, and that was measured
+
+The obvious assumption is that one accent token drives everything accent-coloured. Probed one
+token at a time against every accent surface on the page:
+
+| token | what it moves |
+|---|---|
+| `--dsw-alias-state-business-primary` | nav selected fill, nav selected ink, row selected fill, row selected ink |
+| `--dsw-alias-button-info-fill` | the Send button |
+| `--dsw-alias-link` | nothing on the surfaces measured |
+| `--dsw-alias-state-business-tertiary` | nothing |
+
+So the accent is **two** tokens. An accent that moved only the first would be visibly
+half-applied — a teal app with a blue Send button — and the second would be missed by anyone
+who only checked the selection state.
+
+**This took three probes to get right, and the first two were wrong.** The Send button appeared
+to ignore every token, and even a direct `!important` background changed nothing. The cause was
+`transition: background-color .1s`, which the host sets on that button: `getComputedStyle`
+returns the *current animated* value, so reading immediately after injecting a rule returns the
+old colour. Every "Send ignores the accent" result was that artifact. Measure after the
+transition, or the measurement lies.
+
+### Everything else derives, and that was measured too
+
+The selection tint and ink are `color-mix()` expressions over the accent token (D55), so
+overriding the accent moves them automatically. The question is whether that derivation stays
+readable for accents other than blue. Computed for all eight accents in both themes:
+
+- worst derived ink on its own tint: **5.90:1** (teal, light) — AA asks 4.5
+- worst accent-as-icon on the card: **3.74:1** (teal, light) — UI asks 3
+
+**A hand-written ink table was written first and discarded.** It looked reasonable and measured
+**1.20:1** for amber in dark and **1.24:1** for rose: on a dark tint, the ink has to *lighten*,
+and the table had invented darker values by analogy with the light theme. The derivation was
+right and the invented numbers were wrong. The palette therefore carries **no ink at all** — two
+hex values per accent, light and dark, and the theme derives the rest.
+
+### The label colour: automatic, or overridden per theme
+
+"Each accent comes with its own text colour, but we need the ability to change it as well" is
+two requirements. Modelled as two states:
+
+- **Auto** — the theme's own derivation. Stays correct when the accent changes.
+- **Custom** — a hex value stored per theme. Per theme because a colour that reads on a light
+  tint usually does not on a dark one, which is the exact failure that made the discarded table
+  unusable.
+
+Storing "auto" as the current derived literal would have been simpler and wrong: a later palette
+tweak would silently keep the stale colour.
+
+### Kernel: a third feature shape
+
+The kernel understood two things, a switch and a runtime `setup`. An accent is neither — it is a
+**value**. So the feature contract gains `choice: true`, plus `options` (a fixed palette) or
+`store: 'json'` (free-form), and the kernel gains `choice(id)` / `setChoice(id, value)`.
+
+Three points where that had to be careful:
+
+- `paint()` previously painted only features whose switch was on. A choice has no switch, so its
+  `css` is now a **function of the current value** and is always painted. The two contracts stay
+  distinct rather than being conflated into "empty string means off".
+- `readChoice` validates against the option list on read. `localStorage` is user-writable, and a
+  stale id from an older palette would otherwise paint nothing with no visible error.
+- The JSON shape validates to `#rrggbb` at the boundary, so a malformed record cannot be emitted
+  into the stylesheet as a CSS value.
+
+### The palette is the one place literals are allowed
+
+`verify.mjs`'s "no hardcoded colour" gate exempts `16-palette.js` **by filename**, and a new
+gate takes over for it: it recomputes each accent's tint and ink with the theme's own mixes and
+fails the build if any drops below AA or below 3:1 as an icon. The exemption is not an
+unguarded hole; it is a different guard for a different kind of data — a user-chosen accent is
+meant to be a fixed value, which is precisely what the original rule forbids for surfaces.
+
+### Swatches are true circles, and that took a grid to settle
+
+The host sets `corner-shape: superellipse(1.5)` and it **inherits**, so a 999px radius drew
+squircles. Rendering a grid of exponents in this build:
+
+| corner-shape | result |
+|---|---|
+| inherited 1.5 | over-rounded square |
+| **round / superellipse(1)** | **circle** |
+| 1.5, 2, 3, 4 | progressively squarer |
+| 0 / bevel | a **diamond** at this radius |
+
+`round` is not honoured as a distinct keyword here — it computes to `superellipse(1)`. The rule
+states the exponent explicitly so the intent survives a keyword alias. It cannot be set from the
+renderer: React drops unknown CSS properties, measured — the span kept inheriting 1.5 from its
+button. So it lives in the stylesheet.
+
+**The owner chose circles over the host's squircles**, knowing the host's own round controls
+(Send, attach) are squircles too. Recorded because it is a deliberate departure.

@@ -184,6 +184,75 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
   border-top: 0;
 }
 
+/* ACCENT SWATCHES, DARK THEME.
+ *
+ * A swatch shows the accent the user is choosing. Each palette entry carries two hex values -
+ * one per theme - because the host's own accent is #4176e6 in light and #7aaaff in dark: the
+ * same identity, lightened for a dark ground. Showing the light value on a dark card would
+ * misrepresent what the user is about to get.
+ *
+ * The renderer writes BOTH values on the swatch as custom properties rather than one inline
+ * background, because an inline style cannot express "only when the host marks dark". This rule
+ * then picks one. That is the whole mechanism: inline values are data, the stylesheet decides.
+ *
+ * The dark condition is the host's own 'data-ds-dark-theme' marker, not 'prefers-color-scheme':
+ * the user can force either theme regardless of the OS, and the media query would then paint
+ * the wrong swatch exactly when the two disagree. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] [data-swatch] {
+  background: var(--swatch-light);
+}
+
+html[${ROOT_ATTR}] body[data-ds-dark-theme] [data-shortcut-modal="settings"] [${ROW_ATTR}] [data-swatch] {
+  background: var(--swatch-dark);
+}
+
+/* TRUE CIRCLES, WHICH NEED AN EXPLICIT EXPONENT.
+ *
+ * The host sets 'corner-shape: superellipse(1.5)' and the property INHERITS, so a 999px radius
+ * draws a squircle. Measured in this build, a border-radius: 50% chip renders as:
+ *
+ *   corner-shape              result
+ *   (inherited 1.5)           over-rounded square - the bug
+ *   round / superellipse(1)   CIRCLE
+ *   superellipse(1.5)         over-rounded square
+ *   superellipse(2)..(4)      progressively squarer
+ *   superellipse(0) / bevel   a DIAMOND at this radius
+ *
+ * So 'round' is not a keyword this build honours distinctly - it computes to superellipse(1),
+ * and 1 is the exponent that draws the circle. Written as the explicit exponent rather than as
+ * 'round' so the intent cannot be lost to a keyword alias.
+ *
+ * It cannot be set from the renderer's inline style: React drops unknown CSS properties, and the
+ * span kept inheriting 1.5 from its parent button. Measured, then moved here. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] [data-swatch],
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] [role="radio"],
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] input[type="color"] {
+  corner-shape: superellipse(1);
+  border-radius: 50%;
+}
+
+/* The native colour input paints its own square swatch inside the control, so rounding the
+ * input alone leaves a square inside a circle. These strip the browser's chrome so the round
+ * shape is what shows. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] input[type="color"] {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] input[type="color"]::-webkit-color-swatch {
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 50%;
+  corner-shape: superellipse(1);
+}
+
 /* The version footer holds no preference — it is one line of text, not a row with
    a control — so it keeps the host's flat treatment and gains no hover fill. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*):hover,
@@ -360,3 +429,4 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section
       enabled: true,
       css: SETTINGS_CSS,
     });
+

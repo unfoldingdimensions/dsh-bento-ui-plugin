@@ -444,9 +444,18 @@ check('source: no hardcoded colour (every shade is a host token)', () => {
   // "black" can appear in a 64 KB font by chance, so without the exclusion this gate
   // would one day fail on a byte that is not a colour at all.
   const GENERATED_FONT_DATA = '14-fontdata.js';
+  // src/16-palette.js is the ONE place literals are allowed, and for a specific reason: a
+  // palette is data the user picks from, not a surface that should follow the theme. The rule
+  // this gate enforces exists so painted surfaces track light/dark automatically; an accent the
+  // user chose is the opposite of that - it is meant to be a fixed, named value. The exemption
+  // is by filename, and the palette gate below takes over responsibility for it: every accent
+  // must still clear AA once the theme derives its tint and ink, so the file is not unguarded,
+  // it is guarded by a check that understands what it is.
+  const PALETTE = '16-palette.js';
   const offenders = [];
   for (const name of readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort()) {
     if (name === GENERATED_FONT_DATA) continue;
+    if (name === PALETTE) continue;
     const raw = readFileSync(join(root, 'src', name), 'utf8');
     // blank out comments but keep line numbers stable
     const text = raw.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
@@ -520,6 +529,57 @@ check('fonts: embedded bytes match the assets they were generated from', () => {
     }
   }
   return 'both embedded faces match their source files and carry the wOF2 header';
+});
+
+check('palette: every accent stays readable once the theme derives its tint and ink', () => {
+  // The palette is exempt from the "no hardcoded colour" gate, so this check has to do the
+  // work that gate does elsewhere: prove the values are usable rather than merely present.
+  //
+  // It recomputes exactly what the theme will produce from each accent - the selection fill is
+  // the accent mixed 12% into the card, the ink is the accent mixed 65% toward the label
+  // colour (D55) - and asserts WCAG AA for the ink and 3:1 for the accent used as an icon.
+  //
+  // This is the check that would have caught the first attempt at this feature: a hand-written
+  // per-accent ink table looked reasonable and measured 1.20:1 for amber in dark. Deriving the
+  // ink and asserting the derivation is what makes a ninth accent a safe thing to add.
+  const src = readFileSync(join(root, 'src', '16-palette.js'), 'utf8');
+  const entries = [...src.matchAll(
+    /\{\s*id:\s*'([a-z]+)',\s*label:\s*\{[^}]*\},\s*light:\s*'(#[0-9a-fA-F]{6})',\s*dark:\s*'(#[0-9a-fA-F]{6})'\s*\}/g,
+  )];
+  if (entries.length < 2) throw new Error(`expected at least 2 accents, parsed ${entries.length}`);
+
+  const hex2rgb = (h) => { const s = h.slice(1); return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)]; };
+  const rgb2hex = (r) => '#' + r.map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+  const mix = (a, b, p) => { const A = hex2rgb(a), B = hex2rgb(b); return rgb2hex([0, 1, 2].map((i) => A[i] * p + B[i] * (1 - p))); };
+  const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const lum = (h) => { const [r, g, b] = hex2rgb(h); return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b); };
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return Math.round(((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)) * 100) / 100; };
+
+  const CARD_LIGHT = '#ffffff';
+  const CARD_DARK = '#2c2c2e';
+  const LABEL_LIGHT = '#0f1115';
+  const LABEL_DARK = '#f5f6f7';
+  const failures = [];
+  let worstInk = Infinity;
+  let worstIcon = Infinity;
+
+  for (const [, id, light, dark] of entries) {
+    for (const [theme, accent, card, label] of [
+      ['light', light, CARD_LIGHT, LABEL_LIGHT],
+      ['dark', dark, CARD_DARK, LABEL_DARK],
+    ]) {
+      const tint = mix(accent, card, 0.12);
+      const ink = mix(accent, label, 0.65);
+      const inkC = contrast(ink, tint);
+      const iconC = contrast(accent, card);
+      worstInk = Math.min(worstInk, inkC);
+      worstIcon = Math.min(worstIcon, iconC);
+      if (inkC < 4.5) failures.push(`${id}/${theme}: derived ink ${inkC}:1 on tint ${tint} (AA needs 4.5)`);
+      if (iconC < 3) failures.push(`${id}/${theme}: accent as icon ${iconC}:1 on card ${card} (needs 3)`);
+    }
+  }
+  if (failures.length > 0) throw new Error('palette is not readable —\n    ' + failures.join('\n    '));
+  return `${entries.length} accents, worst ink ${worstInk}:1, worst icon ${worstIcon}:1`;
 });
 
 check('fonts: the OFL licence travels with the embedded bytes', () => {

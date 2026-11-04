@@ -1611,3 +1611,62 @@ the code is not. Both of these would have been "fixed" by changing working CSS. 
 cheap: the numbers were 24 and 36 — a child and its parent — and the tone assertion
 contradicted a decision recorded one entry earlier. Read the assertion against the decision
 before touching the implementation.
+
+## L77 — A 100 ms transition made a working feature look completely broken
+
+The Send button's fill is painted from `--dsw-alias-button-info-fill`, and the button carries
+`transition: background-color .1s`. Three times in a row I concluded it ignored every accent
+token:
+
+1. overriding the token on `body` — read back old colour
+2. overriding it on the button itself — read back old colour
+3. setting `background: … !important` directly — read back old colour
+
+`getComputedStyle` returns the **currently animating** value. Injected a rule, read immediately,
+got the value from before the transition started. Adding one 400 ms wait turned all three into
+the expected result, and the real answer — two tokens, not one — appeared immediately.
+
+**The lesson.** A `getComputedStyle` reading taken in the same tick as a style change measures
+the transition, not the destination. Any host control with a `transition` on the property under
+test needs the wait, and a result that says "the style had no effect at all" should raise
+suspicion rather than confidence: CSS rules very rarely lose outright, and "nothing happened" is
+more often a measurement problem than a cascade problem. This is the same family as L74 (reading
+a value through the wrong lens) and L75 (a shadow that cannot be seen).
+
+## L78 — The invented numbers failed and the derivation succeeded, for the reason I had backwards
+
+Building a per-accent ink table, the two entries I flagged as "tricky" were amber and rose,
+because a saturated warm accent needs a dark ink for contrast. Computed, they measured **1.20:1
+and 1.24:1** — unreadable — while the theme's existing derivation (accent mixed 65% toward the
+label colour) gave **7.31:1 and 5.92:1**.
+
+The instinct was inverted. On a *light* tint the ink darkens; on a *dark* tint the tint is
+already dark, so the ink has to **lighten**. I had carried the light-theme pattern across by
+analogy instead of computing it, and the two accents with the strongest hue difference were
+exactly where the analogy broke.
+
+**The lesson.** When a design system already derives a value, test whether the derivation
+generalises before writing a table of values. Here one computation replaced sixteen hand-picked
+colours, and the sixteen would have needed re-checking for every new accent. The tell that it was
+worth checking first: the numbers I was writing had no provenance, and the derivation's numbers
+could be printed in one script.
+
+## L79 — `corner-shape` inherits, and `round` is not a keyword this build honours
+
+A 999px-radius swatch drew a rounded square. Three wrong guesses before a grid settled it:
+
+- assumed the radius was wrong — it was 999px, correct
+- assumed a `corner-shape: round` would fix it — it computed to `superellipse(1)` and was
+  *correct*, but was being overridden by an inherited `superellipse(1.5)`
+- assumed the property could be set from the renderer — React dropped it silently, so the span
+  kept inheriting 1.5 from its button
+
+What worked was rendering a grid of exponents side by side and reading which one is a circle:
+`superellipse(1)`. `0`/`bevel` at a 999px radius is a **diamond**, and `2`–`4` get progressively
+squarer, so the property is not a preference but a curve definition with a specific neutral point.
+
+**The lesson.** For a property with no well-known visual meaning, render the candidate values
+side by side and pick from pixels. And when a value "does not apply", check whether it applied
+and was then overridden by inheritance — `getComputedStyle` on the element showed
+`superellipse(1)` in a probe and `1.5` in the real tree, which is only visible when the parent
+chain is inspected too.
