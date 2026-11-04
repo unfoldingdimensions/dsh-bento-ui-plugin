@@ -1907,3 +1907,55 @@ the family.
 **The lesson.** When a document's value is its numbers, the numbers need a checker, for the same
 reason the build has gates. The failure mode is quiet: a slightly wrong count reads exactly like a
 right one, and this doc will be cited later as the map for custom animation work.
+## L95 — A click that lands by coincidence is not a navigation test
+
+The plugin-detail page verification failed eight assertions in a row, and every one of them was
+false. The page exists. My probe clicked the middle-left of the plugin card, which did nothing --
+the row opens from a **title button** (`button.X_2TxG_cardTitle`), not from the card body.
+
+What makes this worth recording is that an EARLIER probe had "succeeded" at the same task: it clicked
+different coordinates, which happened to fall on the title. So I had one green run and one red run of
+the same claim, and neither was trustworthy -- the green one because it passed by accident, the red
+one because it tested the wrong element.
+
+The fix was to name the target: query `button[class*="cardTitle"]`, click its centre, assert the URL
+or the slot set changed. Re-run twice from a clean profile, all eight checks pass.
+
+**The lesson.** When a probe clicks something, it must name what it clicks and verify the state
+changed. Coordinates that "work" are indistinguishable from coordinates that hit a neighbour. Two
+clicks that disagree about the same claim mean the instrument is broken, not that the claim is
+uncertain -- and the first instinct is to debug the product instead of the probe.
+
+## L96 — The harness already had most of the reference, which changed the whole estimate
+
+The brief was "look at this reference and tell me what is achievable". The expensive-looking part of
+it was a plugin **detail page**: hero with version pill and status badge, a Components list, a
+source card, a dark update tile. Building that would have been a multi-day feature.
+
+It already exists. `plugins.detail.actions` / `.badge` / `.section` are three free list slots on a
+page the host renders today at Plugins -> any installed plugin. The reference's Source card and
+Update tile are two components mounted into `plugins.detail.section`; the version pill is
+`plugins.detail.badge`. So the honest estimate went from "build a page" to "restyle it and add two
+tiles".
+
+**The lesson.** Before estimating a reference, check whether the product already ships the surface it
+depicts. Reading the slot registry (`plugins.detail.*` alongside 103 other slot ids) took minutes and
+removed the largest item from the estimate. A design reference shows an outcome; it does not say
+whether that outcome is missing or merely unstyled.
+
+## L97 — Two of twenty-four elements were impossible, and only one of them mattered
+
+The reference carried a dark usage tile: token count, dollar balance, off-peak window, billing
+period. Measured on a live instance, the DOM holds no token count, no balance and no currency figure
+at all -- the client plugin API has no usage or billing service, and peak/off-peak is a pricing
+policy the app does not model.
+
+The other impossible element was fake Windows window chrome, which is Electron's and is not worth
+discussing. The usage tile is the interesting one: it is the element a reader would most likely
+assume is easy, because it *looks* like static decoration, and it is the only one in the reference
+that needs a data source that does not exist.
+
+**The lesson.** Split a feasibility list by what the element needs, not by what it looks like:
+styling, DOM, data. The 22 achievable items grouped cleanly into "change values" (8), "write CSS" (6)
+and "mount a component into a free slot" (3) -- and only the last group carried real risk. The
+impossible one was impossible for a data reason no amount of CSS or slot work would fix.
