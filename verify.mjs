@@ -907,6 +907,70 @@ check('sidebar status: registered in its own guard, reads the host prop, and nev
 
 
 
+check('paint order: every card is behind its column content by z-index, never by lifting descendants', () => {
+  // D73. This is the gate for a bug that shipped, so it pins the mechanism that replaced it.
+  //
+  // THE BUG. Each column paints its card on an absolutely positioned ::after. With z-index: auto a
+  // pseudo-element like that paints ABOVE static in-flow content, so the card covers the column's
+  // own text. The original fix hoisted the content instead:
+  //
+  //     [part="center"] > * > *:not([data-slot]) { position: relative; z-index: 1 }
+  //
+  // That is a FIXED-DEPTH selector. The 0.2.2 host inserted one wrapper inside the centre column,
+  // the rule went from matching 1 element to 0, and every conversation lost its transcript - the
+  // user bubble, the reply and the error text all rendered under a white card. Nothing threw, no
+  // gate failed, and the text was present, positioned, correctly coloured and geometrically
+  // correct in the DOM. Only pixels showed it.
+  //
+  // THE RULE NOW. The column is a stacking context (isolation: isolate) and its card is at
+  // z-index: -1. Paint order then depends on z-index, not on how many wrappers the host nests, so
+  // no descendant needs position or z-index and the failure mode cannot recur at a new depth.
+  // Both halves are required: -1 without isolation escapes behind the frame's canvas.
+  //
+  // What this gate can and cannot see: it is a source check, so it holds the MECHANISM. Whether
+  // the pixels are right is a render question, measured separately (learning.md L110).
+  const parts = {
+    sidebar: readFileSync(join(root, 'src', '40-feature-sidebar.js'), 'utf8'),
+    center: readFileSync(join(root, 'src', '47-feature-center.js'), 'utf8'),
+    rightbar: readFileSync(join(root, 'src', '49-feature-rightbar.js'), 'utf8'),
+  };
+
+  for (const [name, source] of Object.entries(parts)) {
+    // Normalise interpolations first: the literal text contains an interpolation whose brace is
+    // indistinguishable from a rule opener to a naive regex. Same trap the spacing gate documents.
+    const flat = source.replace(/\$\{[^}]*\}/g, 'X');
+
+    // THEN STRIP COMMENTS, before ANY assertion, and this is load-bearing. Gate 30 failed its own
+    // proof because of it: the PAINT ORDER block above quotes both 'z-index: -1' and
+    // 'isolation: isolate' verbatim, so every check that read prose passed on the documentation.
+    // Deleting isolation:isolate from the column rule left the gate GREEN until comments were
+    // excluded. A gate its own explanation can satisfy is not a gate. (The mirror-image failure is
+    // on record too: a planted defect that landed inside a comment and was therefore never
+    // exercised - learning.md L105.)
+    const code = flat.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    if (!/isolation:\s*isolate/.test(code)) {
+      throw new Error(name + ': the column is not a stacking context, so a z-index:-1 card escapes behind the canvas');
+    }
+
+    const cardRule = /::after\s*\{([\s\S]*?)\n\}/.exec(code);
+    if (!cardRule) throw new Error(name + ': the card ::after rule could not be located, so paint order is unverified');
+    if (!/z-index:\s*-1/.test(cardRule[1])) {
+      throw new Error(name + ': the card ::after has no z-index: -1, so it paints over the column content');
+    }
+
+    // The regression itself: a depth-based descendant lift must not come back.
+    if (/>\s*\*\s*>\s*[^,{\n]*\{[^}]*z-index:\s*[1-9]/.test(code)) {
+      throw new Error(name + ': a fixed-depth descendant is hoisted with z-index - the depth-dependent bug is back');
+    }
+    if (/position:\s*relative;\s*\n\s*z-index:\s*[1-9]/.test(code)) {
+      throw new Error(name + ': a descendant is lifted with position+z-index; the card belongs behind by z-index instead');
+    }
+  }
+
+  return 'sidebar, center and rightbar isolate their column and paint the card at z-index -1; no descendant lift remains';
+});
+
 const results = await runAll();
 
 for (const entry of results) {

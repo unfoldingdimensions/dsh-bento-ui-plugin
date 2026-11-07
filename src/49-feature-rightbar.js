@@ -39,6 +39,8 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] {
   /* The containing block for the card, and no fill of its own. */
   position: relative;
   background: transparent;
+  /* A stacking context, so the card at z-index -1 stays inside this column. */
+  isolation: isolate;
 }
 
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"]::after {
@@ -49,6 +51,11 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"]::after {
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
   pointer-events: none;
+  /* PAINT ORDER. Same mechanism as the other two columns (47-feature-center.js):
+     behind the column's content by z-index, not by lifting the content. This column
+     never had the lift in the first place, which is why it kept working while the
+     conversation lost its text. */
+  z-index: -1;
 }
 
 /* The panel root, reached through any number of anchors. Clearing its fill is what

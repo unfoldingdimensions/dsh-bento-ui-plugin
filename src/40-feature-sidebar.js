@@ -37,6 +37,9 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] {
   position: relative;
   background: transparent;
   border-right: 0;
+  /* A stacking context, so the card at z-index -1 stays inside this column and
+     cannot paint behind the frame's canvas. See PAINT ORDER below. */
+  isolation: isolate;
 }
 
 /* The card: its own surface, edge and rounding, inset by the gutter above.
@@ -50,22 +53,31 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"]::after {
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
   pointer-events: none;
+  z-index: -1;
 }
+
+/* PAINT ORDER: THE CARD GOES BEHIND, THE CONTENT IS NEVER TOUCHED.
+ *
+ * Same mechanism and the same history as the conversation card (47-feature-center.js):
+ * an absolutely positioned pseudo with 'z-index: auto' paints above static in-flow
+ * content, and the old answer — hoisting the root with a fixed-depth '> * > *' selector
+ * plus 'position: relative; z-index: 1' — stopped matching when the 0.2.2 host changed
+ * the nesting depth. 'z-index: -1' inside an isolated column is depth-independent.
+ *
+ * What remains here is only the part that is genuinely about the host's own painting:
+ * the content root's opaque fill and its over-wide box. */
 
 /* The host's content root, addressed structurally rather than by name.
    The direct child of the column is the display:contents anchor, which has no
    box, so the child of that anchor is exactly the root the column lays out —
    usually one element, never the whole subtree. Its opaque fill is what hid the
-   card. Lifting the root is enough: everything it contains stacks inside it. */
+   card. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] > * > * {
   background: transparent;
   /* The root is wider than the column's padding box by the host's own layout;
      clamped, it matches the card and stops spilling past the rounded corner. */
   max-width: 100%;
   box-sizing: border-box;
-  /* Above the painted card. */
-  position: relative;
-  z-index: 1;
 }
 
 /* The rail has 56px of width; the card needs the tighter radius there or it

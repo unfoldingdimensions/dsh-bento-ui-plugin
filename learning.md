@@ -2173,3 +2173,40 @@ leave two plugins silently fighting over one token with no way for the user to a
 docs state the interaction and let the user choose which theme owns typography - ui-font is a
 feature in this bundle, so switching it off is a supported answer.
 
+## L110
+
+**The DOM can be completely right and the screen completely wrong, and only pixels can tell you.**
+
+The bug shipped with a clean bill of health from every instrument this project trusts. 29 gates
+passed. The text was in the DOM. `getComputedStyle` returned the right colour, opacity 1, visibility
+visible, a non-zero box. `getBoundingClientRect` returned sane geometry. A hit test with
+`elementFromPoint` returned the text element itself. Every one of those measurements was accurate and
+every one of them pointed at "the text is fine".
+
+It was not fine. It was painted underneath an opaque white card.
+
+**`elementFromPoint` cannot see pseudo-elements.** It returns the originating element, so when a card
+painted on `::after` covers a paragraph, the paragraph is still the answer. My first "decisive" test
+was built on that call and reported the page healthy. What actually settled it was crude and
+unarguable: make the card's background transparent, take a screenshot, and watch the transcript
+appear. One change, one cause, no interpretation.
+
+**Pixels are the only evidence for "is it visible".** Computed style answers "what was applied" and
+geometry answers "what contains what"; neither answers "what reached the screen". This theme has
+needed that distinction before - the double-rounded focus ring, the 66 false overflow failures - but
+this is the first time the two answers were not just different but opposite.
+
+**The shape of the shipped bug is worth naming too.** The lift was a fixed-depth selector, which
+worked until the host added one wrapper. It is the same class as a sleep in a test: it passes because
+of a coincidence about the environment, and it fails silently when that coincidence changes. The fix
+is not a deeper selector - that would be the same bet at worse odds - it is a mechanism that does not
+depend on depth at all. `z-index` inside a stacking context is that mechanism.
+
+**The gate's own proof found the gate's own hole.** Gate 30 checks that the card is at `z-index: -1`
+and the column is isolated. Planting each violation turned it red - except one: deleting
+`isolation: isolate` from the column rule left it GREEN, because the explanatory comment beside the
+rule quotes that declaration and the gate was reading raw text. A gate its own documentation can
+satisfy is not a gate. Comments are now stripped before every assertion in that check. This is the
+second time a plant has taught me something about the gate rather than the code (L105); the habit
+that catches it is refusing to believe a green result for a check I have just deliberately broken.
+

@@ -773,6 +773,9 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] {
   position: relative;
   background: transparent;
   border-right: 0;
+  /* A stacking context, so the card at z-index -1 stays inside this column and
+     cannot paint behind the frame's canvas. See PAINT ORDER below. */
+  isolation: isolate;
 }
 
 /* The card: its own surface, edge and rounding, inset by the gutter above.
@@ -786,22 +789,31 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"]::after {
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
   pointer-events: none;
+  z-index: -1;
 }
+
+/* PAINT ORDER: THE CARD GOES BEHIND, THE CONTENT IS NEVER TOUCHED.
+ *
+ * Same mechanism and the same history as the conversation card (47-feature-center.js):
+ * an absolutely positioned pseudo with 'z-index: auto' paints above static in-flow
+ * content, and the old answer — hoisting the root with a fixed-depth '> * > *' selector
+ * plus 'position: relative; z-index: 1' — stopped matching when the 0.2.2 host changed
+ * the nesting depth. 'z-index: -1' inside an isolated column is depth-independent.
+ *
+ * What remains here is only the part that is genuinely about the host's own painting:
+ * the content root's opaque fill and its over-wide box. */
 
 /* The host's content root, addressed structurally rather than by name.
    The direct child of the column is the display:contents anchor, which has no
    box, so the child of that anchor is exactly the root the column lays out —
    usually one element, never the whole subtree. Its opaque fill is what hid the
-   card. Lifting the root is enough: everything it contains stacks inside it. */
+   card. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] > * > * {
   background: transparent;
   /* The root is wider than the column's padding box by the host's own layout;
      clamped, it matches the card and stops spilling past the rounded corner. */
   max-width: 100%;
   box-sizing: border-box;
-  /* Above the painted card. */
-  position: relative;
-  z-index: 1;
 }
 
 /* The rail has 56px of width; the card needs the tighter radius there or it
@@ -1030,6 +1042,9 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] {
      canvas belongs to the frame, so the card sits directly on it. */
   position: relative;
   background: transparent;
+  /* The column is a stacking context, so the card at z-index -1 below can never
+     escape behind the canvas. See PAINT ORDER. */
+  isolation: isolate;
 }
 
 /* The card. Painted in a pseudo-element so the column keeps its own single content
@@ -1042,24 +1057,33 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"]::after {
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
   pointer-events: none;
+  z-index: -1;
 }
 
-/* LIFT: everything the column lays out must paint above the card.
+/* PAINT ORDER: THE CARD GOES BEHIND, CONTENT NEVER NEEDS LIFTING.
  *
- * This is separate from clearing a background, and it has to apply to every page
- * that mounts here, not just the conversation. The card is an absolutely
- * positioned pseudo-element, so by default it paints ABOVE static in-flow content.
- * Without this lift, a page's text renders underneath the card and disappears —
- * which is exactly what happened when an earlier version of this file scoped the
- * whole rule to the conversation: the Plugins page lost all its text and kept only
- * its (positioned) switches.
+ * An absolutely positioned pseudo-element with 'z-index: auto' paints ABOVE static
+ * in-flow content. The card is exactly that shape, so without a decision here the card
+ * covers the column's own text.
  *
- * So the lift uses the broad, depth-tolerant selector. */
-html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] > * > *:not([data-slot]),
-html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] > * > * > *:not([data-slot]) {
-  position: relative;
-  z-index: 1;
-}
+ * The previous answer was to hoist the content instead: '> * > * { position: relative;
+ * z-index: 1 }', plus a second selector one level deeper. That is a FIXED-DEPTH rule,
+ * and it shipped a bug: the 0.2.2 host inserted one wrapper inside the column, the
+ * selectors went from matching 1 element to matching 0, and every conversation lost its
+ * transcript — the user bubble, the assistant reply and the error text all rendered
+ * under a white card. Measured on 0.2.2: depth 2 matched 0, depth 3 matched 0, and the
+ * transcript only reappeared when the card's background was made transparent.
+ *
+ * 'z-index: -1' on the card plus 'isolation: isolate' on the column fixes it at any
+ * depth, because paint order inside a stacking context is decided by z-index and not by
+ * how many wrappers the host happens to nest. It is also the pattern the Settings board
+ * already used for its own two cards, so the shell now has one paint-order mechanism
+ * instead of two. No descendant needs 'position' or 'z-index' any more, which is what
+ * removes the failure mode rather than moving it.
+ *
+ * The column stays transparent, so the card behind it is what the eye reads as the
+ * surface. Verified on 0.2.0 and 0.2.2: card 24px radius, 12px inset, still painted;
+ * transcript text visible; Plugins page text visible; dropdown overlays unaffected. */
 
 /* CLEAR: the conversation root's own opaque fill, so the card is visible.
  *
@@ -1512,6 +1536,8 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] {
   /* The containing block for the card, and no fill of its own. */
   position: relative;
   background: transparent;
+  /* A stacking context, so the card at z-index -1 stays inside this column. */
+  isolation: isolate;
 }
 
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"]::after {
@@ -1522,6 +1548,11 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"]::after {
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
   pointer-events: none;
+  /* PAINT ORDER. Same mechanism as the other two columns (47-feature-center.js):
+     behind the column's content by z-index, not by lifting the content. This column
+     never had the lift in the first place, which is why it kept working while the
+     conversation lost its text. */
+  z-index: -1;
 }
 
 /* The panel root, reached through any number of anchors. Clearing its fill is what

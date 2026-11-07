@@ -2514,3 +2514,51 @@ planted with ">=99.0.0" and **both installed and activated anyway** through dsh 
 manifest field can refuse an incompatible runtime. The docs therefore tell people which host version
 this was built against instead of implying a guard that does not exist.
 
+## D73
+
+**Paint order is decided by z-index inside an isolated column, never by lifting descendants — because
+the lift was a fixed-depth rule and the host changed the depth.**
+
+Reported as "after the new update the texts in the conversation pane has disappeared in the Bento
+UI". The report was exact. Every conversation - the user bubble, the assistant reply, the error text -
+was blank white, while the sidebar, the Plugins page and Settings were all fine.
+
+**THE CAUSE.** Each column paints its card on an absolutely positioned `::after`. A pseudo-element
+like that, with `z-index: auto`, paints ABOVE static in-flow content. The card therefore sits on top
+of the column's own text unless something raises the text. The shipped answer raised the text:
+
+```
+[part="center"] > * > *:not([data-slot]),
+[part="center"] > * > * > *:not([data-slot]) { position: relative; z-index: 1 }
+```
+
+That is a FIXED-DEPTH selector - "the child, then two children, then three". It worked on the host
+version it was written against. The 0.2.2 host inserted one wrapper inside the centre column
+(`centerCol > mainPanel > [data-slot=main] > [data-slot=main.conversation] > ...` became one level
+deeper), so the two selectors went from matching 1 element to matching **0**. Measured on 0.2.0-rc.2
+vs 0.2.2-rc.1, same profile, same plugin build: the DOM text was present, positioned, correctly
+coloured, geometrically correct - and painted underneath a white card. Only the pixels showed it.
+
+**THE FIX.** The column becomes a stacking context (`isolation: isolate`) and its card goes to
+`z-index: -1`. Paint order inside a stacking context is decided by z-index, so the card is behind
+the content at ANY depth and no descendant needs `position` or `z-index` at all. The two declarations
+are both required: `-1` without `isolation` lets the card escape behind the frame's canvas. All three
+columns now use one mechanism; the Settings board already did. The right panel never had the lift,
+which is exactly why it never broke.
+
+**WHAT WAS REMOVED.** The descendant lift is gone from the centre and sidebar. What remains on the
+sidebar's content root is only the host's own opaque fill and its over-wide box - two facts about the
+host's painting, not about our stacking.
+
+**Verified** on both host versions (0.2.0-rc.2 and 0.2.2-rc.1), on the home page, a session with a
+transcript, the Plugins page, and Settings, in both themes, at 1600x1000: card still painted at a
+24px radius and 12px inset in every case, text present, no horizontal overflow. The fix was proved
+by isolation before it was written: with only the card's background made transparent, the transcript
+reappeared - one change, one cause.
+
+**Gate 30 pins the mechanism**, and it can go red: all three violations (card z-index removed,
+isolation removed, depth-based lift reintroduced) were planted and each failed with a distinct
+message. That proof found a hole in the gate itself - it read raw source, and the explanatory
+comment quotes both declarations, so removing `isolation: isolate` from the rule left the gate GREEN.
+All of gate 30 now strips comments before asserting.
+
