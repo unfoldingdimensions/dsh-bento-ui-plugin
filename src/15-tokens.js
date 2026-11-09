@@ -339,6 +339,54 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"]:not([data-sidebar-collapsed]) 
   box-sizing: border-box;
 }
 
+/* THE WINDOWS CAPTION IS NOT OURS TO ERASE (D87).
+ *
+ * REPORTED: "the 3 panes are overlapping the above settings bar" - the three columns drawn
+ * over the Application / Edit caption row.
+ *
+ * CAUSE, MEASURED. On Windows the desktop preload sets two things on <html>:
+ *
+ *   dataset.windowsTitlebar = ""                  (so html[data-windows-titlebar] matches)
+ *   --dsh-windows-titlebar-height: 40px
+ *
+ * and the host reserves that band on the shell frame with a SINGLE LONGHAND:
+ *
+ *   [data-windows-titlebar] .frame { padding-top: var(--dsh-windows-titlebar-height) }
+ *
+ * The rule above writes 'padding:' - a SHORTHAND - on the same element. A shorthand resets
+ * all four longhands, so whichever rule wins the cascade decides whether the caption keeps
+ * its 40px. Ours has the higher specificity ('html[data-dsh-bento] [part=frame]:not(...)'
+ * is four attribute selectors plus a type, against one attribute plus a class), so ours wins
+ * and padding-top collapses from 40px to 8px. The columns then start 32px too high, i.e.
+ * underneath the caption row - which is painted as a fixed overlay above the app, so it
+ * reads as the panes overlapping the bar rather than the bar pushing them down.
+ *
+ * Reproduced synthetically with the host rule copied verbatim, three cases, one differing
+ * rule set:
+ *
+ *   A  host rule only                     padding-top 32px   (correct)
+ *   B  host + our shorthand               padding-top  8px   (the bug)
+ *   C  host + padding-inline/bottom only  padding-top 32px   (fix, but the web path loses
+ *                                                             its top pad - see below)
+ *
+ * THE FIX RE-STATES THE CAPTION rather than avoiding the shorthand. Case C is not usable on
+ * its own: on the web there is no 'data-windows-titlebar' attribute, so the host declares no
+ * padding-top at all and the frame's top edge would lose its 8px, taking the card gap from
+ * 16 to 8 on the top edge only. So the base rule stays as it is, and this rule adds the
+ * caption back on top of it, only where the marker exists:
+ *
+ *   measured with the marker:   padding-top 40px = 32 caption + 8 window pad
+ *   measured without it:        padding-top  8px (unchanged web behaviour)
+ *
+ * calc() rather than the bare host token, so the 8px window pad is not lost under the
+ * caption - the card's top edge keeps the same 8px inset it has on every other side.
+ *
+ * The fallback '0px' covers a host that publishes the marker without the height; with that
+ * fallback the rule degrades to the base padding rather than to an invalid declaration. */
+html[${ROOT_ATTR}][data-windows-titlebar] [${PART_ATTR}="${PART.FRAME}"]:not([data-sidebar-collapsed]) {
+  padding-top: calc(var(--dsh-windows-titlebar-height, 0px) + var(--dsh-bento-window-pad));
+}
+
 /* The collapsed rail has 56px of width; a card there needs the tighter radius and the
    tighter gutter or it reads as a pill.
    
