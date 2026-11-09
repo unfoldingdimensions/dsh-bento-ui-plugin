@@ -2322,3 +2322,18 @@ The fix is a wait for the real content, keyed on the absence of the skeleton cla
 timeout: `!el.className.includes('skeleton')`. The general form: when a probe checks rendered output, wait
 on a property of the RENDERED state, not on elapsed time - and if a measurement returns empty text,
 suspect the probe before the product.
+
+## L117
+
+**A CSS literal's last line is load-bearing when a gate checks where the block ends.**
+
+The switch feature's stylesheet ended with a trailing comment rather than on its closing rule,
+and the bundle check - which requires every CSS literal to end on a closing rule, so that a
+truncated literal is caught - failed the build. The comment was correct, useful prose.
+
+The gate is right and the prose was wrong: for a literal whose completeness is checked by its
+shape, the last thing in it has to be the thing that proves it complete. The comment moved
+inside, above the rule, and the block now ends on the brace.
+
+Worth recording because the failure message ("does not end on a closing rule") reads like a
+missing brace, and the first instinct is to go looking for one.

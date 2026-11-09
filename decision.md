@@ -2878,3 +2878,39 @@ bleed-through. Scoped to the centre column because that is where the theme paint
 Verified after: the same pixel line in dark reads `44,44,46` from y=20 down.
 
 **Gate 39** pins the pseudo rule, its tone, and that it has not been made transparent.
+
+## D86
+
+**A checked switch is accent-coloured, superseding D47's colour clause.**
+
+D47 decided the theme's switch should match the HOST's switch exactly, and recorded that the
+host paints its checked track near-black (--dsw-alias-brand-primary, #0f1115 light) rather than
+in the accent. That was right for a theme whose job was to frame the host's controls without
+restyling them - and it stayed right through twenty passes, because nothing had measured the
+reference's switch.
+
+The reference contradicts it, and both design files agree, which is rare enough to be worth
+noting. Its switch, quoted:
+
+    checked    52x30, radius 999, padding 3, background: var(--accent)
+    unchecked  the same box, background: var(--control)
+    thumb      white, no shadow, both states
+
+So only D47's COLOUR clause is superseded. Everything else it established stands: the host's
+geometry (36x20, radius 999, padding 2), no thumb shadow, no literal colour in the plugin. One
+property changes, from --dsw-alias-brand-primary to --dsw-alias-state-business-primary - the
+same token D55, D69 and D76 already use for every other accent surface here.
+
+TWO PLACES PAINT A SWITCH, and both had to move or the Bento layout tab and the General tab
+(two clicks apart) would show two different checked colours for the same kind of control. The
+host's own switch is addressed by its ARIA role rather than a class name, because the class is
+per-build hashed (_switch_1ik0f_5 on this build). The plugin's own switch on the Bento layout
+tab is an inline style in src/60-settings.js and read the same brand token.
+
+Measured after, both themes: host track rgb(65,118,230) light / rgb(122,170,255) dark, box
+still 36x20, thumb still white (light) / #0f1115 (dark) with no shadow; the plugin's own
+switches identical. The unchecked track is deliberately untouched - it is the host's own
+border-l3, which already reads as the reference's --control.
+
+**Gate 40** pins the attribute-keyed rule, the accent token, the absence of the brand token,
+and that the plugin's own switch moved with it.

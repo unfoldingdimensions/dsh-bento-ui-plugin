@@ -54,7 +54,7 @@ src/99-footer.js           translator, apply(), exports
 assets/*.woff2             Inter + JetBrains Mono, latin subset, OFL 1.1
 tools/make-fontdata.mjs    assets/*.woff2 -> src/14-fontdata.js
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 39 pre-install checks
+verify.mjs                 40 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`. If you touched
@@ -301,7 +301,7 @@ published plugin, which lands in the same state). The switch writes the bundle r
 is live immediately without a restart.
 
 **What you get after enabling:** the shell's three columns become rounded cards, Settings gains a
-**Bento layout** tab, and each of the 15 features plus the two colour choices can be switched off
+**Bento layout** tab, and each of the 16 features plus the two colour choices can be switched off
 on its own there. Nothing is destroyed - turning the top-level row off restores the host's own look.
 
 **Requirements and what was actually tested.** DSH 0.2.x. Verified on the running 0.2.0-rc.2 CLI
@@ -357,6 +357,7 @@ Thirteen features and two colour choices ship:
 | `composer-chips` | Composer controls | on | gives the model and access selectors one shared fill and radius so the row reads as one toolbar, and lifts the reasoning-effort suffix from 1.83:1 to 5.36:1 |
 | `new-session-pill` | New Session pill | on | draws the sidebar primary action the way the reference does: an accent-tinted pill with an accent hairline, 44px tall and weight 600, instead of the host's neutral 38px button |
 | `type-scale` | Type scale | on | gives the page title, section titles and group labels the reference's sizes and weights (26/700, 15/600, 11/600 uppercase eyebrow) instead of the host's flat 20/14/14 |
+| `accent-switches` | Accent switches | on | colours a checked switch with the theme accent, as the reference does, instead of the host's near-black track (D86, superseding D47's colour clause) |
 
 Two of those are **choices rather than switches** — they have a value, not an on/off state:
 
@@ -670,7 +671,7 @@ half now imports and exports exactly as the working themes do, and
 
 ### Regression guard
 
-`node verify.mjs` runs 39 checks before any install and exits non-zero on
+`node verify.mjs` runs 40 checks before any install and exits non-zero on
 failure. Both original failure modes were proved by planting them: a missing
 `main` is reported, and a host half that throws on import is reported cleanly
 instead of crashing the checker itself.

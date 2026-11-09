@@ -1351,6 +1351,42 @@ check('page chrome: the sticky page bar paints the card tone, not the host base 
   }
   return 'page bar pseudo paints the card tone inside the centre column';
 });
+check('switches: a checked switch is accent-coloured, and the plugin switch agrees with the host one', () => {
+  // D86, superseding D47's colour clause. D47 matched the host switch exactly, and the host
+  // paints its checked track near-black (--dsw-alias-brand-primary, #0f1115 light). The
+  // reference paints it in the accent: both design files agree, checked = var(--accent),
+  // unchecked = var(--control), thumb white with no shadow.
+  //
+  // Two places paint a switch: the host's own (role="switch", class per-build hashed) and the
+  // one this plugin renders on the Bento layout tab (src/60-settings.js, inline style). Both
+  // must move, or the two tabs two clicks apart show two different checked colours.
+  //
+  // Measured after, both themes: host track rgb(65,118,230) light / rgb(122,170,255) dark,
+  // box still 36x20, thumb white with no shadow; the plugin's own switches the same.
+  const switches = join(root, 'src', '59-feature-switches.js');
+  if (!existsSync(switches)) throw new Error('the accent-switches feature is missing (D86)');
+  const css = readFileSync(switches, 'utf8');
+  // comments stripped: the doc block explains what D47 used to do and names the old token
+  const code = css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+  if (!/\[role="switch"\]\[aria-checked="true"\]/.test(code)) {
+    throw new Error('the switch rule is not keyed on the checked state, so it would repaint the off state too (D86)');
+  }
+  if (!/background:\s*var\(--dsw-alias-state-business-primary\);/.test(code)) {
+    throw new Error('a checked switch does not use the accent token (D86)');
+  }
+  if (/--dsw-alias-brand-primary/.test(code)) {
+    throw new Error('a checked switch is still using the host brand token, which is near-black (D86)');
+  }
+  // the plugin's own rendered switch must use the same token, or the two tabs disagree
+  const own = readFileSync(join(root, 'src', '60-settings.js'), 'utf8');
+  if (/checked \? 'var\(--dsw-alias-brand-primary\)'/.test(own)) {
+    throw new Error("the plugin's own switch still uses the host brand token, so the Bento layout tab shows a different checked colour from General (D86/D47)");
+  }
+  if (!/checked \? 'var\(--dsw-alias-state-business-primary\)'/.test(own)) {
+    throw new Error("the plugin's own switch is not accent-coloured (D86)");
+  }
+  return 'checked switches are accent-coloured on both the host and plugin tabs';
+});
 const results = await runAll();
 
 for (const entry of results) {
