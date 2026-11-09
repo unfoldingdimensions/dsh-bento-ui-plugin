@@ -2337,3 +2337,24 @@ inside, above the rule, and the block now ends on the brace.
 
 Worth recording because the failure message ("does not end on a closing rule") reads like a
 missing brace, and the first instinct is to go looking for one.
+
+## L118
+
+**A shorthand on an element someone else styles is a destructive write, even when it looks like
+the same property.**
+
+The theme needed to pad the shell frame. `padding: 8px` is the obvious way to say that, and it
+was correct for three of the four sides. On the fourth it silently deleted a value the host had
+put there - a 40px caption reservation on Windows - and because the host's declaration was a
+single longhand, nothing in our own source looked wrong: no `!important`, no specificity fight
+we were aware of, no property we thought we were touching.
+
+The general rule this earns: when writing a shorthand onto an element another layer also styles,
+that shorthand claims all four longhands whether or not you name them. Either write the
+longhands you mean, or subtract deliberately - and then re-state the other layer's value where
+its own conditions hold, as this fix does with the marker.
+
+**And a measurement note.** Three cases were needed to attribute the bug: host-only, host +
+shorthand, host + longhands. The single "before" screenshot in the report showed an overlap, and
+on its own that could have been the caption row's overlay being wrong, the frame's height being
+wrong, or a z-index problem. The two extra cases each removed one explanation.

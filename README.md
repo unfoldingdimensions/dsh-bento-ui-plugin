@@ -17,10 +17,10 @@ restyles what the host already renders.
 
 | File | Contains |
 |---|---|
-| [decision.md](decision.md) | Append-only decisions (D1–D86): what was chosen and why, including the rejected options |
+| [decision.md](decision.md) | Append-only decisions (D1–D87): what was chosen and why, including the rejected options |
 | [architecture.md](architecture.md) | Contracts and boundaries: the plugin shape, the boot audit's failure states, DOM-reachability facts (A1–A12), module structure, profile state, the verification harness, the design-language contract (§9) |
 | [flow.md](flow.md) | Runnable sequences: add a feature, the Chrome-before-the-app loop, diagnose "loaded but nothing happened", recover from a boot failure, the isolated-profile test loop, audit a convention (§8) |
-| [learning.md](learning.md) | What cost time and why (L1–L117), including the mistakes |
+| [learning.md](learning.md) | What cost time and why (L1–L118), including the mistakes |
 | [docs/research/bento-language-audit.md](docs/research/bento-language-audit.md) | What the theme implements against what the bento idiom requires, measured, tiered P0/P1/P2, with sources |
 | [docs/research/icon-philosophy.md](docs/research/icon-philosophy.md) | What icons do in a bento composition, the host's measured icon system, and the rule that this theme draws none in the UI (D48) |
 | [docs/research/animation-inventory.md](docs/research/animation-inventory.md) | Every place the harness animates: 14 shell `@keyframes`, 37 shell motion rules, 179 component-layer declarations across 31 packages, the two disconnected token systems, reduced-motion coverage, and what CSS can and cannot reach |
@@ -56,7 +56,7 @@ src/99-footer.js           translator, apply(), exports
 assets/*.woff2             Inter + JetBrains Mono, latin subset, OFL 1.1
 tools/make-fontdata.mjs    assets/*.woff2 -> src/14-fontdata.js
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 40 pre-install checks
+verify.mjs                 41 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`. If you touched
@@ -274,6 +274,7 @@ themes.
 | Type scale | Tokens, not call sites | Title 26/700/-0.025em, section 15/600, eyebrow 11/600/+0.06em/uppercase (D80). A scale written at call sites is the same number typed twice |
 | Pointer state | Fill for navigation, tile for contents | A hover edge on a nav row looks momentarily selected in a column where selection is a filled tint (D83) |
 | Host chrome tone | Repaint the pseudo, not the box | The sticky page bar paints on its own `::before` at the host base tone, which bands the card in dark mode (D85) |
+| Host chrome owner | Never a shorthand on another layer's box | `padding:` resets all four longhands, and the host reserves the Windows caption with one of them. Re-state the host's value where its condition holds (D87) |
 
 Two rules are worth stating in words because a table cannot carry them:
 
@@ -673,7 +674,7 @@ half now imports and exports exactly as the working themes do, and
 
 ### Regression guard
 
-`node verify.mjs` runs 40 checks before any install and exits non-zero on
+`node verify.mjs` runs 41 checks before any install and exits non-zero on
 failure. Both original failure modes were proved by planting them: a missing
 `main` is reported, and a host half that throws on import is reported cleanly
 instead of crashing the checker itself.

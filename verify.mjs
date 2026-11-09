@@ -1387,6 +1387,48 @@ check('switches: a checked switch is accent-coloured, and the plugin switch agre
   }
   return 'checked switches are accent-coloured on both the host and plugin tabs';
 });
+check('windows caption: the frame keeps the host caption height above its window pad', () => {
+  // D87. Reported as "the 3 panes are overlapping the above settings bar" - the three columns
+  // drawn over the Application / Edit caption row.
+  //
+  // The host reserves that band with a SINGLE LONGHAND on the shell frame:
+  //   [data-windows-titlebar] .frame { padding-top: var(--dsh-windows-titlebar-height) }
+  // The theme wrote `padding:` - a SHORTHAND, which resets all four longhands - on the same
+  // element with higher specificity, so padding-top collapsed from 40px to 8px and the columns
+  // started 32px too high.
+  //
+  // Measured synthetically with the host rule verbatim: host only 32px, host + shorthand 8px,
+  // host + longhands-only 32px but the web path loses its top pad. Measured on the real shell
+  // with the preload's marker and 40px token applied: frame padding-top 48px (40 caption + 8
+  // window pad) and the sidebar card at y=56; neutralizing this one rule puts the card back at
+  // y=16, i.e. over the caption.
+  //
+  // The gate holds the shape AND both of its conditions, because each fails silently:
+  //   1. the rule exists and is scoped to the marker (otherwise the web path gains 40px)
+  //   2. it ADDS the window pad to the caption rather than replacing either
+  //   3. the unconditional rule still pads all four sides for the web
+  const tokens = readFileSync(join(root, 'src', '15-tokens.js'), 'utf8');
+  const code = tokens.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+
+  const captionRule = /\[data-windows-titlebar\]\s*\[\$\{PART_ATTR\}="\$\{PART\.FRAME\}"\]:not\(\[data-sidebar-collapsed\]\)\s*\{([\s\S]*?)\n\}/.exec(code);
+  if (!captionRule) {
+    throw new Error('no Windows-caption rule on the frame, so the theme shorthand erases the host caption reservation (D87)');
+  }
+  const body = captionRule[1];
+  if (!/padding-top:\s*calc\(\s*var\(--dsh-windows-titlebar-height[^)]*\)\s*\+\s*var\(--dsh-bento-window-pad\)\s*\)/.test(body)) {
+    throw new Error('the caption rule does not ADD the window pad to the caption height, so one of the two is lost (D87)');
+  }
+  // the marker must be required by the selector, not merely present in the file
+  if (!/html\[\$\{ROOT_ATTR\}\]\[data-windows-titlebar\]/.test(code)) {
+    throw new Error('the caption rule is not scoped to the Windows marker, so the web path gains a caption band it does not have (D87)');
+  }
+  // the web rule must still be a shorthand on all four sides
+  const baseRule = /\[\$\{PART_ATTR\}="\$\{PART\.FRAME\}"\]:not\(\[data-sidebar-collapsed\]\)\s*\{\s*padding:\s*var\(--dsh-bento-window-pad\);/.exec(code);
+  if (!baseRule) {
+    throw new Error('the frame no longer pads all four sides on the web path (D78/D87)');
+  }
+  return 'caption reserved above the window pad on Windows; web padding unchanged';
+});
 const results = await runAll();
 
 for (const entry of results) {

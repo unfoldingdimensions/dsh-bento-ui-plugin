@@ -2914,3 +2914,65 @@ border-l3, which already reads as the reference's --control.
 
 **Gate 40** pins the attribute-keyed rule, the accent token, the absence of the brand token,
 and that the plugin's own switch moved with it.
+
+## D87
+
+**The frame's window padding must not erase the Windows caption reservation.**
+
+Reported as "the 3 panes are overlapping the above settings bar" - the three columns drawn over
+the Application / Edit caption row.
+
+**Cause, measured.** On Windows the desktop preload sets two things on the root element:
+
+    documentElement.dataset.windowsTitlebar = ""
+    documentElement.style.setProperty('--dsh-windows-titlebar-height', '40px')   // lib/preload-app.cjs
+
+and the host reserves that band on the shell frame with a SINGLE LONGHAND:
+
+    [data-windows-titlebar] .mP3x-q_frame { padding-top: var(--dsh-windows-titlebar-height) }
+
+D78 put the theme's window pad on the same element as a SHORTHAND:
+
+    html[data-dsh-bento] [part=frame]:not([data-sidebar-collapsed]) { padding: var(--dsh-bento-window-pad) }
+
+A shorthand resets all four longhands. The theme's selector is four attribute selectors plus a
+type against the host's one attribute plus a class, so the theme wins and padding-top collapses
+from 40px to 8px - the columns start 32px too high, underneath a caption row that is painted as
+a fixed overlay, which is why it reads as the panes OVERLAPPING the bar rather than as the bar
+being lost.
+
+**Reproduced three ways before changing anything**, because one measurement cannot say which
+rule is responsible:
+
+| case | rules present | padding-top | first child top |
+|---|---|---|---|
+| A | host only (control) | 32px | 32 |
+| B | host + theme shorthand | **8px** | **8** |
+| C | host + theme longhands only | 32px | 32 |
+
+Case C proves the shorthand is the culprit. It is NOT the fix, because on the web there is no
+marker at all: the host declares no padding-top there, and dropping the shorthand would leave
+the frame's top edge unpadded, taking the top card gap from 16 to 8 on one side only.
+
+**The fix re-states the caption where the marker exists**, leaving the web rule untouched:
+
+    html[data-dsh-bento][data-windows-titlebar] [part=frame]:not([data-sidebar-collapsed]) {
+      padding-top: calc(var(--dsh-windows-titlebar-height, 0px) + var(--dsh-bento-window-pad));
+    }
+
+Measured on the real shell with the preload's marker and 40px token applied, in a browser:
+
+    web (no marker)          frame padding-top 8px    sidebar card top 16
+    windows marker           frame padding-top 48px   sidebar card top 56   (40 caption + 8 pad)
+    marker, height removed   frame padding-top 8px    sidebar card top 16   (calc fallback)
+
+and the rule is load-bearing rather than decorative: neutralizing only its padding-top on the
+live page puts the card back at 16, i.e. over the caption. The collapsed rail keeps its own
+geometry with the marker present (card at x=4, top 4 below the caption).
+
+The fallback 0px covers a host that publishes the marker without the height - the rule then
+degrades to the base padding instead of to an invalid declaration.
+
+**Gate 41** pins the rule's existence, that it is scoped to the marker, that it ADDS the window
+pad to the caption, and that the unconditional web rule still pads all four sides. All three
+plants fail it with distinct messages.
