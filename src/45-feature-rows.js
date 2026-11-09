@@ -97,8 +97,8 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="workspace:"]
 
 /* The two top-level destinations match the session tiles instead of sitting at
    the host's 12px with no edge. The border is declared transparent so the row's
-   box does not change when the edge appears on hover — a 1px addition here would
-   shift the 36px button and every row below it. */
+   box does not change when a state appears - a 1px addition here would shift the
+   36px button and every row below it. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button {
   border-radius: var(--dsh-bento-radius-inner);
   border: 1px solid transparent;
@@ -108,9 +108,31 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > butto
     background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
 }
 
+/* POINTER STATE IS A FILL, NOT AN EDGE (D83).
+ *
+ * The theme gave every destination button an edge on hover, to match the session tiles
+ * below it. Measured against the reference, that is the wrong reading: the reference marks
+ * a nav row's pointer state with a FILL and never with a border - its nav rows carry no
+ * border in any state - and here the edge made a hovered destination look momentarily
+ * selected, in a column where "selected" is already a tinted fill with an accent label.
+ *
+ * So the pointer answers with the theme's neutral hover fill and no edge. The border stays
+ * DECLARED transparent rather than deleted: removing the declaration would shrink the
+ * button by 2px and shift every row below it, which is why it was transparent to begin
+ * with.
+ *
+ * Keyboard focus gets the same fill, for the same reason as the Settings rows: a control
+ * that answers the mouse but not the keyboard tells a keyboard user less. The host's own
+ * focus ring is untouched, so the accessible indicator is still there.
+ *
+ * The SESSION rows keep their edge. They are the list's contents rather than the shell's
+ * navigation, and a tile there reads as one row of a stack. That difference is the point:
+ * navigation answers with a fill, contents answer with a tile. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button:hover,
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button:has(:focus-visible),
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button:focus-visible {
-  border-color: var(--dsh-bento-edge);
+  background: var(--dsh-bento-hover);
+  border-color: transparent;
 }
 
 /* Reduced motion: the border swap is instant rather than animated. */
@@ -129,18 +151,76 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > butto
  * Both colours are derived from the host accent, so light and dark each get their
  * own correct tint (#4176e6 / #7aaaff) without a second declaration.
  *
+ * THE TINT IS MIXED AGAINST THE CARD, NOT THE CANVAS (D76) - a correction. This rule
+ * used --dsh-bento-selected-fill-canvas, which mixes the accent over the canvas tone,
+ * and it was right while these rows sat directly on the canvas. sidebar-card and
+ * row-tiles then put them on a WHITE card, and the mix was never updated: measured, the
+ * tint resolved to color(srgb 0.842 0.877 0.943) - the canvas mix - while the surface
+ * painted behind the row is rgb(255,255,255), so the selected row was 4.3 RGB units off
+ * the surface it is supposed to be a tint OF, and read a shade greyer than the design.
+ * The card mix resolves to color(srgb 0.911 0.936 0.988) on the same surface.
+ *
+ * It is also the better choice on contrast, measured in both themes by painting both
+ * mixes and the ink and computing WCAG ratios:
+ *
+ *   theme   ink on canvas-mix   ink on card-mix
+ *   light        5.56:1              6.40:1
+ *   dark         4.60:1              6.48:1
+ *
+ * Dark mode was the tight case for D55's 65% ink ratio (4.60 against an AA floor of
+ * 4.5). The card mix lifts it to 6.48, so the correction buys margin rather than
+ * spending it - which is why the ink ratio itself is left at 65%.
+ *
+ * THE DESTINATION BUTTONS ARE ADDRESSED BY BOTH aria-current VALUES. Measured on this
+ * host: the selected sidebar destination carries aria-current="page", not "true". The
+ * rule below asked for "true", matched 0 elements, and the selected destination kept
+ * the host's neutral grey while the session rows beside it were tinted - two different
+ * selected states 30px apart. "true" is kept because it is the value the earlier host
+ * wrote and costs nothing to accept; "page" is the one that fires now.
+ *
  * The host's hover fill is left alone. A selected row that is also hovered keeps
  * this tint, because this rule is declared after the host's hover rule - verified
  * by reading the computed colour in both states, not assumed from source order.
- * Addressed through aria-selected, which the host sets on the active row, so this
- * does not depend on a hashed class name.
- */
+ * Addressed through aria-selected / aria-current, which the host sets on the active
+ * row, so this does not depend on a hashed class name. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"][aria-selected="true"],
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-current="true"],
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-current="page"],
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-selected="true"] {
-  background: var(--dsh-bento-selected-fill-canvas);
+  background: var(--dsh-bento-selected-fill);
   color: var(--dsh-bento-selected-ink);
   border-color: transparent;
+}
+
+/* SELECTION ALSO CARRIES WEIGHT (D77).
+ *
+ * D58 established the rule for the Settings navigation - "colour alone says which row is
+ * chosen only if the tint separates at a glance" - and set it to 500 there. The same rule
+ * was never applied to the SIDEBAR, so the shell had two answers for one question: the
+ * Settings destination was 500, every session row was 400.
+ *
+ * 600, not 500, and not 700. The reference's weight scale is 400 / 500 / 600 / 700 and its
+ * section titles are 600, so 600 is the step that exists in both places. 700 competes with
+ * the pane headings; 500 is the value that made the Settings nav look under-committed.
+ *
+ * MEASURED, because weight on a truncating row is not free: the longest title in the column
+ * ("Debug QR Cloudflare host error", 166px box) needs 209px at 400, 212px at 600 and 214px
+ * at 700. It already ellipsises at 400, so 600 costs it 3px of an already-clipped string and
+ * changes no row box (240x32 at every weight). A title that FITS at 400 still fits at 600:
+ * the selected row's own title measured 193px of 193px available, and the idle control
+ * ("Bento UI plugin") is untouched at 400 because this rule is scoped to the selected row.
+ *
+ * Applied to the label, not the row, for the session row: the row also contains the age
+ * chip and the glyph slot, and weight on the row would be inherited by the chip's text too.
+ * Measured: the chip stays at 400. The destination button is addressed the same way - by
+ * its label's class substring ("panelTitle"), not by "the first span" - because the first
+ * span in that button is the GLYPH, and a positional selector would have bolded the icon
+ * slot instead of the text. Verified: 1 match per selected destination button, and the
+ * glyph span stays at 400. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"][aria-selected="true"] [class*="_title"],
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-current="true"] [class*="panelTitle"],
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-current="page"] [class*="panelTitle"] {
+  font-weight: 600;
 }
 
 /* Reduced motion: the border swap is instant rather than animated. */

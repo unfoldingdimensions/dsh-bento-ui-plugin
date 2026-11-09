@@ -11,8 +11,8 @@
  *
  * IMPORTANT — the card costs no layout width.
  * The first attempt inset the content column with a margin. That narrowed it from
- * 612px to 596px, and the host's Appearance control (three cubes, `flex: 1 1
- * 180px`, `flex-wrap: wrap`) needs 3x180 + 2x8 = 556px inside a 564px row. Losing
+ * 612px to 596px, and the host's Appearance control (three cubes, 'flex: 1 1
+ * 180px', 'flex-wrap: wrap') needs 3x180 + 2x8 = 556px inside a 564px row. Losing
  * 18px pushed the row to 556px of space for 556px of control at the wrong moment,
  * and "System" wrapped onto its own line. So the card is painted on a
  * zero-layout pseudo-element instead: the regions keep the exact boxes the host
@@ -104,38 +104,52 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button {
  * opposite: a TINT of the accent behind the label, the label itself in a darker accent,
  * and no border at all. That is what makes selection legible at a glance.
  *
- * The fill is mixed against the CANVAS, not the card, because this cell sits on the
- * canvas between the panel edge and the content card; mixing against the card would put
- * it a shade off the surface it appears to share.
+ * THE FILL IS MIXED AGAINST THE CARD (D76) — corrected. This rule read
+ * --dsh-bento-selected-fill-canvas, on the stated reasoning that "this cell sits on the
+ * canvas between the panel edge and the content card". That was true when the nav was
+ * bare. D60 then gave the nav its own card (::before, inset 12, radius 16), so the cell
+ * now sits ON that card and the canvas mix is wrong for the same reason it was wrong on
+ * the sidebar rows: measured, the tint resolved to color(srgb 0.842 0.877 0.943) - the
+ * canvas mix - over a rgb(255,255,255) card, 4.3 units off the surface it is a tint of.
+ * The card mix resolves to color(srgb 0.911 0.936 0.988) on that surface.
  *
  * Both colours are derived tokens, so this follows the host accent per theme — #4176e6
  * in light, #7aaaff in dark — rather than pinning one theme's blue. Measured contrast of
- * ink on fill: 5.16:1 light, AA for body text.
+ * ink on fill: 6.40:1 light and 6.48:1 dark with the card mix, against 5.56:1 and 4.60:1
+ * with the canvas mix (the dark case was the AA-marginal one for D55's 65% ink ratio).
  *
  * The label colour has to be set explicitly. The host paints its own label colour on the
  * button, so inheriting would leave dark ink on a tinted ground in light mode. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="true"] {
-  background: var(--dsh-bento-selected-fill-canvas);
+  background: var(--dsh-bento-selected-fill);
   color: var(--dsh-bento-selected-ink);
   box-shadow: none;
 }
 
-/* SELECTION ALSO CARRIES WEIGHT (D58).
+/* SELECTION ALSO CARRIES WEIGHT (D58, revised by D77).
  *
  * Colour alone says which row is chosen only if the tint separates from the canvas at a
  * glance. A heavier label says it a second way, in a channel that survives a grey-scale
  * screenshot, a dim display and a colour-blind viewer. It is also what the reference does:
  * its active nav item is both tinted and stronger.
  *
- * 500, not 700. Measured before choosing: the label resolves at 400 and applying 600
- * changed the cell's box not at all (164x40 before and after), so weight is free here.
- * 500 is the lightest step that still reads as deliberately heavier beside a 400 sibling;
- * 700 would make the row compete with the dialog's own heading.
+ * 600, not 500 (D77). D58 chose 500 as "the lightest step that still reads as deliberately
+ * heavier beside a 400 sibling", and that reasoning was sound for a dialog where the only
+ * competing weight was the heading. Two facts moved it: the reference's weight scale is
+ * 400 / 500 / 600 / 700 and its own section titles are 600, so 500 is a step the design
+ * does not use for emphasis; and the sidebar's selected row is now 600 as well (D77), so a
+ * 500 here would have left the sibling selection in the same shell one step lighter.
  *
- * Applied to the label, not the button. The icon beside it is a stroked SVG, which
- * font-weight cannot affect - naming the text keeps the rule honest about what it does. */
-html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="true"] span {
-  font-weight: 500;
+ * MEASURED, at 400 / 500 / 600 / 700: the label box is 108px at every weight and no label
+ * truncates at any of them (scrollWidth == clientWidth for all six destinations, including
+ * "Built-in plugins"). So weight is free here.
+ *
+ * Applied to the LABEL, not the button. The previous selector was the bare descendant
+ * 'span', which also matched the icon's span — measured, the glyph span inherited the 500
+ * and the SVG beside it followed. A stroked icon cannot use font-weight meaningfully, so
+ * this now names the label class instead of relying on document order. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="true"] [class*="navLabel"] {
+  font-weight: 600;
 }
 
 /* THE CARD IS DRAWN BY THE REGION'S OWN BOX, NOT BY A PSEUDO-ELEMENT INSIDE IT.
@@ -558,6 +572,31 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section"] ul > li [class*="cardIdentity"] {
   flex-wrap: wrap;
   row-gap: 4px;
+}
+
+/* THE APPEARANCE CUBES SHARE THE ROW INSTEAD OF WRAPPING (D82).
+ *
+ * The cell inset is 20 to match the reference's card padding, which costs this row 8px:
+ * at 20 it has 548px for a control whose three cubes want 3x180 + 2x8 = 556. The host's own
+ * 'flex-wrap: wrap' answers a shortage by moving "System" to a second row - measured at
+ * inset 20 with the wrap left alone: cubes 270 / 270 / 548, on TWO lines, the third one
+ * stretched to full width. That is the layout telling the user there are two groups where
+ * there is one control.
+ *
+ * nowrap instead. The host already declares 'flex-shrink: 1' on each cube, so the row
+ * resolves the shortage the way a single control should: measured, 177.33px each on ONE
+ * line, all three labels intact, no preview clipped, in both themes, at 1600 and 1280.
+ *
+ * This is a HOST-OWNED control, so the rule does as little as possible: it changes one
+ * keyword and nothing else. It does not set widths, gaps, radii or order, so the host keeps
+ * owning the cube's design and only the shortage response changes.
+ *
+ * GOES STALE LOUDLY RATHER THAN SILENTLY. If the host ever stops declaring flex-shrink on
+ * these cubes, nowrap would overflow the row instead of shrinking - so the condition is
+ * named: this rule exists because the cubes CAN shrink, and gate 32 asserts that the rule
+ * and the shrink agreement are both present. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*) [class*="cubeRow"] {
+  flex-wrap: nowrap;
 }
 `;
 
