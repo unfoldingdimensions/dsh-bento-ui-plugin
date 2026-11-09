@@ -8,13 +8,13 @@
  * the card, so the page read as host UI dropped into a bento frame.
  *
  * WHAT IS SAFE TO TOUCH, measured rather than assumed. The page's class names are
- * hashed per build (`X_2TxG_card`), so this file does not name them. What it does
+ * hashed per build ('X_2TxG_card'), so this file does not name them. What it does
  * rely on is stable:
  *
- *   - the page root is `section` inside the centre column, reached structurally
- *   - the row cards are `li` elements, and their wrapper is a `ul`
- *   - the group headings are `h3`
- *   - switches are `[role="switch"]`
+ *   - the page root is 'section' inside the centre column, reached structurally
+ *   - the row cards are 'li' elements, and their wrapper is a 'ul'
+ *   - the group headings are 'h3'
+ *   - switches are '[role="switch"]'
  *
  * Those are element and ARIA semantics, not build artefacts.
  *
@@ -79,11 +79,45 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section ul > li *:focus-visib
   border-radius: var(--dsh-bento-radius-inner);
 }
 
-/* The group heading separates sections rather than being one, so it gets breathing
-   room above and none of the row treatment. */
-html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section h3 {
-  letter-spacing: 0;
+/* The group heading is NOT restyled here any more. This block used to carry
+   'letter-spacing: 0', which measured as writing nothing: letter-spacing 0px COMPUTES to
+   "normal" in this Chrome, so the declaration was indistinguishable from the host's own
+   value. Verified by setting it on a synthetic element: '0', '0px', '0em' and 'normal' all
+   read back "normal", while '0.001px' reads back "0.001px" - so the property IS settable
+   and only the zero is a no-op. The section heading's weight and size are now owned by the
+   type-scale feature (58-feature-typescale.js), which is where a scale belongs. */
+
+/* THE PAGE HEADER BAR IS PART OF THE CARD, NOT A DARK BAND (D85).
+ *
+ * Reported as the Plugins page having a darker strip across its top in dark mode, and the
+ * pixels are unambiguous: sampling a vertical line down the centre column in dark gave
+ * rgb(21,21,23) from y=20 to y=95, then rgb(44,44,46) from y=100 down. Two different
+ * surfaces, one card.
+ *
+ * The cause is the host's sticky page bar. Measured: _pageBar is position: sticky, z-index 2,
+ * and paints its background on its own ::before, which resolves to rgb(21,21,23) in dark -
+ * that is --dsw-alias-bg-base, the same token D64 had to replace in the composer's scrim. In
+ * light the same declaration is rgb(255,255,255), which is why nothing looked wrong there.
+ *
+ * The theme's card is rgb(44,44,46), so the bar reads as a 23-unit band laid across the top of
+ * the card. The bar's own background is EMPTY (rgba(0,0,0,0)) - all of the paint is on the
+ * pseudo - so clearing the pseudo's background is the whole fix.
+ *
+ * NOT TRANSPARENT, CARD-COLOURED. 'background: transparent' would leave the bar's sticky
+ * pseudo compositing against whatever scrolls under it, and content sliding beneath a sticky
+ * header is exactly what the host paints this pseudo FOR. Giving it the card tone keeps the
+ * occlusion behaviour and removes only the tone mismatch.
+ *
+ * SCOPED TO THE CENTRE COLUMN, which is where the theme painted the card. The same page bar
+ * appears on pages that are not on this card (the plugin detail view uses its own chrome), and
+ * a global override would repaint chrome the theme did not card. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="pageBar"]::before {
+  background: var(--dsh-bento-card);
 }
+
+/* The header itself carries no fill of its own (measured: rgba(0,0,0,0)), so it needs no rule.
+   Recorded because "clear the header too" looks like the obvious next line and would be a
+   declaration on a host element that paints nothing. */
 
 /* Reduced motion: the fill appears at once rather than fading in. */
 @media (prefers-reduced-motion: reduce) {
