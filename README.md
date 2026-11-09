@@ -54,7 +54,7 @@ src/99-footer.js           translator, apply(), exports
 assets/*.woff2             Inter + JetBrains Mono, latin subset, OFL 1.1
 tools/make-fontdata.mjs    assets/*.woff2 -> src/14-fontdata.js
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 30 pre-install checks
+verify.mjs                 31 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`. If you touched
@@ -264,6 +264,7 @@ themes.
 | Section → section | same as row → row | The rules separate with space, not extra margins |
 | Motion | 160ms, `cubic-bezier(0.2, 0, 0, 1)` | One duration and one curve for every feature |
 | Card paint order | `z-index: -1` in an isolated column | The card is a positioned `::after`, so without this it paints over the column text. Lifting descendants by depth broke when the host added a wrapper (D73) |
+| Card ownership | The element's own box | A card drawn on a pseudo inside a scroller travels with the rows and cuts them (D74). Paint order is decided by a stacking context, not by luck (D75) |
 
 Two rules are worth stating in words because a table cannot carry them:
 

@@ -2562,3 +2562,59 @@ message. That proof found a hole in the gate itself - it read raw source, and th
 comment quotes both declarations, so removing `isolation: isolate` from the rule left the gate GREEN.
 All of gate 30 now strips comments before asserting.
 
+## D74
+
+**The Settings card is drawn by the content region's own box, because a pseudo-element inside a
+scroller scrolls with the rows and cuts them in half.**
+
+REPORT: "the design is half cut in the general settings tab". The screenshot shows the first row of
+General sliced horizontally, with the card's edge travelling through it.
+
+**THE CAUSE.** The Settings content column used to wrap a fixed header strip and a separate
+scrolling options area, and the card was painted on a `::before` inset 12px inside that column. The
+0.2.2 host removed the wrapper: the header and the scrolling options area are now SIBLINGS directly
+under the panel, so the element containing the section slot IS the scroller. A pseudo-element inset
+inside a scroller travels with the content - measured on 0.2.2, the card's top edge sits at viewport
+166 at scrollTop 0 and at -234 at scrollTop 400. Scrolling therefore dragged a white rounded
+rectangle, a hairline and a corner arc up through the rows.
+
+**THE FIX.** A box's own background, border and radius do not scroll with the content they clip, so
+the region now draws the card: 12px margin (the inset), 1px border (the hairline), the nested radius
+and the card fill. On hosts where the header is a sibling above it, the header becomes the card's top
+half and the seam between them carries no edge.
+
+**THE COST WAS 2px, AND IT MATTERED.** A border on each side narrows the interior by exactly the 2px
+the Appearance control needs (3x180 + 2x8 = 556 inside a 564 row). The row bleed is therefore widened
+from one gutter to 2*gutter + 1px. Measured on both hosts: row 588 inside a 588 card, three cubes at
+180px each on one line, hover fill flush with the card edge and nothing on the canvas.
+
+**Verified on both host versions**, both themes, at 1600x1000: the card does not move when the
+content scrolls (166 at scrollTop 0 and at scrollTop 320), every Settings tab renders (Account,
+General, Models, Built-in plugins, Agent presets, Bento layout), and D73's conversation-card
+behaviour is unchanged.
+
+## D75
+
+**A stacking context on the Settings region is load-bearing: without it the rows are correct in
+every computed property and paint zero pixels.**
+
+Moving the card from a pseudo-element onto the region's own box (D74) also removed the
+`position: relative; z-index: 0` that the old rule happened to carry. The rows then vanished while
+every instrument said they were fine: text present once, `visibility: visible`, `opacity: 1`,
+`color: rgb(15, 17, 21)`, a 372x22 box, one dialog in the DOM, nothing opaque above them in
+`elementsFromPoint`, and no covering pseudo-element.
+
+The region is a static in-flow grid item, so it belongs to the panel's own stacking order, and the
+modal's backdrop mask (a sibling of the panel, outside it) paints OVER static content. A stacking
+context on the region puts its subtree above that mask.
+
+Measured the same way as D73, by cropping the region and counting dark pixels: **0 without the
+declaration, 168 with it.** Three separate candidates each restored the pixels - `isolation:
+isolate`, `position: relative; z-index: 0`, and plain `position: relative` - so this is ordinary
+paint order and not a quirk. `isolation` is what ships because it states the intent and changes no
+geometry. The header gets the same declaration for the same reason, since on 0.2.2 it is the card's
+other half.
+
+**Gate 31** pins both halves of D74/D75, and all three planted violations fail it with distinct
+messages (region isolation removed, region background removed, header isolation removed).
+

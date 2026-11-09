@@ -728,20 +728,80 @@ check('spacing: the cell inset separates from the gutter and clears the card rad
   if (!/padding-inline:\s*var\(--dsh-bento-cell-inset\)/.test(body)) {
     throw new Error('the row padding-inline does not resolve through the cell inset');
   }
-  if (!/margin-inline:\s*calc\(-1 \* var\(--dsh-bento-gutter\)\)/.test(body)) {
-    throw new Error('the row margin-inline no longer bleeds the fill to the card edge');
+  // THE ROW BLEED IS RE-DERIVED FOR THE BORDER-BOX CARD (D74).
+  //
+  // WHAT CHANGED. The card used to be a pseudo inset 12px inside the content column, so a row
+  // at -gutter landed on the card edge. The card is now the region's own border box: a 12px
+  // margin (the inset) plus a 1px border (the hairline). A row's negative inline margin is
+  // resolved against that region's CONTENT box, and the content box is inset from the card's
+  // visible edge by the HOST's own horizontal padding plus our border. The host's padding is
+  // 24px, so the bleed is 24 + 1 = 25px, which the stylesheet writes as
+  // calc(-2 * var(--dsh-bento-gutter) - 1px) because 2 * 12 = 24.
+  //
+  // WHY THE GATE PINS THE DECLARATION AND NOT A COMPUTED SUM. The 24px is the host's number;
+  // it is not derivable from this repo's tokens, and hardcoding it in the check would pin a
+  // host detail in two places. What the check CAN do is catch the two ways this regresses
+  // silently: the bleed dropping back to a single gutter (the row stops short of the card and
+  // the hover fill reads inset), and the bleed being pushed to 3 gutters (the fill spills onto
+  // the canvas). Both are ranges, so they are tested as ranges.
+  //
+  // ALIGNMENT ITSELF IS A MEASURED PROPERTY, not a source one: verified in the browser on both
+  // host versions, row 588 inside a 588 card, with the three Appearance cubes still 180px each
+  // on one line (see D74 and learning.md L111). A source gate cannot see that, and pretending
+  // otherwise is how a green check stops meaning anything.
+  const rowMargin = /margin-inline:\s*calc\(\s*(-?\d+)\s*\*\s*var\(--dsh-bento-gutter\)\s*(\+|-)\s*(\d+)px\s*\)/.exec(body);
+  if (!rowMargin) {
+    throw new Error('the row margin-inline no longer resolves through the gutter, so the bleed is unverifiable');
+  }
+  const factor = Math.abs(Number(rowMargin[1]));
+  const operator = rowMargin[2];
+  const extra = Number(rowMargin[3]);
+  // MAGNITUDE, and the sign is inverted on purpose: the margin is negative, so
+  // calc(-2 * gutter - 1px) is -25px and its magnitude is 24 + 1 = 25, while
+  // calc(-2 * gutter + 1px) is -23px. Reading "+ 1px" as "one more" would compute the
+  // opposite of what the CSS does, which is exactly the mistake this line replaces.
+  const bleed = factor * 12 + (operator === '-' ? extra : -extra);
+  const hostPaddingInline = 24;
+  if (bleed < hostPaddingInline + 1) {
+    throw new Error(
+      `the row bleeds only ${bleed}px, less than the host's ${hostPaddingInline}px padding plus the card border, ` +
+      'so the hover fill stops short of the card edge (D74)',
+    );
+  }
+  if (bleed > hostPaddingInline + 3) {
+    throw new Error(
+      `the row bleeds ${bleed}px, well past the host's ${hostPaddingInline}px padding + 1px border, ` +
+      'so the hover fill spills onto the canvas outside the card (D74)',
+    );
   }
 
-  // The header strip must be compensated for the card inset, and scoped to a direct child —
-  // a descendant match also hit a plugin card's inner "headerEnd" on another tab (D68).
+  // The card must be drawn by the region's own box, not by a pseudo-element inside it: a pseudo
+  // inside a scroller travels with the content and cuts the rows in half (D74). This is the
+  // regression that shipped, so the gate asks for the box itself.
+  // Assert on the normalised source and strip comments first, so the explanatory block that
+  // QUOTES the removed pseudo cannot satisfy the check (the mistake gate 30 made, L110).
+  const settingsCode = flat.replace(/\/\*[\s\S]*?\*\//g, '');
+  const cardRegionRule = /\[data-shortcut-modal="settings"\] > div:has\(\[data-slot="settings\.section"\]\) \{([\s\S]*?)\n\}/.exec(settingsCode);
+  if (!cardRegionRule) {
+    throw new Error('the settings content-region rule could not be located, so the card geometry is unverified');
+  }
+  if (!/^\s*margin:\s*var\(--dsh-bento-gutter\);/m.test(cardRegionRule[1])) {
+    throw new Error('the settings card is no longer drawn by the content region itself - a pseudo inside the scroller scrolls with the rows (D74)');
+  }
+  if (!/^\s*background:\s*var\(--dsh-bento-card\);/m.test(cardRegionRule[1])) {
+    throw new Error('the content region paints no card background, so the card is invisible (D74)');
+  }
+  if (/\[data-shortcut-modal="settings"\] > div:has\(\[data-slot="settings\.section"\]\)::before/.test(settingsCode)) {
+    throw new Error('the settings card is painted on a ::before again, which scrolls with the content it clips (D74)');
+  }
+
+  // The header rule stays scoped to a direct child — a descendant match also hit a plugin
+  // card's inner "headerEnd" on another tab (D68).
   if (!/> \[class\*="header"\]/.test(settings)) {
     throw new Error('the header rule is not scoped to a direct child, so it can pad a plugin card header');
   }
-  if (!/padding:\s*calc\(var\(--dsh-bento-gutter\) \+ var\(--dsh-bento-cell-inset\)\)/.test(settings)) {
-    throw new Error('the header padding is not compensated for the card inset');
-  }
 
-  return `inset ${cellInset}px >= radius ${nested}px; fill bleed intact; header compensated`;
+  return `inset ${cellInset}px >= radius ${nested}px; row bleed ${bleed}px reaches the card edge; card drawn by the region box`;
 });
 
 check('radii: the card tier is above the inner tier and the pill tier is a token', () => {
@@ -969,6 +1029,64 @@ check('paint order: every card is behind its column content by z-index, never by
   }
 
   return 'sidebar, center and rightbar isolate their column and paint the card at z-index -1; no descendant lift remains';
+});
+
+check('settings paint: the card is drawn by the region box and both card halves isolate', () => {
+  // D74 and D75. Two bugs in one tab, both reported as "the design is half cut in the general
+  // settings tab", and both found only by looking at pixels.
+  //
+  // BUG 1 - THE CARD SCROLLED. The card used to be a ::before inset 12px inside the element
+  // containing the settings section. On 0.2.2 that element became the SCROLLER, so the card's
+  // hairline and corner arcs travelled up through the rows as the user scrolled, slicing
+  // whichever row was passing the top edge. A box's own background does not scroll with its
+  // content, so the region now draws the card with its own border box.
+  //
+  // BUG 2 - THE LABELS STOPPED PAINTING. Moving the card onto the region also removed the
+  // "position: relative; z-index: 0" that the old rule carried. The region is a static in-flow
+  // grid item, and the modal's backdrop mask paints over static content in that stacking
+  // context: every label reported visible, correct colour, non-zero box, and painted zero
+  // dark pixels. Measured 0 -> 168 pixels when a stacking context was restored.
+  //
+  // The gate holds all three properties, because each fails silently on its own:
+  //   1. the region draws the card (margin/background), not a pseudo inside the scroller
+  //   2. the region is a stacking context
+  //   3. the header is a stacking context too, on hosts where it is the card's other half
+  const settings = readFileSync(join(root, 'src', '50-feature-settings.js'), 'utf8');
+  const flat = settings.replace(/\$\{[^}]*\}/g, 'X');
+  const code = flat.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  const regionRule = /\[data-shortcut-modal="settings"\] > div:has\(\[data-slot="settings\.section"\]\) \{([\s\S]*?)\n\}/.exec(code);
+  if (!regionRule) {
+    throw new Error('the settings content-region rule could not be located, so its paint contract is unverified');
+  }
+  const regionBody = regionRule[1];
+
+  if (!/isolation:\s*isolate|z-index:\s*0/.test(regionBody)) {
+    throw new Error('the settings region is not a stacking context, so the modal backdrop paints over its rows (D75)');
+  }
+  if (!/^\s*background:\s*var\(--dsh-bento-card\);/m.test(regionBody)) {
+    throw new Error('the settings region paints no card background (D74)');
+  }
+  if (!/^\s*margin:\s*var\(--dsh-bento-gutter\);/m.test(regionBody)) {
+    throw new Error('the settings card inset is not a margin, so the card cannot be the region box (D74)');
+  }
+
+  if (/\[data-shortcut-modal="settings"\] > div:has\(\[data-slot="settings\.section"\]\)::before/.test(code)) {
+    throw new Error('the settings card is painted on a ::before again, which scrolls with the content it clips (D74)');
+  }
+
+  const headerRule = /\[data-shortcut-modal="settings"\] > \[class\*="header"\] \{([\s\S]*?)\n\}/.exec(code);
+  if (!headerRule) {
+    throw new Error('the settings header card rule could not be located, so its paint contract is unverified');
+  }
+  if (!/isolation:\s*isolate|z-index:\s*0/.test(headerRule[1])) {
+    throw new Error('the settings header is not a stacking context, so its button labels can stop painting (D75)');
+  }
+  if (!/^\s*background:\s*var\(--dsh-bento-card\);/m.test(headerRule[1])) {
+    throw new Error('the settings header paints no card background (D74)');
+  }
+
+  return 'region draws the card and isolates; header isolates; no pseudo inside the scroller';
 });
 
 const results = await runAll();

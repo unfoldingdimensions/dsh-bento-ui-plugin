@@ -2210,3 +2210,39 @@ satisfy is not a gate. Comments are now stripped before every assertion in that 
 second time a plant has taught me something about the gate rather than the code (L105); the habit
 that catches it is refusing to believe a green result for a check I have just deliberately broken.
 
+## L111
+
+**Twice in two days, the DOM was right and the screen was wrong - and both times my instrument
+told me the DOM was right.**
+
+D73 (blank conversations) and D75 (blank Settings rows) are the same lesson at two scales. In both,
+`getComputedStyle` reported correct colour, opacity and visibility; `getBoundingClientRect` reported
+a sane box; the element existed exactly once in the document. In both, `elementFromPoint` said the
+text was on top - because it returns the originating element and cannot see a pseudo-element or a
+mask painted above. And in both, the fix was found by counting pixels in a cropped screenshot, not
+by reading properties.
+
+**Four of my own tests were worthless before I noticed.** (1) A "loud label" test set an inline
+yellow background on the element - React re-rendered and wiped it, so it proved nothing; a
+stylesheet injection survived and gave the answer. (2) A bisect started from "theme off" so every
+variant was broken by the shipped stylesheet, and all five results were identically zero. (3) A
+computed-style diff between theme-on and theme-off listed twelve differences, none of which was the
+cause, because the cause is a property that is ABSENT in both. (4) A "neutralize one rule" test
+measured the same broken state four times for the same reason as (2): the shipped rule was still
+live behind my override.
+
+**What actually worked, and is worth reaching for first next time:** crop the exact area, decode it
+in the page with `Canvas.getImageData`, and count pixels darker than the background. That number is
+the only one that cannot be satisfied by documentation, comments, or a stale measurement.
+
+**Two smaller traps, both new.** A gate I wrote read raw source and passed on its own explanatory
+comment that quoted the declaration it was checking - the second time that has happened (L110), and
+the fix is now a habit: strip comments before asserting, always. And one of my test harnesses
+corrupted the source again, because a `execSync` throw skipped the restore and the next run read the
+mutated file as its baseline; the harness now copies the file to disk, restores in a `finally`, and
+re-reads the plant from disk before trusting it.
+
+**The honest limit.** Both bugs were found by a person looking at a screenshot, not by 30 gates.
+Gates hold mechanisms once they are known; they do not discover paint order. Claiming otherwise
+would be the same error as trusting computed style.
+

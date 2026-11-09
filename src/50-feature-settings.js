@@ -138,25 +138,67 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="t
   font-weight: 500;
 }
 
-/* The content column becomes the one raised card, painted on a pseudo-element so
-   its box — and therefore every control inside it — is exactly the size the host
-   solved. z-index: -1 keeps it behind the column's children while staying inside
-   this stacking context, so no child needs lifting. The column is identified by
-   what it contains, because it carries no class a stylesheet may name. */
+/* THE CARD IS DRAWN BY THE REGION'S OWN BOX, NOT BY A PSEUDO-ELEMENT INSIDE IT.
+ *
+ * REQUEST: "the design is half cut in the general settings tab".
+ *
+ * The card used to be painted on a pseudo-element inset 12px inside the content
+ * column. That is correct only while the column does NOT scroll - which was true of
+ * the host this was written against, where the column wrapped a separate scroller.
+ *
+ * On 0.2.2 the Settings panel lost that wrapper: the header and the scrolling options
+ * area are now SIBLINGS directly under the panel, so the element containing the
+ * section slot IS the scroller. A pseudo-element inset 12px inside a scroller travels
+ * WITH the content: at scrollTop 0 the card's edge sits at viewport 166, at scrollTop
+ * 400 it sits at -234. Scrolling therefore drags a white rounded rectangle, a hairline
+ * and a corner arc up through the rows, cutting each one in half as it passes.
+ *
+ * A box's OWN background, border and radius do not scroll with the content they clip,
+ * so the region itself now draws the card. The 12px inset that the pseudo used to paint
+ * is a margin, and the hairline is a real border like every other card in this theme.
+ *
+ * The border costs 2px of interior, which is exactly the 2px the Appearance control
+ * needs (3x180 + 2x8 = 556 inside a 564 row). The row bleed below is widened by that
+ * 1px per side to give it back; measured, the three cubes stay on one line.
+ *
+ * ISOLATION IS LOAD-BEARING, AND IT IS NOT DECORATION. The region is a static in-flow box,
+ * so it belongs to the panel's own stacking order; the modal's backdrop mask sits outside
+ * that panel and paints OVER static content. Without a stacking context on this region the
+ * rows render correctly by every computed property and are simply not painted - the same
+ * class of failure as the conversation text in D73, and it was found the same way, by
+ * cropping the region and counting pixels. Measured: labels paint 0 dark pixels without
+ * this line, 168 with it. 'position: relative' alone also works; isolation is used because
+ * it states the intent (a stacking boundary) and changes no geometry. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settings.section"]) {
-  position: relative;
-  z-index: 0;
-}
-
-html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settings.section"])::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: var(--dsh-bento-gutter);
+  isolation: isolate;
+  margin: var(--dsh-bento-gutter);
+  border: 1px solid var(--dsh-bento-edge);
   border-radius: var(--dsh-bento-radius-nested);
   background: var(--dsh-bento-card);
+  box-sizing: border-box;
+}
+
+/* On hosts where the header is a SIBLING above that region (0.2.2), the two are one card
+   stacked in two halves, and the seam between them carries no edge on either side.
+   The header needs its own stacking context for the same reason the region does: it is a
+   static in-flow box inside a grid panel, and the modal's backdrop mask paints over static
+   content. Without isolation its button labels disappear while every computed property
+   reports them visible (D75). */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > [class*="header"] {
+  isolation: isolate;
+  margin: var(--dsh-bento-gutter) var(--dsh-bento-gutter) 0;
+  padding: var(--dsh-bento-cell-inset);
   border: 1px solid var(--dsh-bento-edge);
-  pointer-events: none;
+  border-bottom: 0;
+  border-radius: var(--dsh-bento-radius-nested) var(--dsh-bento-radius-nested) 0 0;
+  background: var(--dsh-bento-card);
+  box-sizing: border-box;
+}
+
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > [class*="header"] + div:has([data-slot="settings.section"]) {
+  margin-top: 0;
+  border-top: 0;
+  border-radius: 0 0 var(--dsh-bento-radius-nested) var(--dsh-bento-radius-nested);
 }
 
 /* Rows lose their hairline. The host draws a 1px rule under every row of the
@@ -182,8 +224,8 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settin
  * time. That is the concentric law read backwards: not "inner rounder than outer", but
  * "content closer to the edge than the edge's own curve".
  *
- * They are now separate numbers. The fill still bleeds exactly to the card edge (margin stays
- * at the gutter, so the hover state is unchanged), and the text insets by the cell inset.
+ * They are now separate numbers. The fill still bleeds exactly to the card edge, and the text
+ * insets by the cell inset.
  *
  * 16, NOT 20. The cap is the Appearance control, measured at both widths: 3x180 + 2x8 = 556
  * inside the row, so 16px is the largest inset that keeps the third cube on its line (18px
@@ -193,12 +235,18 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settin
  * THIS DOES NOT MOVE THE CARD OR THE CONTROLS' RIGHT EDGE. The row keeps its box (margin and
  * padding cancel), and the control column is right-aligned inside the same box, so only the
  * text's left edge shifts in. Measured: control right-edge distance from the card is 16 on
- * both sides, symmetric. */
+ * both sides, symmetric.
+ *
+ * THE BLEED DOUBLED WHEN THE CARD MOVED FROM A PSEUDO TO A BORDER BOX (D74). The card is now
+ * inset by a 12px MARGIN on the region plus a 1px BORDER, so its edge is 13px outside the
+ * padding box on each side, not 12. The row bleeds 2*gutter + 1px to land exactly on the card
+ * edge again. Measured on both hosts: row 588 inside a 588 card, the three Appearance cubes
+ * still 180px each on one line, nothing spilling onto the canvas. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*),
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
   border-bottom: 0;
   border-radius: var(--dsh-bento-radius-nested);
-  margin-inline: calc(-1 * var(--dsh-bento-gutter));
+  margin-inline: calc(-2 * var(--dsh-bento-gutter) - 1px);
   padding-inline: var(--dsh-bento-cell-inset);
   transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
 }
@@ -209,25 +257,13 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
   border-top: 0;
 }
 
-/* THE HEADER STRIP IS NOT COMPENSATED FOR THE CARD INSET (D68).
+/* HEADER, OLDER HOSTS: NESTED INSIDE THE CONTENT COLUMN (D74).
  *
- * The content column is two stacked regions: a fixed header strip (the "Open configuration
- * file" button and the close X) and the scrolling options area under it. The card is painted
- * on a pseudo-element inset 12px inside that column, so anything whose padding was written
- * against the COLUMN edge lands 12px closer to the card edge than it reads.
- *
- * Measured before this rule, at 826 and 1600, light and dark: the close button sat 2px from
- * the card's right edge and 8px from its top edge, inside a card whose corner radius is 16px.
- * The panel's tightest space, and the first one the eye reads as cramped.
- *
- * The host's own header padding is 20px / 14px / 8px / 10px, which is correct against the
- * column and wrong against the card. It is replaced with 12 (the card inset) + 16 (the cell
- * inset) on the top and right, so both controls clear the corner arc by the same amount the
- * rows now clear it horizontally.
- *
- * The bottom padding goes 8 -> 4, because the top grew by 8 and the options area below should
- * not lose a whole extra row of height to this fix. Measured: the header grows 54 -> 58px, so
- * one row still fits where it did.
+ * Up to 0.2.0 the content column wrapped a fixed header strip (the "Open configuration
+ * file" button and the close X) plus the scrolling options area under it. The card is now
+ * drawn by that column's own border box, so the header's padding is measured from the card
+ * edge directly - which is why it no longer needs the old "12px inset + 16px cell" sum and
+ * takes the cell inset alone.
  *
  * Reached as a DIRECT CHILD of the content column, with a class substring only to name it.
  * The substring is not enough on its own: walking every tab found a second element matching
@@ -236,15 +272,17 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [${ROW_ATTR}] {
  * direct-child combinator is what makes this rule select exactly one element on every tab -
  * verified across all 6 tabs, one match each. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > div:has([data-slot="settings.section"]) > [class*="header"] {
-  padding: calc(var(--dsh-bento-gutter) + var(--dsh-bento-cell-inset)) calc(var(--dsh-bento-gutter) + var(--dsh-bento-cell-inset)) 4px calc(var(--dsh-bento-gutter) + var(--dsh-bento-cell-inset));
+  padding: var(--dsh-bento-cell-inset);
 }
 
 /* THE OPTIONS AREA IS LEFT ALONE, ON PURPOSE.
  *
  * It carries 0 / 24px / 24px from the host, and that 24 is load-bearing: the rows
- * cancel it with a -12px margin, so the row box lands exactly on the card edge (24 - 12 = 12
- * = the card inset). Changing it to the cell inset would put the row box 8px OUTSIDE the card,
- * and the hover fill would bleed onto the canvas past the card it belongs to.
+ * cancel it with a negative margin, so the row box lands exactly on the card edge. With the
+ * card drawn by this region's own border box the cancellation is 2*gutter + 1px (D74), which
+ * leaves the row box flush with the card's 1px border. Changing the host's 24 to the cell
+ * inset would put the row box outside the card and the hover fill would bleed onto the canvas
+ * past the card it belongs to.
  *
  * So the inset is expressed on the row (padding-inline), never on this box. Recorded because
  * "make the paddings agree" looks like the obvious tidy-up and is wrong. */
