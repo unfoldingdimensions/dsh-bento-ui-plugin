@@ -137,7 +137,13 @@ html[${ROOT_ATTR}] [data-slot="conversation.input.dock"] > * {
   /* The host's frosted material retires with its fill: over an opaque tone the blur can only
      cost compositing, and it measured none here anyway. */
   backdrop-filter: none;
-  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge), var(--dsh-bento-shadow);
+  /* NO SHADOW (D79). This read 'var(--dsh-bento-shadow)', the token behind the opt-in
+     card-shadow FEATURE, while the feature was off - so the dock was lifted by a feature the
+     user had not enabled, and enabling it changed nothing here. D40's rule is that elevation
+     stays at zero and separation is a hairline plus a fill step, so the dock gets the edge
+     alone. It is a peer panel above the composer, not a surface the accent owns, which is why
+     it does NOT take the accent halo the composer does. */
+  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge);
 }
 
 /* THE QUEUED-MESSAGE TAB BECOMES THE COMPOSER'S TOP SEGMENT (D67).
@@ -165,8 +171,9 @@ html[${ROOT_ATTR}] [data-slot="conversation.input.dock"] > * {
  * without moving either.
  *
  * THE RADIUS IS THE COMPOSER'S OWN, READ FROM ITS TOKEN. The composer card takes
- * var(--dsw-radius-panel) (measured 28px); the theme's 20px card tier is a different curve and a
- * 20px top corner under a 28px composer would be visibly tighter on the same silhouette. So the
+ * var(--dsw-radius-panel) (measured 28px); the theme's card tier is a different curve (24px
+ * since D69) and a 24px top corner under a 28px composer would be visibly tighter on the same
+ * silhouette. So the
  * tab reads the same host token rather than a literal, and follows the composer if the host
  * retunes it.
  *

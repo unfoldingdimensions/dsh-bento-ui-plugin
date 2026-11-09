@@ -27,9 +27,10 @@
  */
     const CENTER_CSS = `
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] {
-  /* The gutter is padding on the column, so the track width and every drag-handle
-     position computed from it stay exactly as the host solved them. */
-  padding: var(--dsh-bento-gutter);
+  /* The card pad is padding on the column, so the track width and every drag-handle
+     position computed from it stay exactly as the host solved them. It is the card
+     distance token, not the inside-a-card rhythm the gutter still carries (D78). */
+  padding: var(--dsh-bento-card-pad);
   box-sizing: border-box;
   /* The containing block for the card painted in ::after. No fill of its own: the
      canvas belongs to the frame, so the card sits directly on it. */
@@ -45,7 +46,7 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] {
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"]::after {
   content: "";
   position: absolute;
-  inset: var(--dsh-bento-gutter);
+  inset: var(--dsh-bento-card-pad);
   border-radius: var(--dsh-bento-radius);
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
@@ -98,35 +99,43 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-slot="main"] [data-slot
   box-sizing: border-box;
 }
 
-/* The composer, RAISED rather than recessed (D61).
+/* The composer, RAISED rather than recessed (D61), and now ACCENT-EDGED (D79).
  *
  * The previous version painted it the canvas tone (#ebeef2) and called it a panel
  * recessed into the card. Measured, that tone is 1.16:1 against the card - a real but
  * very slight step, and on a 861px-wide surface it reads as a blue-grey slab laid over
  * the conversation rather than as a control. The owner's report was the right one.
  *
- * It is now the same white as the card, edged with the hairline, and lifted with the
- * theme's own soft shadow. That is what the reference actually does with its raised
- * surfaces: --surface is #FFFFFF everywhere and separation comes from the border
- * (#E3E7EE) and the shadow, with --panel (#F3F6FC) reserved for the CALM surfaces
- * behind a card, not for a control sitting on one.
+ * It is now the same white as the card, with an ACCENT hairline and the accent halo,
+ * which is the reference's own pairing for a surface the accent is involved in: its
+ * --accent-line border plus 0 6px 16px of 12% accent appears 10 times across the corpus
+ * (22-function comment in 15-tokens.js records the derivation). The theme already had
+ * --dsh-bento-accent-edge from D69; D79 adds the matching glow.
  *
- * NOTE ON PROVENANCE: the reference is a dashboard and contains no composer, so it does
- * not specify this control. What it does specify is the relationship, and that is what is
- * applied here - raised surface = white + hairline + shadow, recessed surface = tint.
- * Calling this "what the design says" would be overclaiming; it is the design's rule
- * applied to a control the design does not contain.
+ * NO LONGER THE CARD SHADOW (D79). This rule read 'var(--dsh-bento-shadow)', which is the
+ * token behind the card-shadow FEATURE - an opt-in the user turns on for the four card
+ * surfaces. The composer is not one of those surfaces, so the composer was carrying the
+ * feature's lift while the feature was off, and turning the feature on changed nothing
+ * here. Measured: with card-shadow off, the composer's computed shadow was
+ * "rgba(0,0,0,0.1) 0 0 0 1px inset, <two neutral layers>" - the neutral layers being the
+ * feature token, unrelated to accent. That is a real contradiction of D40 (elevation stays
+ * at zero; separation is a hairline plus a fill step), independent of what the reference
+ * does.
  *
- * The shadow is the token card-shadow already uses, so it follows the theme ink and is
- * visible in dark mode; off means the composer still gets the hairline, which is what
- * carries the edge at that point.
+ * PROVENANCE, STATED HONESTLY. The reference contains NO composer, input, textarea or
+ * form of any kind - verified exhaustively over both design files and their decoded
+ * bundles (docs/research/reference-deltas.md section 9). So "the reference gives the
+ * composer the accent border and the accent glow" cannot be sourced: what it does do is
+ * pair an accent-line border with a 12% accent glow on every surface the accent owns.
+ * This applies that pairing to a control the design does not contain. It is a new
+ * decision justified by the design's rule, not a value copied from the design.
  *
  * Still an inset shadow, never a border: a border would add 2px to a control the host has
  * already sized, and this project has broken a host-sized control once by nudging its box
  * (D14). */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-composer-card] {
   background: var(--dsh-bento-card);
-  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge), var(--dsh-bento-shadow);
+  box-shadow: inset 0 0 0 1px var(--dsh-bento-accent-edge), var(--dsh-bento-accent-glow);
 }
 `;
 
