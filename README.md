@@ -17,13 +17,15 @@ restyles what the host already renders.
 
 | File | Contains |
 |---|---|
-| [decision.md](decision.md) | Append-only decisions (D1–D42): what was chosen and why, including the rejected options |
+| [decision.md](decision.md) | Append-only decisions (D1–D86): what was chosen and why, including the rejected options |
 | [architecture.md](architecture.md) | Contracts and boundaries: the plugin shape, the boot audit's failure states, DOM-reachability facts (A1–A12), module structure, profile state, the verification harness, the design-language contract (§9) |
 | [flow.md](flow.md) | Runnable sequences: add a feature, the Chrome-before-the-app loop, diagnose "loaded but nothing happened", recover from a boot failure, the isolated-profile test loop, audit a convention (§8) |
-| [learning.md](learning.md) | What cost time and why (L1–L40), including the mistakes |
+| [learning.md](learning.md) | What cost time and why (L1–L117), including the mistakes |
 | [docs/research/bento-language-audit.md](docs/research/bento-language-audit.md) | What the theme implements against what the bento idiom requires, measured, tiered P0/P1/P2, with sources |
 | [docs/research/icon-philosophy.md](docs/research/icon-philosophy.md) | What icons do in a bento composition, the host's measured icon system, and the rule that this theme draws none in the UI (D48) |
 | [docs/research/animation-inventory.md](docs/research/animation-inventory.md) | Every place the harness animates: 14 shell `@keyframes`, 37 shell motion rules, 179 component-layer declarations across 31 packages, the two disconnected token systems, reduced-motion coverage, and what CSS can and cannot reach |
+| [docs/research/reference-deltas.md](docs/research/reference-deltas.md) | The measured evidence for every value this theme adopted or refused: type scale, accent glow, spacing, dark tiles, pills, segments, tiles and switches, each quoted with its selector and tagged by which of the two saved design files it came from, plus the two findings that changed a decision (no composer exists; the weight scale is 400/500/600/700) |
+| [docs/research/spacing-options.md](docs/research/spacing-options.md) | Whether gap 16, window edge 16 and a 20px card inset are jointly achievable, measured across viewports and configurations, with the appendix that records which assumption the original verdict rested on and why the shipped change differs |
 
 Read `learning.md` before changing anything here — most of it exists because a
 confident-looking change silently did nothing.
