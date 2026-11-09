@@ -27,9 +27,10 @@
  */
     const SIDEBAR_CSS = `
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] {
-  /* The gutter is padding *on the column*, so the track width and every
-     handle position computed from it stay exactly as the host solved them. */
-  padding: var(--dsh-bento-gutter);
+  /* The card pad is padding *on the column*, so the track width and every
+     handle position computed from it stay exactly as the host solved them. It is the
+     card distance token, NOT the inside-a-card rhythm the gutter still carries (D78). */
+  padding: var(--dsh-bento-card-pad);
   box-sizing: border-box;
   /* The column becomes the containing block for the card painted in ::after.
      It paints no fill of its own: the canvas belongs to the frame, so the card
@@ -48,7 +49,7 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] {
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"]::after {
   content: "";
   position: absolute;
-  inset: var(--dsh-bento-gutter);
+  inset: var(--dsh-bento-card-pad);
   border-radius: var(--dsh-bento-radius);
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);

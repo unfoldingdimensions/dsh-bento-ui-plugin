@@ -62,7 +62,24 @@
  * this inset is 24 - 20 = 4 and 16 is comfortably inside the correct range. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detail"]:has(> [class*="_detailSections"]) {
   box-sizing: border-box;
-  padding: 20px;
+  /* THE INSET IS THE TOKEN, NOT A LITERAL (D81).
+   *
+   * This said 20px, and it was the only card in the theme not using the cell inset: every
+   * other surface - the three column cards' contents, the Settings rows, the detail's own
+   * section cells below - is inset by --dsh-bento-cell-inset, which is 16. Two numbers for
+   * one job is the defect D68 was recorded to stop, and here it produced exactly the effect
+   * it predicts: the page's outer panel read 4px roomier than the section cells stacked
+   * inside it, so the panel's hairline and its children's hairlines were not parallel.
+   *
+   * 16 is also what the reference does not contradict: its nested-panel move is 8px outer
+   * over 20px inner, but this panel's parent already applies its own 48px page padding, so
+   * the "20 inside 8" relationship the reference is expressing is carried by the page, not
+   * by this box.
+   *
+   * The reference's own card value is 20px and it is available as a token if a future pass
+   * wants the roomier tier - but it must then be --dsh-bento-cell-inset that changes, so
+   * that ALL the cards move together rather than this one alone. */
+  padding: var(--dsh-bento-cell-inset);
   border-radius: var(--dsh-bento-radius-nested);
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-accent-edge);

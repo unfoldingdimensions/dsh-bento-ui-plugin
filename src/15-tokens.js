@@ -7,20 +7,47 @@
  *
  * IMPORTANT — where these are declared:
  * a custom property is substituted on the element that declares it, and values
- * do not inherit *upward*. The host defines `--dsw-alias-*` on `<body>`, so a
- * `var(--dsw-alias-...)` written on `html` resolves against nothing and silently
+ * do not inherit *upward*. The host defines '--dsw-alias-*' on '<body>', so a
+ * 'var(--dsw-alias-...)' written on 'html' resolves against nothing and silently
  * paints transparent. Every token that references a host alias is therefore
- * declared on `body`, which is the correct inheritance root for them. Literal
+ * declared on 'body', which is the correct inheritance root for them. Literal
  * values (lengths, durations) are safe anywhere.
  *
  * The scale is deliberately small: 4px rhythm, three radii, one edge.
  */
     const BASE_CSS = `
 html[${ROOT_ATTR}] {
-  /* Spacing: 4px rhythm. 12px is the widest gutter the sidebar survives: the
-     session rows fit at 12, and 13 of 13 overflow the column at 14. */
+  /* THREE DISTANCES, THREE TOKENS (D78).
+   *
+   * Until now one number did all of them: the columns were padded by the gutter, and the
+   * card was a pseudo inset by the same value, so "gap between cards" and "window edge to
+   * card" were the same distance (12 and 24 respectively) whether or not that was wanted.
+   * The reference settles them separately - 16 between cards, 16 from the window edge - and
+   * one number cannot produce both, because the gap is 2 x column padding while the edge is
+   * frame padding + column padding.
+   *
+   * So they are named for their jobs:
+   *
+   *   --dsh-bento-card-gap      distance BETWEEN two cards   (16)
+   *   --dsh-bento-window-pad    distance from the window EDGE to the first card (8)
+   *   --dsh-bento-card-pad      half the gap; also the card's inset INSIDE its column (8)
+   *
+   * The gap is 2 x card-pad because each of two adjacent columns pads its own side. The edge
+   * is window-pad + card-pad because the frame pads the outside and the column pads the
+   * inside. Measured at 1600x1000: with frame 8 and column 8, edge 16 and gap 16 on both
+   * sides, card 264 wide in the sidebar, document width == inner width (no overflow).
+   *
+   * --dsh-bento-gutter IS NOT ONE OF THEM. It survives as the rhythm INSIDE a card - the
+   * settings region's inset from the modal panel, the settings row's bleed, the gap above a
+   * workspace heading - where 12px is measured and unchanged (D68, D74). Renaming those uses
+   * to a card distance would have put a 16px inset on a card whose nested radius is derived
+   * from 12px, and broken the concentric law by a different route.
+   */
   --dsh-bento-gutter: 12px;
   --dsh-bento-gap: 8px;
+  --dsh-bento-card-gap: 16px;
+  --dsh-bento-card-pad: 8px;
+  --dsh-bento-window-pad: 8px;
 
   /* Radii: card, inner, rail, pill, and the derived tiers.
    *
@@ -92,17 +119,71 @@ html[${ROOT_ATTR}] {
    *
    *   inset 12 -> 564px available, tiles 183px, 8px slack
    *   inset 14 -> 560px available, tiles 181px, 4px slack
-   *   inset 16 -> 556px available, tiles 180px, 0px slack   <- the cap
+   *   inset 16 -> 556px available, tiles 180px, 0px slack   <- the cap with wrap ON
    *   inset 18 -> 552px available, 2 lines: "System" wraps
    *
-   * So 16 is the largest inset that keeps the widest control on one line, and it is the same
+   * So 16 was the largest inset that kept the widest control on one line, and it is the same
    * number as --dsh-bento-radius-nested, which is the other half of the rule: content must
-   * not start inside the arc of the corner it sits in. */
-  --dsh-bento-cell-inset: 16px;
+   * not start inside the arc of the corner it sits in.
+   *
+   * RAISED TO 20 (D82), WITH THE WRAP DISARMED. The reference's card padding is 20px on 68
+   * cards and the owner asked for it by name. At 16 the row has 556px for a control that
+   * needs exactly 556, so 20 removes 8 and the host's own 'flex-wrap: wrap' breaks "System"
+   * onto a second line - measured at inset 20: cubes 270/270/548 on two rows. That wrap is
+   * the host's response to a shortage, not a requirement: with 'flex-wrap: nowrap' the three
+   * cubes share the row instead, measured at 177.33px each on ONE line, no label clipped, no
+   * preview clipped, in both themes at 1600 and 1280. A 2.7px narrower cube is invisible; a
+   * second row is not. The rule that disarms the wrap lives in 50-feature-settings.js.
+   *
+   * 20 is still inside the concentric bound: content must clear the corner arc, and the card
+   * radius here is 16, so an inset at or above 16 satisfies it. */
+  --dsh-bento-cell-inset: 20px;
 
   /* Motion: one duration, one curve, shared by every feature. */
   --dsh-bento-motion: 160ms;
   --dsh-bento-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* THE TYPE SCALE (D80).
+   *
+   * Before this the theme declared exactly three sizes - 15, 13 and 11px - and only inside
+   * two features that needed them for a pill and a status row. Every heading in the shell
+   * was the host's own: measured, a page title was 20px/500, a section title 14px/500, a
+   * group label 14px/400. The reference has a scale and it is not that:
+   *
+   *   page title      PD 26px / 700 / -0.025em, no line-height
+   *                   SET 32px / 700 / -0.025em / 1.15
+   *   section title   h2 17px / 600 (large cards), 15px / 600 (small + dark cards)
+   *   eyebrow         11px / 600 / +0.06em / uppercase / muted
+   *   body            13px / 1.5, 14px, 15px / 1.6
+   *   caption         12px, source line 11px
+   *
+   * Only three of those are adopted, and each for a different reason:
+   *
+   *   title    26, not 32. 32 is the dashboard's page title in a 12-column grid with room
+   *            for it; this shell's centre column is 1296px and its page header already
+   *            carries a toolbar to the right. 26 is the reference's own plugin-detail
+   *            size, which is the closest analogue to the pages this theme mounts.
+   *   section  15, not 17. 17 is the reference's FULL-WIDTH card heading, and the pages here
+   *            put these headings above a list of rows rather than at the top of a large
+   *            card. 15 is the reference's small-card tier and is the one our own detail
+   *            card already carried (15/600, unchanged by this pass).
+   *   eyebrow  11/600/0.06em/uppercase, adopted exactly. It has one home in this shell.
+   *
+   * NOT adopted, deliberately: the display serif of any kind (the theme uses Inter, D59);
+   * the KPI numerals (40/44px) because no surface here renders a metric; the 36px
+   * reference-sheet h1, which the source itself declares without a font-weight.
+   *
+   * Declared as tokens because a scale written at call sites is not a scale - it is the
+   * same number typed twice, which is the defect D45 had to be corrected for. */
+  --dsh-bento-text-title: 26px;
+  --dsh-bento-text-section: 15px;
+  --dsh-bento-text-eyebrow: 11px;
+  --dsh-bento-tracking-title: -0.025em;
+  --dsh-bento-tracking-eyebrow: 0.06em;
+  /* The 26px title's line box. The reference declares none on the plugin-detail h1 and
+     1.15 on the 32px one; 1.15 is used for both so a long title cannot sit tighter than
+     its own glyphs. */
+  --dsh-bento-leading-title: 1.15;
 }
 
 /* Surfaces are declared on the body element (see the note above). */
@@ -175,6 +256,28 @@ html[${ROOT_ATTR}] body {
    * token that exists and paints nothing, which is the failure D41 and L62 both record. */
   --dsh-bento-accent-edge: color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, var(--dsw-alias-bg-layer-2));
 
+  /* THE ACCENT HALO (D79).
+   *
+   * The reference's one accent-tinted shadow, quoted: '0 6px 16px var(--glow)' where
+   * --glow is rgba(47,107,235,0.12) - its own token table calls it a "Floating badge
+   * shadow", and it appears 11 times in the corpus. Derived here rather than pasted for
+   * the same two reasons as everything else in this block: gate 15 forbids a literal, and
+   * a hardcoded blue alpha is wrong the moment the user picks amber or teal.
+   *
+   * 12% and the 6/16 offsets are the reference's own, unchanged. The colour follows the
+   * theme accent, so it is a #4176e6 halo in light and a #7aaaff one in dark, which is
+   * what a halo around an accent-adjacent surface should do.
+   *
+   * WHERE IT IS USED, AND WHY THAT IS NOT A CONTRADICTION OF D40. D40 says elevation stays
+   * at zero and separation comes from a hairline plus a fill step. That is still true of
+   * every CARD: no card in this theme carries a shadow, and the --dsh-bento-shadow token
+   * below stays opt-in. This token is not depth - it is the accent bleeding off a control
+   * that is already accent-edged, which is the one visual move D40's own source material
+   * uses it for. Nothing else in the theme may read it; the composer is its only consumer
+   * (see 47-feature-center and D79 for the provenance caveat). */
+  --dsh-bento-accent-glow:
+    0 6px 16px color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);
+
   /* CARD SHADOW, DERIVED (D57).
    *
    * The reference specifies a soft two-layer lift:
@@ -217,11 +320,42 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"] {
   background: var(--dsh-bento-canvas);
 }
 
-/* The collapsed rail has 56px of width; a card there needs the tighter radius
-   and the tighter gutter or it reads as a pill. */
+/* THE WINDOW PAD, PAID BY THE FRAME (D78).
+ *
+ * The three columns pad themselves by --dsh-bento-card-pad, which is what makes the gap
+ * between two cards 2 x 8 = 16. That leaves the distance from the WINDOW EDGE to the outer
+ * card at 8, and the reference puts it at 16 - so the frame pays the other 8.
+ *
+ * box-sizing: border-box because the frame is a grid container and its padding must come out
+ * of its own box, not grow it: measured, without it the frame's padding is ADDED to a
+ * 100vw grid and the whole shell overflows horizontally.
+ *
+ * SCOPED OFF THE COLLAPSED RAIL. In the 56px rail a frame padding of 8 plus a column padding
+ * of 8 would leave the card 24px wide and the rail's own icons would spill out of it -
+ * measured by the spacing probe: the card went 48 -> 40 and 11 elements escaped it. The rail
+ * declares its own smaller values in the rule below, so it keeps the geometry it had. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"]:not([data-sidebar-collapsed]) {
+  padding: var(--dsh-bento-window-pad);
+  box-sizing: border-box;
+}
+
+/* The collapsed rail has 56px of width; a card there needs the tighter radius and the
+   tighter gutter or it reads as a pill.
+   
+   The card distances collapse to the rail's own scale here: card pad 4, window pad 0. That
+   reproduces the rail's ORIGINAL geometry exactly - the card inset 4 from the shell edge,
+   48px wide in a 56px rail, gap between the rail and the centre card 8 - because before D78
+   the single 4px gutter did the column padding and the pseudo inset with one number.
+   
+   window-pad is 0 rather than 4 on purpose: the frame's padding rule is written
+   :not([data-sidebar-collapsed]) precisely so the rail is not taxed twice. Measured against
+   the first attempt, which put 4 on both: the frame padded 4 and the card pad 0, so the card
+   filled the whole 56px rail and lost its inset entirely. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"][data-sidebar-collapsed] {
   --dsh-bento-gutter: 4px;
   --dsh-bento-radius: 10px;
+  --dsh-bento-window-pad: 0px;
+  --dsh-bento-card-pad: 4px;
 }
 
 /* Respect the platform's reduced-motion preference: a theme must not be the

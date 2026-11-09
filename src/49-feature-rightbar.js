@@ -32,9 +32,10 @@
  */
     const RIGHTBAR_CSS = `
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] {
-  /* Gutter as padding on the column, so the track width the host solved — and the
-     drag handle at its boundary — is untouched. */
-  padding: var(--dsh-bento-gutter);
+  /* The card pad is padding on the column, so the track width the host solved — and the
+     drag handle at its boundary — is untouched. It is the card distance token, not the
+     inside-a-card rhythm the gutter still carries (D78). */
+  padding: var(--dsh-bento-card-pad);
   box-sizing: border-box;
   /* The containing block for the card, and no fill of its own. */
   position: relative;
@@ -46,7 +47,7 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] {
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"]::after {
   content: "";
   position: absolute;
-  inset: var(--dsh-bento-gutter);
+  inset: var(--dsh-bento-card-pad);
   border-radius: var(--dsh-bento-radius);
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
@@ -133,12 +134,16 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"][${PART_ATTR}] [class*="tabH
  * contents, so the header, the tab strip and everything below clear the card.
  *
  * + 1px because the card's 1px border is drawn OUTSIDE its own radius: the stroke's
- * inner edge sits at gutter + 1, so clearing the gutter alone still grazes it.
+ * inner edge sits at card-pad + 1, so clearing the card pad alone still grazes it.
+ *
+ * The pad it follows is --dsh-bento-card-pad (D78), the same distance the card itself is
+ * inset by, so this stays correct if the card distance changes: the pane's content must
+ * always start exactly where the card's edge does, plus the border.
  *
  * Verified in both themes: panel still 900px, 0 text boxes and 0 buttons outside the
  * rounded boundary, down from 3 clipped header buttons. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] [class*="tabHost"] {
-  padding: calc(var(--dsh-bento-gutter) + 1px);
+  padding: calc(var(--dsh-bento-card-pad) + 1px);
 }
 `;
 
