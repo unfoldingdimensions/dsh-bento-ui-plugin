@@ -84,7 +84,7 @@
             borderRadius: 999,
             border: 0,
             cursor: 'pointer',
-            background: checked ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-border-l2)',
+            background: checked ? 'var(--dsw-alias-state-business-primary)' : 'var(--dsw-alias-border-l2)',
             transition: `background-color ${motion} ${ease}`,
           },
         },
