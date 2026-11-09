@@ -78,20 +78,47 @@ window.__ModuleLoader__.load({
  *
  * IMPORTANT — where these are declared:
  * a custom property is substituted on the element that declares it, and values
- * do not inherit *upward*. The host defines `--dsw-alias-*` on `<body>`, so a
- * `var(--dsw-alias-...)` written on `html` resolves against nothing and silently
+ * do not inherit *upward*. The host defines '--dsw-alias-*' on '<body>', so a
+ * 'var(--dsw-alias-...)' written on 'html' resolves against nothing and silently
  * paints transparent. Every token that references a host alias is therefore
- * declared on `body`, which is the correct inheritance root for them. Literal
+ * declared on 'body', which is the correct inheritance root for them. Literal
  * values (lengths, durations) are safe anywhere.
  *
  * The scale is deliberately small: 4px rhythm, three radii, one edge.
  */
     const BASE_CSS = `
 html[${ROOT_ATTR}] {
-  /* Spacing: 4px rhythm. 12px is the widest gutter the sidebar survives: the
-     session rows fit at 12, and 13 of 13 overflow the column at 14. */
+  /* THREE DISTANCES, THREE TOKENS (D78).
+   *
+   * Until now one number did all of them: the columns were padded by the gutter, and the
+   * card was a pseudo inset by the same value, so "gap between cards" and "window edge to
+   * card" were the same distance (12 and 24 respectively) whether or not that was wanted.
+   * The reference settles them separately - 16 between cards, 16 from the window edge - and
+   * one number cannot produce both, because the gap is 2 x column padding while the edge is
+   * frame padding + column padding.
+   *
+   * So they are named for their jobs:
+   *
+   *   --dsh-bento-card-gap      distance BETWEEN two cards   (16)
+   *   --dsh-bento-window-pad    distance from the window EDGE to the first card (8)
+   *   --dsh-bento-card-pad      half the gap; also the card's inset INSIDE its column (8)
+   *
+   * The gap is 2 x card-pad because each of two adjacent columns pads its own side. The edge
+   * is window-pad + card-pad because the frame pads the outside and the column pads the
+   * inside. Measured at 1600x1000: with frame 8 and column 8, edge 16 and gap 16 on both
+   * sides, card 264 wide in the sidebar, document width == inner width (no overflow).
+   *
+   * --dsh-bento-gutter IS NOT ONE OF THEM. It survives as the rhythm INSIDE a card - the
+   * settings region's inset from the modal panel, the settings row's bleed, the gap above a
+   * workspace heading - where 12px is measured and unchanged (D68, D74). Renaming those uses
+   * to a card distance would have put a 16px inset on a card whose nested radius is derived
+   * from 12px, and broken the concentric law by a different route.
+   */
   --dsh-bento-gutter: 12px;
   --dsh-bento-gap: 8px;
+  --dsh-bento-card-gap: 16px;
+  --dsh-bento-card-pad: 8px;
+  --dsh-bento-window-pad: 8px;
 
   /* Radii: card, inner, rail, pill, and the derived tiers.
    *
@@ -163,17 +190,71 @@ html[${ROOT_ATTR}] {
    *
    *   inset 12 -> 564px available, tiles 183px, 8px slack
    *   inset 14 -> 560px available, tiles 181px, 4px slack
-   *   inset 16 -> 556px available, tiles 180px, 0px slack   <- the cap
+   *   inset 16 -> 556px available, tiles 180px, 0px slack   <- the cap with wrap ON
    *   inset 18 -> 552px available, 2 lines: "System" wraps
    *
-   * So 16 is the largest inset that keeps the widest control on one line, and it is the same
+   * So 16 was the largest inset that kept the widest control on one line, and it is the same
    * number as --dsh-bento-radius-nested, which is the other half of the rule: content must
-   * not start inside the arc of the corner it sits in. */
-  --dsh-bento-cell-inset: 16px;
+   * not start inside the arc of the corner it sits in.
+   *
+   * RAISED TO 20 (D82), WITH THE WRAP DISARMED. The reference's card padding is 20px on 68
+   * cards and the owner asked for it by name. At 16 the row has 556px for a control that
+   * needs exactly 556, so 20 removes 8 and the host's own 'flex-wrap: wrap' breaks "System"
+   * onto a second line - measured at inset 20: cubes 270/270/548 on two rows. That wrap is
+   * the host's response to a shortage, not a requirement: with 'flex-wrap: nowrap' the three
+   * cubes share the row instead, measured at 177.33px each on ONE line, no label clipped, no
+   * preview clipped, in both themes at 1600 and 1280. A 2.7px narrower cube is invisible; a
+   * second row is not. The rule that disarms the wrap lives in 50-feature-settings.js.
+   *
+   * 20 is still inside the concentric bound: content must clear the corner arc, and the card
+   * radius here is 16, so an inset at or above 16 satisfies it. */
+  --dsh-bento-cell-inset: 20px;
 
   /* Motion: one duration, one curve, shared by every feature. */
   --dsh-bento-motion: 160ms;
   --dsh-bento-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* THE TYPE SCALE (D80).
+   *
+   * Before this the theme declared exactly three sizes - 15, 13 and 11px - and only inside
+   * two features that needed them for a pill and a status row. Every heading in the shell
+   * was the host's own: measured, a page title was 20px/500, a section title 14px/500, a
+   * group label 14px/400. The reference has a scale and it is not that:
+   *
+   *   page title      PD 26px / 700 / -0.025em, no line-height
+   *                   SET 32px / 700 / -0.025em / 1.15
+   *   section title   h2 17px / 600 (large cards), 15px / 600 (small + dark cards)
+   *   eyebrow         11px / 600 / +0.06em / uppercase / muted
+   *   body            13px / 1.5, 14px, 15px / 1.6
+   *   caption         12px, source line 11px
+   *
+   * Only three of those are adopted, and each for a different reason:
+   *
+   *   title    26, not 32. 32 is the dashboard's page title in a 12-column grid with room
+   *            for it; this shell's centre column is 1296px and its page header already
+   *            carries a toolbar to the right. 26 is the reference's own plugin-detail
+   *            size, which is the closest analogue to the pages this theme mounts.
+   *   section  15, not 17. 17 is the reference's FULL-WIDTH card heading, and the pages here
+   *            put these headings above a list of rows rather than at the top of a large
+   *            card. 15 is the reference's small-card tier and is the one our own detail
+   *            card already carried (15/600, unchanged by this pass).
+   *   eyebrow  11/600/0.06em/uppercase, adopted exactly. It has one home in this shell.
+   *
+   * NOT adopted, deliberately: the display serif of any kind (the theme uses Inter, D59);
+   * the KPI numerals (40/44px) because no surface here renders a metric; the 36px
+   * reference-sheet h1, which the source itself declares without a font-weight.
+   *
+   * Declared as tokens because a scale written at call sites is not a scale - it is the
+   * same number typed twice, which is the defect D45 had to be corrected for. */
+  --dsh-bento-text-title: 26px;
+  --dsh-bento-text-section: 15px;
+  --dsh-bento-text-eyebrow: 11px;
+  --dsh-bento-tracking-title: -0.025em;
+  --dsh-bento-tracking-eyebrow: 0.06em;
+  /* The 26px title's line box. The reference declares none on the plugin-detail h1 and
+     1.15 on the 32px one; 1.15 is used for both so a long title cannot sit tighter than
+     its own glyphs. */
+  --dsh-bento-leading-title: 1.15;
 }
 
 /* Surfaces are declared on the body element (see the note above). */
@@ -246,6 +327,28 @@ html[${ROOT_ATTR}] body {
    * token that exists and paints nothing, which is the failure D41 and L62 both record. */
   --dsh-bento-accent-edge: color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, var(--dsw-alias-bg-layer-2));
 
+  /* THE ACCENT HALO (D79).
+   *
+   * The reference's one accent-tinted shadow, quoted: '0 6px 16px var(--glow)' where
+   * --glow is rgba(47,107,235,0.12) - its own token table calls it a "Floating badge
+   * shadow", and it appears 11 times in the corpus. Derived here rather than pasted for
+   * the same two reasons as everything else in this block: gate 15 forbids a literal, and
+   * a hardcoded blue alpha is wrong the moment the user picks amber or teal.
+   *
+   * 12% and the 6/16 offsets are the reference's own, unchanged. The colour follows the
+   * theme accent, so it is a #4176e6 halo in light and a #7aaaff one in dark, which is
+   * what a halo around an accent-adjacent surface should do.
+   *
+   * WHERE IT IS USED, AND WHY THAT IS NOT A CONTRADICTION OF D40. D40 says elevation stays
+   * at zero and separation comes from a hairline plus a fill step. That is still true of
+   * every CARD: no card in this theme carries a shadow, and the --dsh-bento-shadow token
+   * below stays opt-in. This token is not depth - it is the accent bleeding off a control
+   * that is already accent-edged, which is the one visual move D40's own source material
+   * uses it for. Nothing else in the theme may read it; the composer is its only consumer
+   * (see 47-feature-center and D79 for the provenance caveat). */
+  --dsh-bento-accent-glow:
+    0 6px 16px color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);
+
   /* CARD SHADOW, DERIVED (D57).
    *
    * The reference specifies a soft two-layer lift:
@@ -288,11 +391,42 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"] {
   background: var(--dsh-bento-canvas);
 }
 
-/* The collapsed rail has 56px of width; a card there needs the tighter radius
-   and the tighter gutter or it reads as a pill. */
+/* THE WINDOW PAD, PAID BY THE FRAME (D78).
+ *
+ * The three columns pad themselves by --dsh-bento-card-pad, which is what makes the gap
+ * between two cards 2 x 8 = 16. That leaves the distance from the WINDOW EDGE to the outer
+ * card at 8, and the reference puts it at 16 - so the frame pays the other 8.
+ *
+ * box-sizing: border-box because the frame is a grid container and its padding must come out
+ * of its own box, not grow it: measured, without it the frame's padding is ADDED to a
+ * 100vw grid and the whole shell overflows horizontally.
+ *
+ * SCOPED OFF THE COLLAPSED RAIL. In the 56px rail a frame padding of 8 plus a column padding
+ * of 8 would leave the card 24px wide and the rail's own icons would spill out of it -
+ * measured by the spacing probe: the card went 48 -> 40 and 11 elements escaped it. The rail
+ * declares its own smaller values in the rule below, so it keeps the geometry it had. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"]:not([data-sidebar-collapsed]) {
+  padding: var(--dsh-bento-window-pad);
+  box-sizing: border-box;
+}
+
+/* The collapsed rail has 56px of width; a card there needs the tighter radius and the
+   tighter gutter or it reads as a pill.
+   
+   The card distances collapse to the rail's own scale here: card pad 4, window pad 0. That
+   reproduces the rail's ORIGINAL geometry exactly - the card inset 4 from the shell edge,
+   48px wide in a 56px rail, gap between the rail and the centre card 8 - because before D78
+   the single 4px gutter did the column padding and the pseudo inset with one number.
+   
+   window-pad is 0 rather than 4 on purpose: the frame's padding rule is written
+   :not([data-sidebar-collapsed]) precisely so the rail is not taxed twice. Measured against
+   the first attempt, which put 4 on both: the frame padded 4 and the card pad 0, so the card
+   filled the whole 56px rail and lost its inset entirely. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"][data-sidebar-collapsed] {
   --dsh-bento-gutter: 4px;
   --dsh-bento-radius: 10px;
+  --dsh-bento-window-pad: 0px;
+  --dsh-bento-card-pad: 4px;
 }
 
 /* Respect the platform's reduced-motion preference: a theme must not be the
@@ -763,9 +897,10 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"][data-sidebar-collapsed] {
  */
     const SIDEBAR_CSS = `
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] {
-  /* The gutter is padding *on the column*, so the track width and every
-     handle position computed from it stay exactly as the host solved them. */
-  padding: var(--dsh-bento-gutter);
+  /* The card pad is padding *on the column*, so the track width and every
+     handle position computed from it stay exactly as the host solved them. It is the
+     card distance token, NOT the inside-a-card rhythm the gutter still carries (D78). */
+  padding: var(--dsh-bento-card-pad);
   box-sizing: border-box;
   /* The column becomes the containing block for the card painted in ::after.
      It paints no fill of its own: the canvas belongs to the frame, so the card
@@ -784,7 +919,7 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] {
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"]::after {
   content: "";
   position: absolute;
-  inset: var(--dsh-bento-gutter);
+  inset: var(--dsh-bento-card-pad);
   border-radius: var(--dsh-bento-radius);
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
@@ -833,6 +968,85 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.FRAME}"][data-sidebar-collapsed] [${PAR
       order: 10,
       enabled: true,
       css: SIDEBAR_CSS,
+    });
+//#endregion
+
+//#region src/41-feature-newsession.js
+/**
+ * Feature: New Session as an accent pill (D84).
+ *
+ * The reference's sidebar draws its primary action as a tinted pill with an accent border,
+ * not as a neutral bordered button:
+ *
+ *   min-height: 44px; border: 1px solid var(--accent-line); border-radius: 14px;
+ *   background: var(--accent-soft); color: var(--accent-ink);
+ *   font-size: 14px; font-weight: 600
+ *
+ * The host renders it as a white button with a neutral hairline, 38px tall, 12px radius,
+ * 500 weight, 14px. So this file changes the SURFACE, the SIZE and the WEIGHT - all three
+ * of which the reference states - and nothing else.
+ *
+ * THE THREE COLOURS ALREADY EXIST AND ARE DERIVED. D55 built the accent-soft tint and the
+ * accent ink as mixes of the host accent (--dsh-bento-selected-fill,
+ * --dsh-bento-selected-ink), and D69 built the accent hairline (--dsh-bento-accent-edge).
+ * They are exactly the three values the reference names, resolved per theme and per accent,
+ * so this file writes no colour of its own and gate 15 stays satisfied.
+ *
+ * Using the selection trio for the primary action is a deliberate overlap, not a collision:
+ * the reference does the same thing with the same three values, and the two never appear in
+ * the same state - a row is selected OR the New Session pill is idle. Measured contrast for
+ * the ink on that tint is 6.40:1 light / 6.48:1 dark, AA for body text (D76).
+ *
+ * THE RADIUS STAYS 12px, DELIBERATELY. The reference says 14, and 14 is not a value this
+ * theme uses: D45 established that the inner tier is the host's own 12px, and every row,
+ * nav button and tile in the sidebar is on it. A 14px pill among 12px rows would be the
+ * only 14 in the column - the exact inconsistency D45 was recorded to remove. The radius is
+ * therefore the inner token, and the deviation from the reference is named here rather than
+ * made silently.
+ *
+ * HEIGHT: 44px, from min-height, with the host's 8px block padding removed so the two do not
+ * add up. Measured: 38px before, 44 after, width unchanged at 240, and the label box
+ * unchanged (141x22) - so the button grew downward by 6px and nothing inside it moved. The
+ * sidebar has room for that: the flexible list below it absorbs the 6px.
+ */
+    const NEWSESSION_CSS = `
+/* The primary action reads as the accent's own control.
+ *
+ * Addressed by class substring ("newSession") because the host's names are hashed per build.
+ * Counted before writing (the failure mode this census prevents): 1 button matches the full
+ * selector; 5 elements match the bare substring, but only one of them is a BUTTON - the
+ * others are the label span, the icon span and two wrappers inside it. Naming
+ * button[class*="newSession"] is what makes the rule hit exactly the control.
+ *
+ * color on the button is not enough on its own: the host paints its label colour on the
+ * label span too, so the span is named explicitly. The icon is a stroked SVG that follows
+ * currentColor, so it takes the accent ink with no extra rule. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] button[class*="newSession"] {
+  min-height: 44px;
+  padding-block: 0;
+  background: var(--dsh-bento-selected-fill);
+  border-color: var(--dsh-bento-accent-edge);
+  color: var(--dsh-bento-selected-ink);
+  font-weight: 600;
+  transition: background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
+}
+
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] button[class*="newSession"] [class*="newSessionLabel"] {
+  color: var(--dsh-bento-selected-ink);
+  font-weight: 600;
+}
+`;
+
+    FEATURES.push({
+      id: 'new-session-pill',
+      title: { en: 'New Session pill', zh: '新建会话胶囊' },
+      about: {
+        en: 'Draw the sidebar primary action as the reference does: an accent-tinted pill with an accent border, 44px tall, weight 600.',
+        zh: '把侧栏的主操作按钮改成参考设计的样子：强调色淡填充、强调色描边、44px 高、字重 600。',
+      },
+      order: 12,
+      enabled: true,
+      css: NEWSESSION_CSS,
     });
 //#endregion
 
@@ -936,8 +1150,8 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="workspace:"]
 
 /* The two top-level destinations match the session tiles instead of sitting at
    the host's 12px with no edge. The border is declared transparent so the row's
-   box does not change when the edge appears on hover — a 1px addition here would
-   shift the 36px button and every row below it. */
+   box does not change when a state appears - a 1px addition here would shift the
+   36px button and every row below it. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button {
   border-radius: var(--dsh-bento-radius-inner);
   border: 1px solid transparent;
@@ -947,9 +1161,31 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > butto
     background-color var(--dsh-bento-motion) var(--dsh-bento-ease);
 }
 
+/* POINTER STATE IS A FILL, NOT AN EDGE (D83).
+ *
+ * The theme gave every destination button an edge on hover, to match the session tiles
+ * below it. Measured against the reference, that is the wrong reading: the reference marks
+ * a nav row's pointer state with a FILL and never with a border - its nav rows carry no
+ * border in any state - and here the edge made a hovered destination look momentarily
+ * selected, in a column where "selected" is already a tinted fill with an accent label.
+ *
+ * So the pointer answers with the theme's neutral hover fill and no edge. The border stays
+ * DECLARED transparent rather than deleted: removing the declaration would shrink the
+ * button by 2px and shift every row below it, which is why it was transparent to begin
+ * with.
+ *
+ * Keyboard focus gets the same fill, for the same reason as the Settings rows: a control
+ * that answers the mouse but not the keyboard tells a keyboard user less. The host's own
+ * focus ring is untouched, so the accessible indicator is still there.
+ *
+ * The SESSION rows keep their edge. They are the list's contents rather than the shell's
+ * navigation, and a tile there reads as one row of a stack. That difference is the point:
+ * navigation answers with a fill, contents answer with a tile. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button:hover,
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button:has(:focus-visible),
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button:focus-visible {
-  border-color: var(--dsh-bento-edge);
+  background: var(--dsh-bento-hover);
+  border-color: transparent;
 }
 
 /* Reduced motion: the border swap is instant rather than animated. */
@@ -968,18 +1204,76 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > butto
  * Both colours are derived from the host accent, so light and dark each get their
  * own correct tint (#4176e6 / #7aaaff) without a second declaration.
  *
+ * THE TINT IS MIXED AGAINST THE CARD, NOT THE CANVAS (D76) - a correction. This rule
+ * used --dsh-bento-selected-fill-canvas, which mixes the accent over the canvas tone,
+ * and it was right while these rows sat directly on the canvas. sidebar-card and
+ * row-tiles then put them on a WHITE card, and the mix was never updated: measured, the
+ * tint resolved to color(srgb 0.842 0.877 0.943) - the canvas mix - while the surface
+ * painted behind the row is rgb(255,255,255), so the selected row was 4.3 RGB units off
+ * the surface it is supposed to be a tint OF, and read a shade greyer than the design.
+ * The card mix resolves to color(srgb 0.911 0.936 0.988) on the same surface.
+ *
+ * It is also the better choice on contrast, measured in both themes by painting both
+ * mixes and the ink and computing WCAG ratios:
+ *
+ *   theme   ink on canvas-mix   ink on card-mix
+ *   light        5.56:1              6.40:1
+ *   dark         4.60:1              6.48:1
+ *
+ * Dark mode was the tight case for D55's 65% ink ratio (4.60 against an AA floor of
+ * 4.5). The card mix lifts it to 6.48, so the correction buys margin rather than
+ * spending it - which is why the ink ratio itself is left at 65%.
+ *
+ * THE DESTINATION BUTTONS ARE ADDRESSED BY BOTH aria-current VALUES. Measured on this
+ * host: the selected sidebar destination carries aria-current="page", not "true". The
+ * rule below asked for "true", matched 0 elements, and the selected destination kept
+ * the host's neutral grey while the session rows beside it were tinted - two different
+ * selected states 30px apart. "true" is kept because it is the value the earlier host
+ * wrote and costs nothing to accept; "page" is the one that fires now.
+ *
  * The host's hover fill is left alone. A selected row that is also hovered keeps
  * this tint, because this rule is declared after the host's hover rule - verified
  * by reading the computed colour in both states, not assumed from source order.
- * Addressed through aria-selected, which the host sets on the active row, so this
- * does not depend on a hashed class name.
- */
+ * Addressed through aria-selected / aria-current, which the host sets on the active
+ * row, so this does not depend on a hashed class name. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"][aria-selected="true"],
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-current="true"],
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-current="page"],
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-selected="true"] {
-  background: var(--dsh-bento-selected-fill-canvas);
+  background: var(--dsh-bento-selected-fill);
   color: var(--dsh-bento-selected-ink);
   border-color: transparent;
+}
+
+/* SELECTION ALSO CARRIES WEIGHT (D77).
+ *
+ * D58 established the rule for the Settings navigation - "colour alone says which row is
+ * chosen only if the tint separates at a glance" - and set it to 500 there. The same rule
+ * was never applied to the SIDEBAR, so the shell had two answers for one question: the
+ * Settings destination was 500, every session row was 400.
+ *
+ * 600, not 500, and not 700. The reference's weight scale is 400 / 500 / 600 / 700 and its
+ * section titles are 600, so 600 is the step that exists in both places. 700 competes with
+ * the pane headings; 500 is the value that made the Settings nav look under-committed.
+ *
+ * MEASURED, because weight on a truncating row is not free: the longest title in the column
+ * ("Debug QR Cloudflare host error", 166px box) needs 209px at 400, 212px at 600 and 214px
+ * at 700. It already ellipsises at 400, so 600 costs it 3px of an already-clipped string and
+ * changes no row box (240x32 at every weight). A title that FITS at 400 still fits at 600:
+ * the selected row's own title measured 193px of 193px available, and the idle control
+ * ("Bento UI plugin") is untouched at 400 because this rule is scoped to the selected row.
+ *
+ * Applied to the label, not the row, for the session row: the row also contains the age
+ * chip and the glyph slot, and weight on the row would be inherited by the chip's text too.
+ * Measured: the chip stays at 400. The destination button is addressed the same way - by
+ * its label's class substring ("panelTitle"), not by "the first span" - because the first
+ * span in that button is the GLYPH, and a positional selector would have bolded the icon
+ * slot instead of the text. Verified: 1 match per selected destination button, and the
+ * glyph span stays at 400. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [data-row-key^="session:"][aria-selected="true"] [class*="_title"],
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-current="true"] [class*="panelTitle"],
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > button[aria-current="page"] [class*="panelTitle"] {
+  font-weight: 600;
 }
 
 /* Reduced motion: the border swap is instant rather than animated. */
@@ -1034,9 +1328,10 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="panelList"] > butto
  */
     const CENTER_CSS = `
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] {
-  /* The gutter is padding on the column, so the track width and every drag-handle
-     position computed from it stay exactly as the host solved them. */
-  padding: var(--dsh-bento-gutter);
+  /* The card pad is padding on the column, so the track width and every drag-handle
+     position computed from it stay exactly as the host solved them. It is the card
+     distance token, not the inside-a-card rhythm the gutter still carries (D78). */
+  padding: var(--dsh-bento-card-pad);
   box-sizing: border-box;
   /* The containing block for the card painted in ::after. No fill of its own: the
      canvas belongs to the frame, so the card sits directly on it. */
@@ -1052,7 +1347,7 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] {
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"]::after {
   content: "";
   position: absolute;
-  inset: var(--dsh-bento-gutter);
+  inset: var(--dsh-bento-card-pad);
   border-radius: var(--dsh-bento-radius);
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
@@ -1105,35 +1400,43 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-slot="main"] [data-slot
   box-sizing: border-box;
 }
 
-/* The composer, RAISED rather than recessed (D61).
+/* The composer, RAISED rather than recessed (D61), and now ACCENT-EDGED (D79).
  *
  * The previous version painted it the canvas tone (#ebeef2) and called it a panel
  * recessed into the card. Measured, that tone is 1.16:1 against the card - a real but
  * very slight step, and on a 861px-wide surface it reads as a blue-grey slab laid over
  * the conversation rather than as a control. The owner's report was the right one.
  *
- * It is now the same white as the card, edged with the hairline, and lifted with the
- * theme's own soft shadow. That is what the reference actually does with its raised
- * surfaces: --surface is #FFFFFF everywhere and separation comes from the border
- * (#E3E7EE) and the shadow, with --panel (#F3F6FC) reserved for the CALM surfaces
- * behind a card, not for a control sitting on one.
+ * It is now the same white as the card, with an ACCENT hairline and the accent halo,
+ * which is the reference's own pairing for a surface the accent is involved in: its
+ * --accent-line border plus 0 6px 16px of 12% accent appears 10 times across the corpus
+ * (22-function comment in 15-tokens.js records the derivation). The theme already had
+ * --dsh-bento-accent-edge from D69; D79 adds the matching glow.
  *
- * NOTE ON PROVENANCE: the reference is a dashboard and contains no composer, so it does
- * not specify this control. What it does specify is the relationship, and that is what is
- * applied here - raised surface = white + hairline + shadow, recessed surface = tint.
- * Calling this "what the design says" would be overclaiming; it is the design's rule
- * applied to a control the design does not contain.
+ * NO LONGER THE CARD SHADOW (D79). This rule read 'var(--dsh-bento-shadow)', which is the
+ * token behind the card-shadow FEATURE - an opt-in the user turns on for the four card
+ * surfaces. The composer is not one of those surfaces, so the composer was carrying the
+ * feature's lift while the feature was off, and turning the feature on changed nothing
+ * here. Measured: with card-shadow off, the composer's computed shadow was
+ * "rgba(0,0,0,0.1) 0 0 0 1px inset, <two neutral layers>" - the neutral layers being the
+ * feature token, unrelated to accent. That is a real contradiction of D40 (elevation stays
+ * at zero; separation is a hairline plus a fill step), independent of what the reference
+ * does.
  *
- * The shadow is the token card-shadow already uses, so it follows the theme ink and is
- * visible in dark mode; off means the composer still gets the hairline, which is what
- * carries the edge at that point.
+ * PROVENANCE, STATED HONESTLY. The reference contains NO composer, input, textarea or
+ * form of any kind - verified exhaustively over both design files and their decoded
+ * bundles (docs/research/reference-deltas.md section 9). So "the reference gives the
+ * composer the accent border and the accent glow" cannot be sourced: what it does do is
+ * pair an accent-line border with a 12% accent glow on every surface the accent owns.
+ * This applies that pairing to a control the design does not contain. It is a new
+ * decision justified by the design's rule, not a value copied from the design.
  *
  * Still an inset shadow, never a border: a border would add 2px to a control the host has
  * already sized, and this project has broken a host-sized control once by nudging its box
  * (D14). */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-composer-card] {
   background: var(--dsh-bento-card);
-  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge), var(--dsh-bento-shadow);
+  box-shadow: inset 0 0 0 1px var(--dsh-bento-accent-edge), var(--dsh-bento-accent-glow);
 }
 `;
 
@@ -1161,13 +1464,13 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-composer-card] {
  * the card, so the page read as host UI dropped into a bento frame.
  *
  * WHAT IS SAFE TO TOUCH, measured rather than assumed. The page's class names are
- * hashed per build (`X_2TxG_card`), so this file does not name them. What it does
+ * hashed per build ('X_2TxG_card'), so this file does not name them. What it does
  * rely on is stable:
  *
- *   - the page root is `section` inside the centre column, reached structurally
- *   - the row cards are `li` elements, and their wrapper is a `ul`
- *   - the group headings are `h3`
- *   - switches are `[role="switch"]`
+ *   - the page root is 'section' inside the centre column, reached structurally
+ *   - the row cards are 'li' elements, and their wrapper is a 'ul'
+ *   - the group headings are 'h3'
+ *   - switches are '[role="switch"]'
  *
  * Those are element and ARIA semantics, not build artefacts.
  *
@@ -1232,11 +1535,45 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section ul > li *:focus-visib
   border-radius: var(--dsh-bento-radius-inner);
 }
 
-/* The group heading separates sections rather than being one, so it gets breathing
-   room above and none of the row treatment. */
-html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section h3 {
-  letter-spacing: 0;
+/* The group heading is NOT restyled here any more. This block used to carry
+   'letter-spacing: 0', which measured as writing nothing: letter-spacing 0px COMPUTES to
+   "normal" in this Chrome, so the declaration was indistinguishable from the host's own
+   value. Verified by setting it on a synthetic element: '0', '0px', '0em' and 'normal' all
+   read back "normal", while '0.001px' reads back "0.001px" - so the property IS settable
+   and only the zero is a no-op. The section heading's weight and size are now owned by the
+   type-scale feature (58-feature-typescale.js), which is where a scale belongs. */
+
+/* THE PAGE HEADER BAR IS PART OF THE CARD, NOT A DARK BAND (D85).
+ *
+ * Reported as the Plugins page having a darker strip across its top in dark mode, and the
+ * pixels are unambiguous: sampling a vertical line down the centre column in dark gave
+ * rgb(21,21,23) from y=20 to y=95, then rgb(44,44,46) from y=100 down. Two different
+ * surfaces, one card.
+ *
+ * The cause is the host's sticky page bar. Measured: _pageBar is position: sticky, z-index 2,
+ * and paints its background on its own ::before, which resolves to rgb(21,21,23) in dark -
+ * that is --dsw-alias-bg-base, the same token D64 had to replace in the composer's scrim. In
+ * light the same declaration is rgb(255,255,255), which is why nothing looked wrong there.
+ *
+ * The theme's card is rgb(44,44,46), so the bar reads as a 23-unit band laid across the top of
+ * the card. The bar's own background is EMPTY (rgba(0,0,0,0)) - all of the paint is on the
+ * pseudo - so clearing the pseudo's background is the whole fix.
+ *
+ * NOT TRANSPARENT, CARD-COLOURED. 'background: transparent' would leave the bar's sticky
+ * pseudo compositing against whatever scrolls under it, and content sliding beneath a sticky
+ * header is exactly what the host paints this pseudo FOR. Giving it the card tone keeps the
+ * occlusion behaviour and removes only the tone mismatch.
+ *
+ * SCOPED TO THE CENTRE COLUMN, which is where the theme painted the card. The same page bar
+ * appears on pages that are not on this card (the plugin detail view uses its own chrome), and
+ * a global override would repaint chrome the theme did not card. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="pageBar"]::before {
+  background: var(--dsh-bento-card);
 }
+
+/* The header itself carries no fill of its own (measured: rgba(0,0,0,0)), so it needs no rule.
+   Recorded because "clear the header too" looks like the obvious next line and would be a
+   declaration on a host element that paints nothing. */
 
 /* Reduced motion: the fill appears at once rather than fading in. */
 @media (prefers-reduced-motion: reduce) {
@@ -1324,7 +1661,24 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] section h3 {
  * this inset is 24 - 20 = 4 and 16 is comfortably inside the correct range. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="_detail"]:has(> [class*="_detailSections"]) {
   box-sizing: border-box;
-  padding: 20px;
+  /* THE INSET IS THE TOKEN, NOT A LITERAL (D81).
+   *
+   * This said 20px, and it was the only card in the theme not using the cell inset: every
+   * other surface - the three column cards' contents, the Settings rows, the detail's own
+   * section cells below - is inset by --dsh-bento-cell-inset, which is 16. Two numbers for
+   * one job is the defect D68 was recorded to stop, and here it produced exactly the effect
+   * it predicts: the page's outer panel read 4px roomier than the section cells stacked
+   * inside it, so the panel's hairline and its children's hairlines were not parallel.
+   *
+   * 16 is also what the reference does not contradict: its nested-panel move is 8px outer
+   * over 20px inner, but this panel's parent already applies its own 48px page padding, so
+   * the "20 inside 8" relationship the reference is expressing is carried by the page, not
+   * by this box.
+   *
+   * The reference's own card value is 20px and it is available as a token if a future pass
+   * wants the roomier tier - but it must then be --dsh-bento-cell-inset that changes, so
+   * that ALL the cards move together rather than this one alone. */
+  padding: var(--dsh-bento-cell-inset);
   border-radius: var(--dsh-bento-radius-nested);
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-accent-edge);
@@ -1529,9 +1883,10 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [data-bento-detail="board"] >
  */
     const RIGHTBAR_CSS = `
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] {
-  /* Gutter as padding on the column, so the track width the host solved — and the
-     drag handle at its boundary — is untouched. */
-  padding: var(--dsh-bento-gutter);
+  /* The card pad is padding on the column, so the track width the host solved — and the
+     drag handle at its boundary — is untouched. It is the card distance token, not the
+     inside-a-card rhythm the gutter still carries (D78). */
+  padding: var(--dsh-bento-card-pad);
   box-sizing: border-box;
   /* The containing block for the card, and no fill of its own. */
   position: relative;
@@ -1543,7 +1898,7 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] {
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"]::after {
   content: "";
   position: absolute;
-  inset: var(--dsh-bento-gutter);
+  inset: var(--dsh-bento-card-pad);
   border-radius: var(--dsh-bento-radius);
   background: var(--dsh-bento-card);
   border: 1px solid var(--dsh-bento-edge);
@@ -1630,12 +1985,16 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"][${PART_ATTR}] [class*="tabH
  * contents, so the header, the tab strip and everything below clear the card.
  *
  * + 1px because the card's 1px border is drawn OUTSIDE its own radius: the stroke's
- * inner edge sits at gutter + 1, so clearing the gutter alone still grazes it.
+ * inner edge sits at card-pad + 1, so clearing the card pad alone still grazes it.
+ *
+ * The pad it follows is --dsh-bento-card-pad (D78), the same distance the card itself is
+ * inset by, so this stays correct if the card distance changes: the pane's content must
+ * always start exactly where the card's edge does, plus the border.
  *
  * Verified in both themes: panel still 900px, 0 text boxes and 0 buttons outside the
  * rounded boundary, down from 3 clipped header buttons. */
 html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] [class*="tabHost"] {
-  padding: calc(var(--dsh-bento-gutter) + 1px);
+  padding: calc(var(--dsh-bento-card-pad) + 1px);
 }
 `;
 
@@ -1666,8 +2025,8 @@ html[${ROOT_ATTR}] [${PART_ATTR}="${PART.RIGHTBAR}"] [class*="tabHost"] {
  *
  * IMPORTANT — the card costs no layout width.
  * The first attempt inset the content column with a margin. That narrowed it from
- * 612px to 596px, and the host's Appearance control (three cubes, `flex: 1 1
- * 180px`, `flex-wrap: wrap`) needs 3x180 + 2x8 = 556px inside a 564px row. Losing
+ * 612px to 596px, and the host's Appearance control (three cubes, 'flex: 1 1
+ * 180px', 'flex-wrap: wrap') needs 3x180 + 2x8 = 556px inside a 564px row. Losing
  * 18px pushed the row to 556px of space for 556px of control at the wrong moment,
  * and "System" wrapped onto its own line. So the card is painted on a
  * zero-layout pseudo-element instead: the regions keep the exact boxes the host
@@ -1759,38 +2118,52 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button {
  * opposite: a TINT of the accent behind the label, the label itself in a darker accent,
  * and no border at all. That is what makes selection legible at a glance.
  *
- * The fill is mixed against the CANVAS, not the card, because this cell sits on the
- * canvas between the panel edge and the content card; mixing against the card would put
- * it a shade off the surface it appears to share.
+ * THE FILL IS MIXED AGAINST THE CARD (D76) — corrected. This rule read
+ * --dsh-bento-selected-fill-canvas, on the stated reasoning that "this cell sits on the
+ * canvas between the panel edge and the content card". That was true when the nav was
+ * bare. D60 then gave the nav its own card (::before, inset 12, radius 16), so the cell
+ * now sits ON that card and the canvas mix is wrong for the same reason it was wrong on
+ * the sidebar rows: measured, the tint resolved to color(srgb 0.842 0.877 0.943) - the
+ * canvas mix - over a rgb(255,255,255) card, 4.3 units off the surface it is a tint of.
+ * The card mix resolves to color(srgb 0.911 0.936 0.988) on that surface.
  *
  * Both colours are derived tokens, so this follows the host accent per theme — #4176e6
  * in light, #7aaaff in dark — rather than pinning one theme's blue. Measured contrast of
- * ink on fill: 5.16:1 light, AA for body text.
+ * ink on fill: 6.40:1 light and 6.48:1 dark with the card mix, against 5.56:1 and 4.60:1
+ * with the canvas mix (the dark case was the AA-marginal one for D55's 65% ink ratio).
  *
  * The label colour has to be set explicitly. The host paints its own label colour on the
  * button, so inheriting would leave dark ink on a tinted ground in light mode. */
 html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="true"] {
-  background: var(--dsh-bento-selected-fill-canvas);
+  background: var(--dsh-bento-selected-fill);
   color: var(--dsh-bento-selected-ink);
   box-shadow: none;
 }
 
-/* SELECTION ALSO CARRIES WEIGHT (D58).
+/* SELECTION ALSO CARRIES WEIGHT (D58, revised by D77).
  *
  * Colour alone says which row is chosen only if the tint separates from the canvas at a
  * glance. A heavier label says it a second way, in a channel that survives a grey-scale
  * screenshot, a dim display and a colour-blind viewer. It is also what the reference does:
  * its active nav item is both tinted and stronger.
  *
- * 500, not 700. Measured before choosing: the label resolves at 400 and applying 600
- * changed the cell's box not at all (164x40 before and after), so weight is free here.
- * 500 is the lightest step that still reads as deliberately heavier beside a 400 sibling;
- * 700 would make the row compete with the dialog's own heading.
+ * 600, not 500 (D77). D58 chose 500 as "the lightest step that still reads as deliberately
+ * heavier beside a 400 sibling", and that reasoning was sound for a dialog where the only
+ * competing weight was the heading. Two facts moved it: the reference's weight scale is
+ * 400 / 500 / 600 / 700 and its own section titles are 600, so 500 is a step the design
+ * does not use for emphasis; and the sidebar's selected row is now 600 as well (D77), so a
+ * 500 here would have left the sibling selection in the same shell one step lighter.
  *
- * Applied to the label, not the button. The icon beside it is a stroked SVG, which
- * font-weight cannot affect - naming the text keeps the rule honest about what it does. */
-html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="true"] span {
-  font-weight: 500;
+ * MEASURED, at 400 / 500 / 600 / 700: the label box is 108px at every weight and no label
+ * truncates at any of them (scrollWidth == clientWidth for all six destinations, including
+ * "Built-in plugins"). So weight is free here.
+ *
+ * Applied to the LABEL, not the button. The previous selector was the bare descendant
+ * 'span', which also matched the icon's span — measured, the glyph span inherited the 500
+ * and the SVG beside it followed. A stroked icon cannot use font-weight meaningfully, so
+ * this now names the label class instead of relying on document order. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] > nav button[aria-current="true"] [class*="navLabel"] {
+  font-weight: 600;
 }
 
 /* THE CARD IS DRAWN BY THE REGION'S OWN BOX, NOT BY A PSEUDO-ELEMENT INSIDE IT.
@@ -2214,6 +2587,31 @@ html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.section
   flex-wrap: wrap;
   row-gap: 4px;
 }
+
+/* THE APPEARANCE CUBES SHARE THE ROW INSTEAD OF WRAPPING (D82).
+ *
+ * The cell inset is 20 to match the reference's card padding, which costs this row 8px:
+ * at 20 it has 548px for a control whose three cubes want 3x180 + 2x8 = 556. The host's own
+ * 'flex-wrap: wrap' answers a shortage by moving "System" to a second row - measured at
+ * inset 20 with the wrap left alone: cubes 270 / 270 / 548, on TWO lines, the third one
+ * stretched to full width. That is the layout telling the user there are two groups where
+ * there is one control.
+ *
+ * nowrap instead. The host already declares 'flex-shrink: 1' on each cube, so the row
+ * resolves the shortage the way a single control should: measured, 177.33px each on ONE
+ * line, all three labels intact, no preview clipped, in both themes, at 1600 and 1280.
+ *
+ * This is a HOST-OWNED control, so the rule does as little as possible: it changes one
+ * keyword and nothing else. It does not set widths, gaps, radii or order, so the host keeps
+ * owning the cube's design and only the shortage response changes.
+ *
+ * GOES STALE LOUDLY RATHER THAN SILENTLY. If the host ever stops declaring flex-shrink on
+ * these cubes, nowrap would overflow the row instead of shrinking - so the condition is
+ * named: this rule exists because the cubes CAN shrink, and gate 32 asserts that the rule
+ * and the shrink agreement are both present. */
+html[${ROOT_ATTR}] [data-shortcut-modal="settings"] [data-slot="settings.general.item"] > *:has(*) [class*="cubeRow"] {
+  flex-wrap: nowrap;
+}
 `;
 
     FEATURES.push({
@@ -2440,7 +2838,13 @@ html[${ROOT_ATTR}] [data-slot="conversation.input.dock"] > * {
   /* The host's frosted material retires with its fill: over an opaque tone the blur can only
      cost compositing, and it measured none here anyway. */
   backdrop-filter: none;
-  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge), var(--dsh-bento-shadow);
+  /* NO SHADOW (D79). This read 'var(--dsh-bento-shadow)', the token behind the opt-in
+     card-shadow FEATURE, while the feature was off - so the dock was lifted by a feature the
+     user had not enabled, and enabling it changed nothing here. D40's rule is that elevation
+     stays at zero and separation is a hairline plus a fill step, so the dock gets the edge
+     alone. It is a peer panel above the composer, not a surface the accent owns, which is why
+     it does NOT take the accent halo the composer does. */
+  box-shadow: inset 0 0 0 1px var(--dsh-bento-edge);
 }
 
 /* THE QUEUED-MESSAGE TAB BECOMES THE COMPOSER'S TOP SEGMENT (D67).
@@ -2468,8 +2872,9 @@ html[${ROOT_ATTR}] [data-slot="conversation.input.dock"] > * {
  * without moving either.
  *
  * THE RADIUS IS THE COMPOSER'S OWN, READ FROM ITS TOKEN. The composer card takes
- * var(--dsw-radius-panel) (measured 28px); the theme's 20px card tier is a different curve and a
- * 20px top corner under a 28px composer would be visibly tighter on the same silhouette. So the
+ * var(--dsw-radius-panel) (measured 28px); the theme's card tier is a different curve (24px
+ * since D69) and a 24px top corner under a 28px composer would be visibly tighter on the same
+ * silhouette. So the
  * tab reads the same host token rather than a literal, and follows the composer if the host
  * retunes it.
  *
@@ -2890,6 +3295,126 @@ html[${ROOT_ATTR}] body[data-ds-dark-theme] { ${darkDecl} }
       store: 'json',
       defaultChoice: 'auto',
       css: INK_CSS,
+    });
+//#endregion
+
+//#region src/58-feature-typescale.js
+/**
+ * Feature: a type scale (D80).
+ *
+ * The theme styled surfaces and spacing but never type. Measured before this file existed,
+ * every heading in the shell was the host's own, and the host's headings are flat:
+ *
+ *   page title      h1  20px / 500 / tracking normal
+ *   section title   h3  14px / 500 / tracking normal
+ *   group label     span 14px / 400 / tracking normal, muted
+ *
+ * The reference has a scale, and it is not that: a 26px/700 title with tightened tracking,
+ * 15-17px/600 section titles, and 11px/600/0.06em UPPERCASE eyebrow labels above groups.
+ * The gap is why a themed page still read as host UI inside a bento frame.
+ *
+ * WHAT THIS DOES NOT DO. It does not touch body copy, captions, buttons, chips or any
+ * control the host sized. Those were tuned against a working layout, and re-sizing them
+ * would move text the theme has no reason to move. This file changes three roles only -
+ * the page title, the section title, and the group eyebrow - because those are the three
+ * places the reference's hierarchy is legible and the host's is not.
+ *
+ * EVERY SELECTOR IS COUNTED. The host's class names are hashed per build, so all three are
+ * addressed by class SUBSTRING, which is the technique the rest of the theme uses for the
+ * same reason. Measured match counts on this host before the rules were written:
+ *
+ *   [class*="pageTitle"]    1  (the Plugins page h1)
+ *   [class*="detailTitle"]  1  (a plugin detail page's h3)
+ *   [class*="groupTitle"]   2  (the two group headings on the Plugins page)
+ *   [class*="sectionLabel"] 1  (the sidebar's "Workspaces")
+ *
+ * A substring that matches zero is the failure mode this census exists to catch: the rule
+ * would be present, valid, and paint nothing.
+ *
+ * THE EYEBROW IS THE ONE DIRECT COPY. The reference's own bundled sidebar labels its group
+ * "Workspaces" with exactly `11px / 600 / letter-spacing 0.06em / uppercase / muted`, and
+ * this shell's sidebar has the same label in the same place. That is not an analogy - it is
+ * the same object with the same word in it, so the value is adopted unchanged.
+ */
+    const TYPESCALE_CSS = `
+/* THE PAGE TITLE.
+ *
+ * 26px, not the reference dashboard's 32px. 32 is used on a 12-column chart page with a
+ * full-width h1 and nothing beside it; these pages put the title in a header row that also
+ * carries a toolbar (measured: pageHeading + toolbar), and the centre column is 1296px.
+ * 26 is the reference's own plugin-detail title size, which is the closest analogue to the
+ * pages this theme mounts, and it is enough of a step over the host's 20 to read as a
+ * title rather than a label.
+ *
+ * 700 and -0.025em are the reference's, unchanged, and they are why the size change reads
+ * as hierarchy rather than as "bigger text": tracking tightens as the size grows in that
+ * design, and weight does the rest. The line box is 1.15, the reference's own value for
+ * the 32px tier (it declares none on the 26px one), so a two-line title cannot sit tighter
+ * than its glyphs.
+ *
+ * BOTH TITLE HOOKS ARE COVERED, because this shell has two: a full page (h1) and a plugin
+ * detail page (h3, same 20px/500 host spec). Leaving the second at 20 would have made two
+ * pages of the same kind disagree by one tier.
+ *
+ * The margins are NOT touched. The host already spaces this block against the subtitle and
+ * the toolbar; changing the size is the request, and re-solving that header's layout is not. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="pageTitle"],
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="detailTitle"] {
+  font-size: var(--dsh-bento-text-title);
+  font-weight: 700;
+  letter-spacing: var(--dsh-bento-tracking-title);
+  line-height: var(--dsh-bento-leading-title);
+}
+
+/* THE SECTION TITLE.
+ *
+ * 15px / 600, the reference's SMALL-CARD tier, not its 17px full-width tier. The 17px
+ * heading heads a large card in a 12-column board; these headings sit above a list of rows
+ * inside one card, which is the small-card shape. 15/600 is also what this theme's own
+ * detail sections already rendered (D-p1), so the two kinds of section in the shell now
+ * agree instead of differing by a pixel and a half.
+ *
+ * The host's own weight here is 500 and its size 14 - close enough that a rendering diff
+ * alone would not show the problem, which is why the case for this is the reference's
+ * scale and not a defect report. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.CENTER}"] [class*="groupTitle"] {
+  font-size: var(--dsh-bento-text-section);
+  font-weight: 600;
+}
+
+/* THE GROUP EYEBROW.
+ *
+ * Adopted from the reference unchanged: 11px / 600 / 0.06em / uppercase / muted. Tracking
+ * OPENS as the size falls, which is the opposite of the title, and that inversion is the
+ * whole reason the small label reads as deliberate rather than as shrunken text.
+ *
+ * APPLIED TO THE SIDEBAR ONLY. This is the group label above a list of workspaces - the one
+ * object in the shell that is structurally the reference's eyebrow. The same class substring
+ * does not appear anywhere else on this host (measured: 1 match), so the selector is already
+ * narrower than the rule; the part selector is written anyway so a future page that grows a
+ * section label is not silently uppercased by a theme.
+ *
+ * The colour is the host's own muted alias, which is what the reference uses too. A theme
+ * must not invent a fifth grey for a label the host already paints. */
+html[${ROOT_ATTR}] [${PART_ATTR}="${PART.SIDEBAR}"] [class*="sectionLabel"] {
+  font-size: var(--dsh-bento-text-eyebrow);
+  font-weight: 600;
+  letter-spacing: var(--dsh-bento-tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--dsw-alias-label-secondary);
+}
+`;
+
+    FEATURES.push({
+      id: 'type-scale',
+      title: { en: 'Type scale', zh: '字号层级' },
+      about: {
+        en: 'Give page titles, section titles and group labels the reference sizes and weights, instead of the flat 20/14/14 the host uses.',
+        zh: '让页面标题、小节标题与分组标签采用参考设计的字号与字重，而不是宿主统一的 20/14/14。',
+      },
+      order: 27,
+      enabled: true,
+      css: TYPESCALE_CSS,
     });
 //#endregion
 

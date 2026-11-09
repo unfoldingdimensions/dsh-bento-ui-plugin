@@ -14,7 +14,7 @@ const checks = [];
 function check(name, fn) {
   // Each check runs in isolation and may be async (host import). A throw inside
   // a check must become a reported failure, never an unhandled rejection that
-  // takes this script down — the script is the thing meant to catch that class
+  // takes this script down â€” the script is the thing meant to catch that class
   // of defect.
   checks.push({ name, fn });
 }
@@ -107,7 +107,7 @@ check('patch: inserts exactly the declared row', () => {
 check('client bundle: every CSS block is complete (backtick hazard)', () => {
   // The CSS lives in template literals. A backtick inside a CSS comment closes the
   // literal early, and the damage is subtle: the result is often still VALID
-  // JavaScript — the remainder becomes an identifier expression and the next
+  // JavaScript â€” the remainder becomes an identifier expression and the next
   // backtick swallows the following code as a fresh literal. So the bundle parses
   // and the stylesheet is silently truncated. That is checked here, on the built
   // output, by requiring every *_CSS literal to have balanced braces and to end on
@@ -134,7 +134,7 @@ check('client bundle: every CSS block is complete (backtick hazard)', () => {
       problems.push(`literal at line ${at}: does not end on a closing rule`);
     }
   }
-  if (found === 0) throw new Error('no CSS literals found — the check is not looking at the bundle');
+  if (found === 0) throw new Error('no CSS literals found â€” the check is not looking at the bundle');
   if (problems.length > 0) throw new Error(problems.join('; '));
   return `${found} CSS blocks balanced`;
 });
@@ -194,7 +194,7 @@ check('source: no backtick inside a CSS template literal at all', () => {
   }
   if (offenders.length > 0) {
     throw new Error(
-      'a CSS template literal is terminated early by a stray backtick —\n    ' +
+      'a CSS template literal is terminated early by a stray backtick â€”\n    ' +
         offenders.join('\n    ') +
         '\n    Use quotes inside CSS comments and content; a backtick closes the literal.',
     );
@@ -211,8 +211,8 @@ check('source: every fragment compiles on its own', () => {
   // identifiers declared by its siblings), so it cannot be imported or evaluated.
   // It can still be *parsed*, which is exactly the failure mode that keeps recurring:
   // a backtick inside a CSS comment closes the template literal early, and the result
-  // is usually still valid JavaScript — the remainder parses as an identifier
-  // expression — so `node --check` on the built bundle and a brace-balance heuristic
+  // is usually still valid JavaScript â€” the remainder parses as an identifier
+  // expression â€” so `node --check` on the built bundle and a brace-balance heuristic
   // both pass while the stylesheet is silently truncated.
   //
   // This has now happened five times (15-tokens twice, 40-feature-sidebar,
@@ -236,7 +236,7 @@ check('source: every fragment compiles on its own', () => {
       offenders.push(`${name}: ${error.message}`);
     }
   }
-  if (offenders.length > 0) throw new Error('fragment does not parse —\n    ' + offenders.join('\n    '));
+  if (offenders.length > 0) throw new Error('fragment does not parse â€”\n    ' + offenders.join('\n    '));
   return files.length - DELIMITERS.size + ' fragments parse (2 delimiters excluded)';
 });
 
@@ -244,7 +244,7 @@ check('fragments: no MODULE-scope identifier read before its declaring fragment'
   // Fragments are concatenated in filename order and share one scope, so a const is
   // only initialised once its own fragment runs. A feature builds its CSS string at
   // module scope, so reading a later fragment's const there throws
-  // "Cannot access 'X' before initialization" during import — which takes the whole
+  // "Cannot access 'X' before initialization" during import â€” which takes the whole
   // plugin's activation down. Found in pass 4 with ROW_ATTR.
   //
   // Only MODULE-scope declarations count. The fragments are indented four spaces
@@ -276,7 +276,7 @@ check('fragments: no MODULE-scope identifier read before its declaring fragment'
 });
 
 check('icon: 36x36 package mark, decorative, exportable', () => {
-  // The icon is the one UI artefact this theme owns, and it is a PACKAGE icon — a
+  // The icon is the one UI artefact this theme owns, and it is a PACKAGE icon â€” a
   // different artefact from the 16px in-UI glyph grid (D49). The convention is not
   // invented: every package icon on the host's Plugins page is
   //   width=36 height=36 viewBox="0 0 36 36" fill=none
@@ -295,8 +295,8 @@ check('icon: 36x36 package mark, decorative, exportable', () => {
   if (!/role="presentation"/.test(svg)) problems.push('not role="presentation"');
   if (!/aria-hidden="true"/.test(svg)) problems.push('not aria-hidden');
   if (/aria-label=/.test(svg)) problems.push('has an aria-label, which cannot be localised in a static file');
-  // Artwork may use a gradient — the host's own package icons do, identically in both
-  // themes — but it must actually use one, not merely declare one.
+  // Artwork may use a gradient â€” the host's own package icons do, identically in both
+  // themes â€” but it must actually use one, not merely declare one.
   //
   // Comments are stripped first. A naive string test passed a planted violation whose
   // gradient was inside an HTML comment: the text was still there, the paint was gone.
@@ -323,21 +323,21 @@ check('source: no position on a HOST descendant (layout contract)', () => {
   // SCOPE, because the first version of this check flagged 10 legitimate declarations:
   //
   //   ours   `[data-dsh-bento-part="x"]`  the column wrappers the kernel stamps, and
-  //          `::after` on them — positioning these is how the card technique works.
+  //          `::after` on them â€” positioning these is how the card technique works.
   //   theirs anything reached THROUGH a host anchor: `[data-slot] >`, `> * > *`,
   //          `[data-shortcut-modal] > div`, or a host class fragment.
   //
   // So the rule is: never declare `position` on an element the host owns, because the
   // host may be deriving its size from that position. Paint is ours; layout is theirs.
   const offenders = [];
-  // A selector is "host-owned" when it descends through a HOST anchor — a slot anchor, a
+  // A selector is "host-owned" when it descends through a HOST anchor â€” a slot anchor, a
   // settings-modal child, or a host class fragment. Reaching into our own column's
   // children (`[part="center"] > * > *`) is still ours: the kernel stamped that column,
   // and its children are the host's CONTENT, which we are allowed to lift.
   //
   // THE (?!nav) EXCLUSION WAS DEAD CODE, and it was found by the gate firing on a nav rule
   // that was legitimate. `\s*` is greedy but can match ZERO characters, so on the string
-  // " > nav" the engine takes no spaces and runs the lookahead at offset 0 — where the next
+  // " > nav" the engine takes no spaces and runs the lookahead at offset 0 â€” where the next
   // character is a space, not "nav", so the exclusion never applies. Demonstrated directly:
   // / >\s*(?!nav)/ matches ">" at index 0 of " > nav " and its lookahead sees " ".
   //
@@ -348,7 +348,7 @@ check('source: no position on a HOST descendant (layout contract)', () => {
 
   // VERIFIED SAFE EXEMPTION 1. The Settings content column is `position: static` in the
   // host (measured with the theme off), so `position: relative` on it does not detach
-  // anything — it only makes the column the containing block for the card painted on
+  // anything â€” it only makes the column the containing block for the card painted on
   // its ::before. Measured both states: content 612x800, fills the panel, the real
   // scroller still `overflowY: auto` and scrolls. Declared here rather than special-cased
   // silently, so the next reader knows it was checked.
@@ -357,7 +357,7 @@ check('source: no position on a HOST descendant (layout contract)', () => {
   // VERIFIED SAFE EXEMPTION 2: OUR OWN PSEUDO-ELEMENTS.
   //
   // The card technique paints on a ::before/::after that we create. Declaring
-  // `position: absolute` on it is the whole mechanism — the pseudo has no box of its own
+  // `position: absolute` on it is the whole mechanism â€” the pseudo has no box of its own
   // until we give it one, so there is no host-solved size to collapse. The host-owned
   // element underneath is untouched; the rule selects a box that does not exist without
   // this declaration.
@@ -379,7 +379,7 @@ check('source: no position on a HOST descendant (layout contract)', () => {
     //
     // THE CLOSE CONDITION BIT TWICE, and the second time was worse. First it never reset at
     // all, so six legitimate declarations were flagged. The fix then matched only a BARE
-    // `}` — but the last CSS block in every fragment ends its file as `});` (the
+    // `}` â€” but the last CSS block in every fragment ends its file as `});` (the
     // FEATURES.push call), which is not bare, so `depth` never returned to 0 and `current`
     // stayed on the previous selector. A `position:` declaration added after the closing
     // rule was therefore attributed to `FEATURES.push({`, which HOST_OWNED does not match,
@@ -414,7 +414,7 @@ check('source: no position on a HOST descendant (layout contract)', () => {
 
   if (offenders.length > 0) {
     throw new Error(
-      'declaring position on a host element can collapse it —\n    ' +
+      'declaring position on a host element can collapse it â€”\n    ' +
         offenders.join('\n    ') +
         '\n    Paint is ours; layout is theirs.',
     );
@@ -447,7 +447,7 @@ check('source: no transition hardcodes a duration (reduced motion)', () => {
   //
   // The rule: every transition duration must come from the motion token
   // (`var(--dsh-bento-motion, ...)`) or from a value that already resolved the
-  // preference. `transition: none` is fine — it declares no duration.
+  // preference. `transition: none` is fine â€” it declares no duration.
   const offenders = [];
   for (const name of readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort()) {
     const text = readFileSync(join(root, 'src', name), 'utf8');
@@ -462,7 +462,7 @@ check('source: no transition hardcodes a duration (reduced motion)', () => {
     });
   }
   if (offenders.length > 0) {
-    throw new Error('literal duration ignores the motion token —\n    ' + offenders.join('\n    '));
+    throw new Error('literal duration ignores the motion token â€”\n    ' + offenders.join('\n    '));
   }
   return 'every duration resolves through --dsh-bento-motion';
 });
@@ -471,7 +471,7 @@ check('source: no hardcoded colour (every shade is a host token)', () => {
   // The plugin's stated rule is "only --dsw-alias-* host tokens for colour, so light,
   // dark and any registered theme follow automatically". It had exactly one exception:
   // the Settings switch knob carried `box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3)`, and
-  // the host's own knob has no shadow at all — so the literal was inventing depth the
+  // the host's own knob has no shadow at all â€” so the literal was inventing depth the
   // design does not have. Found by the P2 audit, removed.
   //
   // Comments are stripped before scanning, because the token layer documents the
@@ -484,7 +484,7 @@ check('source: no hardcoded colour (every shade is a host token)', () => {
   // src/14-fontdata.js is generated base64 and is excluded BY NAME rather than by
   // directory, because it is not artwork and the rule that governs it is different: its
   // bytes must match assets/*.woff2 exactly, which the fontdata gate below enforces. It
-  // needs the exclusion because base64 uses every letter this scan looks for — the word
+  // needs the exclusion because base64 uses every letter this scan looks for â€” the word
   // "black" can appear in a 64 KB font by chance, so without the exclusion this gate
   // would one day fail on a byte that is not a colour at all.
   const GENERATED_FONT_DATA = '14-fontdata.js';
@@ -514,7 +514,7 @@ check('source: no hardcoded colour (every shade is a host token)', () => {
     });
   }
   if (offenders.length > 0) {
-    throw new Error('literal colour, use a --dsw-* token —\n    ' + offenders.join('\n    '));
+    throw new Error('literal colour, use a --dsw-* token â€”\n    ' + offenders.join('\n    '));
   }
   return 'every colour resolves through a host token';
 });
@@ -526,7 +526,7 @@ check('source: no box-shadow unless it resolves through a token', () => {
   // own shadow is derived from --dsw-alias-label-primary, so it is correct in both
   // themes from one declaration (D57).
   //
-  // Permitted: `var(--dsh-bento-…)`, `none`, `inherit`. Everything else is a literal
+  // Permitted: `var(--dsh-bento-â€¦)`, `none`, `inherit`. Everything else is a literal
   // shadow that will not follow the theme.
   const offenders = [];
   for (const name of readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort()) {
@@ -543,7 +543,7 @@ check('source: no box-shadow unless it resolves through a token', () => {
     });
   }
   if (offenders.length > 0) {
-    throw new Error('literal shadow, use --dsh-bento-shadow —\n    ' + offenders.join('\n    '));
+    throw new Error('literal shadow, use --dsh-bento-shadow â€”\n    ' + offenders.join('\n    '));
   }
   return 'every shadow resolves through --dsh-bento-shadow';
 });
@@ -552,7 +552,7 @@ check('fonts: embedded bytes match the assets they were generated from', () => {
   // The font data is generated from assets/*.woff2 by tools/make-fontdata.mjs. Nothing
   // else in the build notices if the two drift: client.js would keep shipping whichever
   // font it was last generated with, and a refreshed asset would silently never reach the
-  // page. This is the same hazard as any committed generated file, and the same fix —
+  // page. This is the same hazard as any committed generated file, and the same fix â€”
   // compare the artefact to its source, so drift fails loudly here instead of surviving
   // as a stale glyph shape nobody can attribute to anything.
   const generated = readFileSync(join(root, 'src', '14-fontdata.js'), 'utf8');
@@ -563,7 +563,7 @@ check('fonts: embedded bytes match the assets they were generated from', () => {
   for (const [name, file] of expected) {
     const actual = readFileSync(join(root, 'assets', file)).toString('base64');
     if (!generated.includes(`const ${name} = '${actual}';`)) {
-      throw new Error(`${name} does not match assets/${file} — run node tools/make-fontdata.mjs`);
+      throw new Error(`${name} does not match assets/${file} â€” run node tools/make-fontdata.mjs`);
     }
     // A base64 blob can be "present" and still be the wrong font; the magic bytes of a
     // WOFF2 start with "wOF2", so decode four bytes and check the container is real.
@@ -622,20 +622,20 @@ check('palette: every accent stays readable once the theme derives its tint and 
       if (iconC < 3) failures.push(`${id}/${theme}: accent as icon ${iconC}:1 on card ${card} (needs 3)`);
     }
   }
-  if (failures.length > 0) throw new Error('palette is not readable —\n    ' + failures.join('\n    '));
+  if (failures.length > 0) throw new Error('palette is not readable â€”\n    ' + failures.join('\n    '));
   return `${entries.length} accents, worst ink ${worstInk}:1, worst icon ${worstIcon}:1`;
 });
 
 check('fonts: the OFL licence travels with the embedded bytes', () => {
   // OFL 1.1 condition 2: redistributing a font inside another bundle requires that each
   // copy carry the copyright notice AND the licence. The bytes here live in client.js, so
-  // the package itself is the "copy" — if THIRD_PARTY_NOTICES.md is not in `files`, an
+  // the package itself is the "copy" â€” if THIRD_PARTY_NOTICES.md is not in `files`, an
   // installed plugin ships two fonts and no licence, which is a licence violation that no
   // other check would notice. Condition 3 is why the runtime family names are ours
   // ('Bento Inter', not 'Inter'): a modified or renamed build may not use the reserved name.
   const files = manifest.files ?? [];
   if (!files.includes('THIRD_PARTY_NOTICES.md')) {
-    throw new Error('THIRD_PARTY_NOTICES.md is not shipped — the OFL requires the licence to travel with the font');
+    throw new Error('THIRD_PARTY_NOTICES.md is not shipped â€” the OFL requires the licence to travel with the font');
   }
   const notices = readFileSync(join(root, 'THIRD_PARTY_NOTICES.md'), 'utf8');
   for (const [name, marker] of [['Inter', 'The Inter Project Authors'], ['JetBrains Mono', 'The JetBrains Mono Project Authors']]) {
@@ -649,7 +649,7 @@ check('fonts: the OFL licence travels with the embedded bytes', () => {
 
 check('fonts: the embedded faces are actually referenced by the stylesheet', () => {
   // A @font-face with no consumer is dead weight: 88 KB shipped, nothing rendered. This
-  // caught nothing on the day it was written — the rule is written because the font is
+  // caught nothing on the day it was written â€” the rule is written because the font is
   // large enough that a future edit which drops the token override would cost 88 KB of
   // dead payload with no visible symptom except "the font we shipped is not being used".
   const raw = readFileSync(join(root, 'src', '54-feature-font.js'), 'utf8');
@@ -672,7 +672,7 @@ check('fonts: the override reaches the token chain, not just one property', () =
   // The measured fact this pins: the host's 62 composite font tokens are DERIVED from
   // --dsw-font-family, so overriding that one token re-fonts markdown, headings, labels
   // and the rest. If the host ever inlines families into those tokens instead, the font
-  // feature becomes silently partial — body copy changes and prose does not — and the
+  // feature becomes silently partial â€” body copy changes and prose does not â€” and the
   // symptom ("the font did not apply everywhere") looks like a specificity bug rather
   // than a contract change. So the contract is asserted here.
   const raw = readFileSync(join(root, 'src', '54-feature-font.js'), 'utf8');
@@ -687,7 +687,7 @@ check('fonts: the override reaches the token chain, not just one property', () =
 });
 
 check('spacing: the cell inset separates from the gutter and clears the card radius', () => {
-  // The measured defect this pins (D68): the settings row rule used the GUTTER for both jobs —
+  // The measured defect this pins (D68): the settings row rule used the GUTTER for both jobs â€”
   // `margin-inline: -gutter` (how far the hover fill bleeds) and `padding-inline: gutter` (where
   // the text starts). With one number doing both, the text sat 12px inside a card whose corner
   // radius is 16px, so the first glyph of every label began INSIDE the arc. That is invisible to
@@ -716,7 +716,7 @@ check('spacing: the cell inset separates from the gutter and clears the card rad
   // whole rule body rather than one line, because a formatter could reorder the declarations.
   //
   // THE SOURCE IS NORMALISED FIRST. These selectors are built as JS template literals, so the
-  // literal text contains `${ROOT_ATTR}` and `${ROW_ATTR}` — and the `{` inside an interpolation
+  // literal text contains `${ROOT_ATTR}` and `${ROW_ATTR}` â€” and the `{` inside an interpolation
   // is indistinguishable from a rule's opening brace to a naive regex. The first version of this
   // check matched `${ROOT_ATTR}` as the block opener, captured "ROOT_ATTR}" as the body, and FAILED
   // ON CORRECT CODE. Collapsing every interpolation to a placeholder first makes the brace
@@ -795,7 +795,7 @@ check('spacing: the cell inset separates from the gutter and clears the card rad
     throw new Error('the settings card is painted on a ::before again, which scrolls with the content it clips (D74)');
   }
 
-  // The header rule stays scoped to a direct child — a descendant match also hit a plugin
+  // The header rule stays scoped to a direct child â€” a descendant match also hit a plugin
   // card's inner "headerEnd" on another tab (D68).
   if (!/> \[class\*="header"\]/.test(settings)) {
     throw new Error('the header rule is not scoped to a direct child, so it can pad a plugin card header');
@@ -942,7 +942,7 @@ check('sidebar status: registered in its own guard, reads the host prop, and nev
   // NO INVENTED USAGE. This row exists because the reference's "516M today" is unbuildable; any
   // token/balance/currency figure appearing here means someone faked it.
   if (/\b(tokens?|balance|credit|billing|usd|\\\$)\b/i.test(status.replace(/\/\*[\s\S]*?\*\//g, ''))) {
-    throw new Error('the status row mentions usage/billing data, which no client plugin can obtain - see D70 §4.1');
+    throw new Error('the status row mentions usage/billing data, which no client plugin can obtain - see D70 Â§4.1');
   }
   // and no fabricated number: the only numeric output must come from the feature count
   if (/['"`]\s*\d+\s*(M|K|B)\s*(tokens?)?['"`]/i.test(status)) {
@@ -1089,6 +1089,268 @@ check('settings paint: the card is drawn by the region box and both card halves 
   return 'region draws the card and isolates; header isolates; no pseudo inside the scroller';
 });
 
+// ---------------------------------------------------------------------------
+// D76-D84: the pass that closed the remaining gaps against the reference.
+//
+// Every check below reads the SHIPPED stylesheet text and pins one mechanism that the
+// live measurements established. Each was proved red by planting the violation, watching
+// it fail, and restoring - a check never seen red is indistinguishable from one that
+// cannot go red.
+// ---------------------------------------------------------------------------
+
+check('selection: the tint comes from the card mix, and the destination hook accepts both aria-current values', () => {
+  // D76. The sidebar rows and the Settings nav cell both read --dsh-bento-selected-fill-canvas,
+  // which mixes the accent over the CANVAS tone. That was correct while both sat on the canvas;
+  // once the sidebar became a card and the Settings nav got its own card, both sat on WHITE and
+  // the tint was 4.3 RGB units off the surface it is a tint of. Measured, the card mix also lifts
+  // ink contrast from 5.56/4.60 to 6.40/6.48 (light/dark).
+  //
+  // The second half pins a selector bug that made the selected DESTINATION never match at all:
+  // the host writes aria-current="page" on this build, the rule asked for "true", and the
+  // selected destination kept the host's neutral grey while the session rows beside it were
+  // tinted. Both values are accepted, so the rule survives either host spelling.
+  const rows = readFileSync(join(root, 'src', '45-feature-rows.js'), 'utf8');
+  const settings = readFileSync(join(root, 'src', '50-feature-settings.js'), 'utf8');
+
+  if (/var\(--dsh-bento-selected-fill-canvas\)/.test(rows)) {
+    throw new Error('a sidebar row still mixes its tint against the canvas, but the rows sit on a card (D76)');
+  }
+  if (!/background:\s*var\(--dsh-bento-selected-fill\);/.test(rows)) {
+    throw new Error('the sidebar selection no longer uses the card-mixed tint (D76)');
+  }
+  if (/var\(--dsh-bento-selected-fill-canvas\)/.test(settings)) {
+    throw new Error('the Settings nav cell still mixes its tint against the canvas, but D60 carded the nav (D76)');
+  }
+  if (!/panelList"\] > button\[aria-current="page"\]/.test(rows)) {
+    throw new Error('the selected destination is not addressed by aria-current="page", which is the value this host writes (D76)');
+  }
+  return 'card-mixed tint on rows and nav; aria-current accepts true and page';
+});
+
+check('selection: weight 600 is applied to the label, not the icon slot', () => {
+  // D77. Colour alone does not say which row is chosen. The reference's weight scale is
+  // 400/500/600/700 and its section titles are 600, so 600 is the emphasis step; 500 was a
+  // value the design does not use for emphasis. Measured cost on the longest title: 209px
+  // needed at 400, 212 at 600, on a 166px box that already ellipsised - no row box changes.
+  //
+  // The gate pins WHICH element gets the weight. The first version of this rule named the
+  // bare descendant "span", which in the destination button is the GLYPH span, not the text.
+  // Measured: the glyph inherited the weight. Naming the label class is the fix, so the gate
+  // asserts the class substring rather than a positional selector.
+  const rows = readFileSync(join(root, 'src', '45-feature-rows.js'), 'utf8');
+  if (!/\[class\*="_title"\],[\s\S]{0,400}font-weight:\s*600;/.test(rows)) {
+    throw new Error('the selected session title is not weighted 600 (D77)');
+  }
+  // BOTH aria-current branches must name the class. An earlier version of this gate asked
+  // only whether the substring appeared somewhere, and a plant that rewrote just ONE of the
+  // two selectors still passed - because String.replace had only taken the first match.
+  // Counting occurrences is what makes the second branch unskippable.
+  const labelHooks = (rows.match(/\[class\*="panelTitle"\]/g) || []).length;
+  if (labelHooks < 2) {
+    throw new Error(
+      `the selected destination label is named by its class in ${labelHooks} of 2 aria-current branches, ` +
+        'so one branch still selects positionally and bolds the glyph (D77)',
+    );
+  }
+  // and no branch may fall back to a positional span selector
+  const weightRule = /\[class\*="_title"\],[\s\S]{0,700}?font-weight:\s*600;/.exec(rows);
+  if (!weightRule) throw new Error('the selection weight rule could not be located (D77)');
+  if (/>\s*span(?!\[)/.test(weightRule[0])) {
+    throw new Error('a branch of the weight rule selects a bare child span, which is the glyph slot (D77)');
+  }
+  const settings = readFileSync(join(root, 'src', '50-feature-settings.js'), 'utf8');
+  if (!/\[class\*="navLabel"\]\s*\{[\s\S]{0,120}font-weight:\s*600;/.test(settings)) {
+    throw new Error('the Settings nav label is not weighted 600 on its own class (D77)');
+  }
+  return 'titles and nav labels at 600, by class rather than position';
+});
+
+check('composer: accent edge and accent glow, and no card-shadow feature token anywhere', () => {
+  // D79. The composer carried var(--dsh-bento-shadow) - the token behind the OPT-IN card-shadow
+  // feature - while that feature was off. Measured with the feature off: the composer computed
+  // "inset 1px neutral, <two neutral layers>", i.e. the feature's lift on a control that is not
+  // one of its four surfaces, and turning the feature on changed nothing there. It also
+  // contradicted D40 (elevation stays at zero) independently of the reference.
+  //
+  // It now carries the reference's own pairing: an accent-line hairline plus 0 6px 16px of 12%
+  // accent, which that design uses on 10 elements. Both are derived tokens, so gate 15 holds.
+  const center = readFileSync(join(root, 'src', '47-feature-center.js'), 'utf8');
+  const composer = readFileSync(join(root, 'src', '52-feature-composer.js'), 'utf8');
+  const tokens = readFileSync(join(root, 'src', '15-tokens.js'), 'utf8');
+
+  if (!/--dsh-bento-accent-glow:/.test(tokens)) {
+    throw new Error('the accent glow token is gone, so the composer cannot carry it (D79)');
+  }
+  // derived, never a literal: the same rule as every other shade in this theme
+  if (/--dsh-bento-accent-glow:\s*(?![\s\S]{0,200}color-mix\()/.test(tokens)) {
+    throw new Error('the accent glow is not derived from the host accent (D79)');
+  }
+  const cardRule = /\[data-composer-card\]\s*\{([\s\S]*?)\n\}/.exec(center);
+  if (!cardRule) throw new Error('the composer card rule could not be located (D79)');
+  if (!/var\(--dsh-bento-accent-edge\)/.test(cardRule[1])) {
+    throw new Error('the composer lost its accent hairline (D79)');
+  }
+  if (!/var\(--dsh-bento-accent-glow\)/.test(cardRule[1])) {
+    throw new Error('the composer lost its accent glow (D79)');
+  }
+  if (/var\(--dsh-bento-shadow\)/.test(cardRule[1])) {
+    throw new Error('the composer is using the opt-in card-shadow token again, so it lifts while the feature is off (D40/D79)');
+  }
+  // and the dock above it, which carried the same token
+  if (/\[data-slot="conversation\.input\.dock"\] > \*\{[\s\S]{0,400}var\(--dsh-bento-shadow\)/.test(composer)) {
+    throw new Error('the todo dock still carries the card-shadow feature token (D40/D79)');
+  }
+  return 'composer: accent edge + accent glow, no card-shadow token on composer or dock';
+});
+
+check('spacing: three distances are three tokens, and the cell inset is 20', () => {
+  // D78 + D82. One number used to do three jobs. The gap between cards is 2 x column padding,
+  // the window edge is frame padding + column padding, and neither can be derived from the
+  // other - so they are named separately now. Measured after the split: gap 16, edge 16 on all
+  // four sides, card 264/1288/0, scrollWidth == innerWidth at 1600 and 1280, and the collapsed
+  // rail reproduces its original 4px inset / 48px card / 8px gap.
+  const tokens = readFileSync(join(root, 'src', '15-tokens.js'), 'utf8');
+  const sidebar = readFileSync(join(root, 'src', '40-feature-sidebar.js'), 'utf8');
+  const center = readFileSync(join(root, 'src', '47-feature-center.js'), 'utf8');
+  const rightbar = readFileSync(join(root, 'src', '49-feature-rightbar.js'), 'utf8');
+
+  const num = (name) => Number((new RegExp(`--dsh-bento-${name}:\\s*(\\d+)px`).exec(tokens) || [])[1]);
+  const cardPad = num('card-pad');
+  const windowPad = num('window-pad');
+  const cardGap = num('card-gap');
+  if (!Number.isFinite(cardPad) || !Number.isFinite(windowPad) || !Number.isFinite(cardGap)) {
+    throw new Error('the card distances are not all declared (D78)');
+  }
+  // the two relationships the three tokens exist to express
+  if (cardGap !== cardPad * 2) {
+    throw new Error(`card-gap ${cardGap} is not twice card-pad ${cardPad}, so two adjacent columns do not produce it (D78)`);
+  }
+  if (!/\$\{PART_ATTR\}="\$\{PART\.FRAME\}"\]:not\(\[data-sidebar-collapsed\]\)\s*\{[\s\S]{0,240}padding:\s*var\(--dsh-bento-window-pad\)/.test(tokens)) {
+    throw new Error('the frame does not pay the window pad, so the card never reaches 16 from the edge (D78)');
+  }
+  // every column must pad by the card distance, not the old gutter
+  for (const [name, body] of [['sidebar', sidebar], ['center', center], ['rightbar', rightbar]]) {
+    if (/padding:\s*var\(--dsh-bento-gutter\);/.test(body)) {
+      throw new Error(`the ${name} column still pads by the gutter, so the card gap is not 16 (D78)`);
+    }
+    if (!/padding:\s*var\(--dsh-bento-card-pad\);/.test(body)) {
+      throw new Error(`the ${name} column does not pad by the card distance (D78)`);
+    }
+  }
+  // the inset, raised with its wrap disarmed
+  const inset = Number((/--dsh-bento-cell-inset:\s*(\d+)px/.exec(tokens) || [])[1]);
+  if (inset !== 20) throw new Error(`cell inset is ${inset}, not the reference's 20 (D82)`);
+  const settings = readFileSync(join(root, 'src', '50-feature-settings.js'), 'utf8');
+  if (!/\[class\*="cubeRow"\]\s*\{[\s\S]{0,120}flex-wrap:\s*nowrap;/.test(settings)) {
+    throw new Error('the Appearance cube row can wrap again, so inset 20 pushes "System" onto a second line (D82)');
+  }
+  return `gap ${cardGap} = 2 x ${cardPad}; window pad ${windowPad}; inset ${inset} with the cube wrap disarmed`;
+});
+
+check('type scale: title, section and eyebrow are tokens at the reference values', () => {
+  // D80. The theme had no type scale: measured, every heading was the host's own 20px/500
+  // title, 14px/500 section and 14px/400 label. The reference's are 26px/700/-0.025em,
+  // 15px/600 and 11px/600/+0.06em/uppercase/muted. Three roles only - body copy, captions
+  // and controls are deliberately untouched.
+  const tokens = readFileSync(join(root, 'src', '15-tokens.js'), 'utf8');
+  const scale = readFileSync(join(root, 'src', '58-feature-typescale.js'), 'utf8');
+  const num = (name) => Number((new RegExp(`--dsh-bento-${name}:\\s*(-?[\\d.]+)(px|em)?`).exec(tokens) || [])[1]);
+  if (num('text-title') !== 26) throw new Error('the page title is not the reference 26px (D80)');
+  if (num('text-section') !== 15) throw new Error('the section title is not the reference 15px (D80)');
+  if (num('text-eyebrow') !== 11) throw new Error('the eyebrow is not the reference 11px (D80)');
+  for (const hook of ['pageTitle', 'detailTitle', 'groupTitle']) {
+    if (!scale.includes(`[class*="${hook}"]`)) throw new Error(`${hook} is not styled by the type scale (D80)`);
+  }
+  if (!/letter-spacing:\s*var\(--dsh-bento-tracking-title\)/.test(scale)) {
+    throw new Error('the title lost its tightened tracking, which is what makes the size read as hierarchy (D80)');
+  }
+  if (!/text-transform:\s*uppercase/.test(scale)) {
+    throw new Error('the eyebrow lost its uppercase treatment (D80)');
+  }
+  // the dead declaration this feature replaces must be gone, not merely shadowed
+  const pages = readFileSync(join(root, 'src', '48-feature-pages.js'), 'utf8');
+  if (/letter-spacing:\s*0;/.test(pages)) {
+    throw new Error('48-feature-pages.js still declares a letter-spacing of 0, which computes to normal and paints nothing (D80)');
+  }
+  return 'title 26, section 15, eyebrow 11 with tracking and uppercase';
+});
+
+check('primary action: the New Session pill is accent-surfaced and 44px', () => {
+  // D84. The reference draws its sidebar primary action as an accent-soft pill with an
+  // accent-line border, 44px tall, weight 600; the host draws it neutral, 38px, weight 500.
+  // Measured after: 240x44, label box unchanged at 141x22, both themes, and 36px wide in the
+  // collapsed rail with no overflow.
+  const file = join(root, 'src', '41-feature-newsession.js');
+  if (!existsSync(file)) throw new Error('the New Session feature is missing (D84)');
+  // Comments are stripped before every test in this gate. The doc comment above quotes the
+  // reference's own "min-height: 44px; border: 1px solid var(--accent-line)", and a test over
+  // raw text read that quotation as a declaration - so a plant that shrank the real
+  // declaration to 38px still passed.
+  const raw = readFileSync(file, 'utf8');
+  const css = raw.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+  if (!/min-height:\s*44px/.test(css)) throw new Error('the primary action is not 44px tall (D84)');
+  if (!/var\(--dsh-bento-selected-fill\)/.test(css) || !/var\(--dsh-bento-accent-edge\)/.test(css)) {
+    throw new Error('the primary action is not using the accent-soft tint and accent hairline (D84)');
+  }
+  if (!/button\[class\*="newSession"\]/.test(css)) {
+    throw new Error('the primary action is not addressed as a BUTTON, so the rule can hit a wrapper (D84)');
+  }
+  if (!/\[class\*="newSessionLabel"\][\s\S]{0,120}font-weight:\s*600/.test(css)) {
+    throw new Error('the label span keeps the host 500 weight (D84)');
+  }
+  // the radius deviation is deliberate and must stay on the theme's own tier.
+  // Comments are stripped first: the prose above explains WHY 14 was rejected, and it names
+  // "14px" while doing so - a naive test read that explanation as a declaration.
+  const cssCode = css; // comments already stripped above
+  if (/border-radius:\s*14px/.test(cssCode)) {
+    throw new Error('the primary action was moved to a 14px radius, the only 14 in a 12px column (D45/D84)');
+  }
+  return 'New Session: accent fill + accent edge, 44px, 600, on the inner radius tier';
+});
+
+check('pointer states: a destination gets a fill, the session tiles keep their edge', () => {
+  // D83. Hovering a destination used to add a hairline, which made it look momentarily
+  // SELECTED in a column where selected is already a tinted fill. The reference answers a
+  // nav row's pointer with a fill and never with a border. Session rows keep their edge: they
+  // are the list's contents, not the shell's navigation.
+  const rows = readFileSync(join(root, 'src', '45-feature-rows.js'), 'utf8');
+  const hoverRule = /\[class\*="panelList"\] > button:hover,[\s\S]{0,900}?\n\}/.exec(rows);
+  if (!hoverRule) throw new Error('the destination hover rule could not be located (D83)');
+  if (!/background:\s*var\(--dsh-bento-hover\)/.test(hoverRule[0])) {
+    throw new Error('a hovered destination does not get a fill (D83)');
+  }
+  if (!/border-color:\s*transparent/.test(hoverRule[0])) {
+    throw new Error('a hovered destination still draws an edge, which reads as selected (D83)');
+  }
+  // the session tile edge must survive
+  if (!/\[data-row-key\^="session:"\]:hover\s*\{[\s\S]{0,80}border-color:\s*var\(--dsh-bento-edge\)/.test(rows)) {
+    throw new Error('the session tiles lost their pointer edge too (D83)');
+  }
+  return 'destinations answer with a fill; session tiles keep the edge';
+});
+check('page chrome: the sticky page bar paints the card tone, not the host base tone', () => {
+  // D85. The Plugins page showed a darker strip across its top in dark mode. Sampled down the
+  // centre column in dark: rgb(21,21,23) from y=20 to y=95, then rgb(44,44,46) from y=100 -
+  // two surfaces on one card. The host's page bar is position: sticky, z-index 2, and paints
+  // its background on its OWN ::before, resolving to --dsw-alias-bg-base. In light that is
+  // white, which is why nothing looked wrong there; the card is white too.
+  //
+  // The bar's own background is empty (rgba(0,0,0,0)) - all the paint is on the pseudo - so
+  // clearing the pseudo's background is the whole fix, and the tone is the card's rather than
+  // transparent so the sticky occlusion still works.
+  const pages = readFileSync(join(root, 'src', '48-feature-pages.js'), 'utf8');
+  const rule = /\[class\*="pageBar"\]::before\s*\{([\s\S]*?)\n\}/.exec(pages);
+  if (!rule) {
+    throw new Error('the page bar pseudo is not repainted, so its host base tone bands the card in dark mode (D85)');
+  }
+  if (!/background:\s*var\(--dsh-bento-card\);/.test(rule[1])) {
+    throw new Error('the page bar is not painting the card tone (D85)');
+  }
+  if (/background:\s*transparent/.test(rule[1])) {
+    throw new Error('the page bar was made transparent, so scrolled content shows through a sticky header (D85)');
+  }
+  return 'page bar pseudo paints the card tone inside the centre column';
+});
 const results = await runAll();
 
 for (const entry of results) {
@@ -1100,6 +1362,6 @@ const failureCount = results.filter((entry) => !entry.ok).length;
 console.log(
   failureCount === 0
     ? `\nverify: all ${results.length} checks passed`
-    : `\nverify: ${failureCount} check(s) FAILED — do not install this bundle`,
+    : `\nverify: ${failureCount} check(s) FAILED â€” do not install this bundle`,
 );
 process.exit(failureCount === 0 ? 0 : 1);

@@ -54,7 +54,7 @@ src/99-footer.js           translator, apply(), exports
 assets/*.woff2             Inter + JetBrains Mono, latin subset, OFL 1.1
 tools/make-fontdata.mjs    assets/*.woff2 -> src/14-fontdata.js
 build.mjs                  concatenates src/*.js -> client.js
-verify.mjs                 31 pre-install checks
+verify.mjs                 39 pre-install checks
 ```
 
 `client.js` is generated. Edit `src/*.js`, then `npm run build`. If you touched
@@ -265,6 +265,13 @@ themes.
 | Motion | 160ms, `cubic-bezier(0.2, 0, 0, 1)` | One duration and one curve for every feature |
 | Card paint order | `z-index: -1` in an isolated column | The card is a positioned `::after`, so without this it paints over the column text. Lifting descendants by depth broke when the host added a wrapper (D73) |
 | Card ownership | The element's own box | A card drawn on a pseudo inside a scroller travels with the rows and cuts them (D74). Paint order is decided by a stacking context, not by luck (D75) |
+| Card distances | Three tokens, three jobs | Gap = 2 x card pad; window edge = frame pad + card pad; the gutter inside a card is its own number (D78). One token cannot produce two distances |
+| Selection tint | Mixed against the surface the row sits on | The canvas mix was correct only while the rows were on the canvas. On a card it reads 4.3 RGB units off and costs contrast (D76) |
+| Selected weight | 600, on the label | Colour alone does not name the chosen row, and a positional `span` selector bolds the icon slot instead of the text (D77) |
+| Elevation | Hairline plus fill step, never a feature token | The composer and dock were carrying the opt-in card-shadow token while that feature was off (D40/D79) |
+| Type scale | Tokens, not call sites | Title 26/700/-0.025em, section 15/600, eyebrow 11/600/+0.06em/uppercase (D80). A scale written at call sites is the same number typed twice |
+| Pointer state | Fill for navigation, tile for contents | A hover edge on a nav row looks momentarily selected in a column where selection is a filled tint (D83) |
+| Host chrome tone | Repaint the pseudo, not the box | The sticky page bar paints on its own `::before` at the host base tone, which bands the card in dark mode (D85) |
 
 Two rules are worth stating in words because a table cannot carry them:
 
@@ -294,7 +301,7 @@ published plugin, which lands in the same state). The switch writes the bundle r
 is live immediately without a restart.
 
 **What you get after enabling:** the shell's three columns become rounded cards, Settings gains a
-**Bento layout** tab, and each of the 13 features plus the two colour choices can be switched off
+**Bento layout** tab, and each of the 15 features plus the two colour choices can be switched off
 on its own there. Nothing is destroyed - turning the top-level row off restores the host's own look.
 
 **Requirements and what was actually tested.** DSH 0.2.x. Verified on the running 0.2.0-rc.2 CLI
@@ -348,6 +355,8 @@ Thirteen features and two colour choices ship:
 | `composer-spacing` | Composer spacing | on | gives the composer and its statistics strip one spacing scale so the numbers group instead of crowding, and an edge to the To-dos panel above it, which the host paints as frosted material that composites invisibly on a white card |
 | `ui-font` | Reference typeface | on | sets Inter for interface text and JetBrains Mono for code, both bundled — the host loads no webfont of its own |
 | `composer-chips` | Composer controls | on | gives the model and access selectors one shared fill and radius so the row reads as one toolbar, and lifts the reasoning-effort suffix from 1.83:1 to 5.36:1 |
+| `new-session-pill` | New Session pill | on | draws the sidebar primary action the way the reference does: an accent-tinted pill with an accent hairline, 44px tall and weight 600, instead of the host's neutral 38px button |
+| `type-scale` | Type scale | on | gives the page title, section titles and group labels the reference's sizes and weights (26/700, 15/600, 11/600 uppercase eyebrow) instead of the host's flat 20/14/14 |
 
 Two of those are **choices rather than switches** — they have a value, not an on/off state:
 
@@ -661,7 +670,7 @@ half now imports and exports exactly as the working themes do, and
 
 ### Regression guard
 
-`node verify.mjs` runs 25 checks before any install and exits non-zero on
+`node verify.mjs` runs 39 checks before any install and exits non-zero on
 failure. Both original failure modes were proved by planting them: a missing
 `main` is reported, and a host half that throws on import is reported cleanly
 instead of crashing the checker itself.

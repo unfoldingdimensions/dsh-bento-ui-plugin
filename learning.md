@@ -2246,3 +2246,79 @@ re-reads the plant from disk before trusting it.
 Gates hold mechanisms once they are known; they do not discover paint order. Claiming otherwise
 would be the same error as trusting computed style.
 
+
+## L112
+
+**A computed value that reads "normal" is not evidence the rule failed - it can be the value the
+declaration produces.**
+
+Four separate probes chased `letter-spacing: 0` on the section heading, because it computed to
+`normal`: I checked whether the rule matched (it did), whether a rival same-specificity rule won (it
+did not), searched the adopted stylesheets (none), and injected `4px` to prove the selector path worked
+(it moved). Each probe was individually correct and together they pointed at a cascade mystery that did
+not exist.
+
+The answer took a five-line synthetic page: `letter-spacing: 0`, `0px`, `0em` and `normal` all compute
+to `normal`, while `0.001px` computes to `0.001px`. Zero is rendered as the keyword. The declaration was
+a no-op by definition, not by cascade.
+
+The general form, which would have saved three probes: when a computed value disagrees with the source,
+test the PROPERTY'S PARSING on a synthetic element before testing the cascade on the real one. A
+properties landmine costs five lines to rule out and a session to chase.
+
+## L113
+
+**A helper that silently drops an argument looks exactly like a feature that does not exist.**
+
+My measurement helper was written `const g = (e) => getComputedStyle(e)` and called as
+`g(column, '::after')` everywhere. The second argument was discarded, so every "card" I measured was the
+COLUMN's box, `pseudoContent` read `normal` instead of `""`, and the arithmetic said the cards had no
+inset. Two reports were written from those numbers before the mistake surfaced.
+
+The fix is one character - `(e, p) => getComputedStyle(e, p || null)` - and the lesson is larger: a
+measurement helper is the one piece of a probe that must not be terse. When a helper is called with the
+same signature from many places, verify it once with a call whose answer cannot be confused (here:
+`getComputedStyle(el, '::after').content` must be `""`, not `"normal"`).
+
+## L114
+
+**A gate that reads raw source passes on the comment that explains it.**
+
+Two gates in this pass were born blind for exactly this reason. The New Session gate tested
+`/min-height: 44px/` against the whole file, and the doc comment above the rule QUOTES the reference's
+declaration ("min-height: 44px; border: 1px solid var(--accent-line)") - so planting a real declaration
+of 38px still passed. The radius gate tested `/border-radius: 14px/` and the prose explaining why 14 was
+REJECTED names "14px".
+
+This is now the third occurrence (L110, L111). The habit: strip comments FIRST, in every gate that reads
+source, before any assertion - and when a gate's comment quotes the value it checks, that is not an edge
+case, it is the normal case.
+
+## L115
+
+**Proving a gate red is what finds the blind ones; a green gate proves nothing about itself.**
+
+Seven gates were written and all seven passed. Planting a violation in each found two that could not go
+red at all (L114), and a third whose plant failure revealed a different blind spot: the weight gate asked
+whether the class substring appeared SOMEWHERE in the file, while the rule has two aria-current branches
+- and `String.replace` had only rewritten the first, so one branch still used the positional selector and
+the gate was satisfied by the surviving one.
+
+The plant harness itself is now the instrument: a disk copy taken before the plant, restore in `finally`,
+a byte-comparison after restore, and a check that the plant actually landed on disk before the gate is
+trusted. The previous version of this harness corrupted source twice by skipping its restore when a
+command threw.
+
+## L116
+
+**A probe that measures a skeleton reports a working feature as broken.**
+
+The type-scale probe ran straight after a nav click and found the section headings with
+`font-size: 15px; font-weight: 600` and EMPTY TEXT - because the page was still rendering its loading
+skeleton, whose class also ends in `groupTitle`. The first reading looked like "the type scale changed
+the heading's size and wiped its text".
+
+The fix is a wait for the real content, keyed on the absence of the skeleton class rather than on a
+timeout: `!el.className.includes('skeleton')`. The general form: when a probe checks rendered output, wait
+on a property of the RENDERED state, not on elapsed time - and if a measurement returns empty text,
+suspect the probe before the product.

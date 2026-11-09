@@ -2618,3 +2618,263 @@ other half.
 **Gate 31** pins both halves of D74/D75, and all three planted violations fail it with distinct
 messages (region isolation removed, region background removed, header isolation removed).
 
+
+## D76
+
+**The selection tint is mixed against the surface the row actually sits on, and the selected
+destination was never being tinted at all.**
+
+Two defects with one cause running through both: the rule was written for a layout that no
+longer exists, and nobody re-measured the selector after the layout changed.
+
+The tint. `--dsh-bento-selected-fill-canvas` mixes the accent over the CANVAS tone, and that was
+correct while the sidebar rows and the Settings nav cell sat directly on the canvas. `sidebar-card`
+and `row-tiles` then put the rows on a white card, and D60 gave the Settings nav its own card. Measured
+after those changes: the selected session row computed `color(srgb 0.8416 0.8769 0.9434)` - the canvas
+mix - while the surface painted behind it was `rgb(255,255,255)`. 4.3 RGB units away from the tint of
+the surface it is supposed to share, which is exactly the "slightly greyer than intended" reading.
+
+The card mix resolves to `color(srgb 0.9106 0.9355 0.9882)` on that surface. Contrast was computed by
+painting both mixes and the ink and taking WCAG ratios, in both themes:
+
+| theme | ink on canvas mix | ink on card mix |
+|---|---|---|
+| light | 5.56:1 | 6.40:1 |
+| dark | 4.60:1 | 6.48:1 |
+
+The dark canvas case was the tight one for D55's 65% ink ratio - 4.60 against an AA floor of 4.5. The
+correction therefore buys margin rather than spending it, which is why the ink ratio is unchanged.
+
+The selector. The rule accepted `aria-current="true"` on a destination button. This host writes
+`aria-current="page"`. Measured on the Plugins page: `[aria-current="true"]` matched **0**,
+`[aria-current="page"]` matched **1**. So the selected destination had been wearing the host's neutral
+grey `rgba(38,49,72,0.06)` while the session rows beside it were tinted - two different selected states
+30px apart. Both values are now accepted; "true" costs nothing and covers the earlier host.
+
+**Gate 32** pins the card mix in both files and the `page` branch, and fails on each.
+
+## D77
+
+**Selection carries weight 600, on the label, in both places selection exists.**
+
+D58 established the rule for the Settings navigation - colour alone says which row is chosen only if
+the tint separates at a glance - and set it to 500. The same rule was never applied to the sidebar, so
+the shell had two answers for one question: the Settings destination at 500, every session row at 400.
+
+600, not 500. The reference's weight scale is 400 / 500 / 600 / 700, its section titles are 600, and 500
+is not a step it uses for emphasis. 700 would compete with the pane headings. 500 is what made the
+Settings nav look under-committed beside its own 400 siblings.
+
+Measured before committing, because weight on a truncating row is not automatically free. The longest
+title in the column ("Debug QR Cloudflare host error", 166px box) needs 209px at 400, 210 at 500, 212 at
+600, 214 at 700. It already ellipsises at 400, so 600 costs it 3px of an already-clipped string and
+changes no row box (240x32 at every weight). The selected row's own title measured 193px of 193px
+available. At 600 nothing new truncates.
+
+MEASURED ON THE WRONG ELEMENT FIRST. The Settings nav rule read `> nav button[aria-current="true"] span`
+- a bare descendant span. On this host the FIRST span inside that button is the 16x16 icon glyph, not
+the label, so my 400/500/700 ladder was measuring the icon. The label is
+`[class*="navLabel"]`; the sidebar's destination label is `[class*="panelTitle"]`. Both are now named by
+class, and the glyph measures 400 in the shipped build.
+
+**Gate 33** pins the weight and, specifically, that both aria-current branches of the destination rule
+name the class - the first version of this gate counted the substring once and a plant that rewrote only
+one of the two selectors still passed.
+
+## D78
+
+**The three card distances are three tokens, because one number cannot produce them.**
+
+Until now a single `--dsh-bento-gutter: 12px` was the columns' padding and the card pseudo's inset, so
+it set three distances at once:
+
+    gap between two cards   = 2 x column padding
+    window edge to card     = frame padding + column padding
+    inset inside a card     = a different number, --dsh-bento-cell-inset
+
+The reference states gap 16 and window edge 16. Those are not reachable from one number: gap 16 wants
+column padding 8, edge 16 wants column padding 16. So:
+
+    --dsh-bento-card-gap     16px   (distance between two cards)
+    --dsh-bento-card-pad      8px   (half the gap; the column's own padding, and the card's inset)
+    --dsh-bento-window-pad    8px   (the frame's padding - the outer 8 of the 16)
+
+The frame pays the window pad ONLY on hosts where the rail is expanded, because in the 56px rail an 8px
+frame padding plus an 8px column padding leaves the card 24px wide. Measured against the first attempt at
+the rail, which put 4 on both: the frame padded 4, the card pad was 0, the card filled the whole 56px rail
+and lost its inset entirely. The rail is now `card-pad: 4px, window-pad: 0`, which reproduces exactly the
+geometry it had before this decision - card at x=4, 48px wide, 8px gap to the centre card.
+
+`--dsh-bento-gutter` SURVIVES, and not as a card distance. It is the rhythm INSIDE a card: the Settings
+region's margin from the modal panel, the settings row's bleed, the gap above a workspace heading, the
+detail board's grid gap. Those are 12px measured (D68, D74) and renaming them to a card distance would
+have put a 16px inset on a card whose nested radius is derived from 12.
+
+Verified at 1600 and 1280, both themes: gap 16, edge 16 on all four sides, cards 264 / 1288 / 0,
+`scrollWidth == innerWidth`, no overflow. Collapsed rail: card at x=4, 48px wide, gap 8.
+
+**Gate 34** pins all three tokens, the arithmetic relationship (card-gap == 2 x card-pad), the frame
+rule, and that no column still pads by the gutter.
+
+## D79
+
+**The composer wears the accent's edge and the accent's glow, and the card-shadow feature token is gone
+from every control that is not one of its four surfaces.**
+
+The composer carried `var(--dsh-bento-shadow)` - the token behind the OPT-IN `card-shadow` feature - while
+that feature was off. Measured with the feature off, the composer's computed shadow was
+`rgba(0,0,0,0.1) 0 0 0 1px inset, <two neutral layers>`: the feature's lift on a control that is not one
+of its four card surfaces, and turning the feature on changed nothing there. The todo dock carried the
+same token. That is a contradiction of D40 (elevation stays at zero; separation is a hairline plus a fill
+step) independent of what the reference does.
+
+The composer now takes the reference's own pairing: an accent hairline plus `0 6px 16px` of 12% accent,
+which that design applies to 10 elements. The glow is a new derived token,
+`--dsh-bento-accent-glow`, mixed from the host accent exactly as `--dsh-bento-accent-edge` is, so it
+follows the theme and the accent and gate 15 still passes. The dock keeps the hairline alone: it is a peer
+panel above the composer, not a surface the accent owns.
+
+PROVENANCE, RECORDED BECAUSE IT WAS ASSERTED WRONGLY. "The reference gives the composer the accent border
+and the accent glow" cannot be sourced. Neither design file contains a composer, input, textarea,
+contenteditable or textbox role - verified exhaustively, raw and decoded (`docs/research/reference-deltas.md`
+section 9). Both text fields that do exist in the corpus use the NEUTRAL control border with no shadow.
+The accent-border-plus-glow pairing is real, but every instance is a read-only 12px badge or a 60px icon
+tile, and the design's own token table calls `--glow` a "Floating badge shadow". So this is a NEW decision
+justified by the design's rule, not a value copied from the design.
+
+**Gate 35** pins the glow token (derived, not literal), the composer's accent edge and glow, and that
+neither the composer nor the dock can reach the card-shadow token.
+
+## D80
+
+**Three roles get a type scale, and the scale is tokens.**
+
+Before this the theme declared exactly three sizes - 15, 13 and 11px - and only inside two features that
+needed them for a chip and a status row. Every heading in the shell was the host's own, and the host's
+headings are flat: measured, a page title was 20px/500, a section title 14px/500, a group label 14px/400,
+all with tracking normal.
+
+The reference has a scale: page title 26px/700/-0.025em, section titles 17px/600 and 15px/600, an eyebrow
+at 11px/600/+0.06em/uppercase, tracking that tightens as size grows and OPENS as it falls.
+
+Adopted, with the reasoning for each:
+
+- **Title 26, not the dashboard's 32.** 32 is a full-width h1 on a 12-column chart page. These pages put
+  the title in a header row beside a toolbar inside a 1296px column. 26 is the reference's own
+  plugin-detail title size - the closest analogue to the pages this theme mounts.
+- **Section 15, not 17.** 17 heads a large full-width card. These headings sit above a list of rows inside
+  one card, which is the small-card shape, and 15/600 is what this theme's own detail sections already
+  rendered - so the two kinds of section now agree instead of differing by a pixel and a half.
+- **Eyebrow 11/600/+0.06em/uppercase, adopted unchanged.** It is the one object in the shell that is
+  structurally the reference's eyebrow: the sidebar's "Workspaces" label above a list of workspaces. The
+  reference's own bundled sidebar labels the same word in the same place with exactly that declaration.
+
+BODY COPY, CAPTIONS, BUTTONS AND CONTROLS ARE NOT TOUCHED. Those were tuned against a working layout and
+re-sizing them would move text the theme has no reason to move.
+
+The dead declaration this replaces was found while writing it: `48-feature-pages.js` carried
+`letter-spacing: 0` on the section h3. Verified on a synthetic element that `0`, `0px`, `0em` and
+`normal` all compute to `normal`, while `0.001px` computes to `0.001px` - the property is settable and
+only the zero is a no-op. So the declaration had never done anything, and the computed `normal` I read
+earlier was not evidence of a cascade problem.
+
+**Gate 36** pins the three sizes as tokens, the three hooks, the tightened title tracking, the uppercase
+eyebrow, and that the dead zero is gone.
+
+## D81
+
+**The plugin detail panel's inset is the cell token, not a literal 20.**
+
+`48b-feature-detail.js` said `padding: 20px`, and it was the only card in the theme not using
+`--dsh-bento-cell-inset`. Two numbers for one job is the defect D68 exists to stop, and it produced the
+effect that decision predicts: the page's outer panel read 4px roomier than the section cells stacked
+inside it, so the panel's hairline and its children's hairlines were not parallel.
+
+The reference's card padding is 20px on 68 cards, and that value is available - but it has to arrive by
+changing `--dsh-bento-cell-inset`, so all the cards move together. This one moved to the token (16 at the
+time), and then to 20 when the token moved (D82).
+
+## D82
+
+**The cell inset is 20 - the reference's card padding - and the Appearance cube row stops wrapping.**
+
+D68 set the inset to 16 because that was the largest value that kept the Settings Appearance control on
+one line: three cubes at a 180px flex basis plus two 8px gaps need 556px, and the row has 556 at inset 16,
+548 at 18. At 18 the host's own `flex-wrap: wrap` moved "System" to a second row - measured, cubes
+270 / 270 / 548 on two lines, the third stretched full width.
+
+That wrap is the host's response to a SHORTAGE, not a requirement. With `flex-wrap: nowrap` the row
+resolves the shortage the way a single control should: measured at inset 20, cubes **177.33px each on ONE
+line**, no label clipped, no preview clipped, in both themes at 1600 and 1280. A 2.7px narrower cube is
+invisible; a second row is not.
+
+The rule changes one keyword and nothing else - no width, gap, radius or order - so the host keeps owning
+the cube's design and only the shortage response changes. It is scoped to the cube row inside a
+settings.general item.
+
+The condition is named rather than assumed: nowrap would overflow instead of shrinking if the host ever
+stopped declaring `flex-shrink: 1` on those cubes, so the gate asserts the rule's presence and the comment
+says what it depends on.
+
+**Gate 34** pins the inset at 20 and the nowrap rule.
+
+## D83
+
+**Pointer state is a fill for navigation and a tile for contents.**
+
+The theme gave every sidebar destination an edge on hover, to match the session tiles below it. Measured
+against the reference, that is the wrong reading: the reference marks a nav row's pointer with a FILL and
+never with a border - its nav rows carry no border in any state - and here the edge made a hovered
+destination look momentarily SELECTED, in a column where selected is already a tinted fill with an accent
+label.
+
+Destinations now answer with the theme's neutral hover fill and no edge. Keyboard focus gets the same
+fill, so a keyboard user is not told less than a pointer user; the host's own focus ring is untouched.
+
+Session rows KEEP their edge. They are the list's contents rather than the shell's navigation, and a tile
+there reads as one row of a stack. The difference is the point.
+
+The border stays declared (transparent) rather than deleted: removing the declaration would shrink the
+button by 2px and shift every row below it, which is why it was transparent to begin with.
+
+**Gate 38** pins the fill-without-edge on destinations and the surviving edge on session tiles.
+
+## D84
+
+**The primary action is the accent's own control.**
+
+The reference draws its sidebar primary action as an accent-soft pill with an accent-line border, 44px
+tall, weight 600. The host draws it white with a neutral hairline, 38px, weight 500. Measured after: 240x44,
+label box unchanged at 141x22, both themes, and 36px wide in the collapsed rail with no overflow.
+
+The three colours already existed as derived tokens from D55 and D69 - the accent-soft tint, the accent
+ink and the accent hairline - and they are exactly the three values the reference names. Sharing the
+selection trio is deliberate: the reference does the same, and the two never appear in the same state.
+
+THE RADIUS STAYS 12px, AND THE DEVIATION IS NAMED. The reference says 14. D45 established that the inner
+tier is the host's own 12px and every row, nav button and tile in the sidebar is on it; a 14px pill among
+12px rows would be the only 14 in the column. Recorded here rather than left for someone to notice.
+
+**Gate 37** pins the height, the accent surface, the button-only selector, the label weight, and that the
+radius has not drifted to 14.
+
+## D85
+
+**The sticky page bar paints on its own pseudo, and that pseudo must take the card tone.**
+
+Reported as the Plugins page showing a darker strip across its top in dark mode. The pixels were
+unambiguous: sampling a vertical line down the centre column in dark gave `rgb(21,21,23)` from y=20 to
+y=95 and `rgb(44,44,46)` from y=100 down - two surfaces on one card.
+
+The host's page bar is `position: sticky`, `z-index: 2`, and its background is EMPTY
+(`rgba(0,0,0,0)`); all of the paint is on its own `::before`, which resolves to
+`--dsw-alias-bg-base` - `rgb(21,21,23)` in dark, the same token D64 had to replace in the composer's
+scrim. In light that token is white, which is exactly the card tone, which is why nothing looked wrong.
+
+The pseudo now paints `--dsh-bento-card` inside the centre column. Not `transparent`: the host paints
+there so scrolled content does not slide under a sticky header, and transparent would trade a band for a
+bleed-through. Scoped to the centre column because that is where the theme painted the card.
+
+Verified after: the same pixel line in dark reads `44,44,46` from y=20 down.
+
+**Gate 39** pins the pseudo rule, its tone, and that it has not been made transparent.
